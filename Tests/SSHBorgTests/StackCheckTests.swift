@@ -16,18 +16,30 @@ final class StackCheckTests: XCTestCase {
         }
     }
 
-    /// libssh2 must be at least 1.11: `libssh2_channel_request_auth_agent()` and
-    /// UNIX socket support are required for agent forwarding (phase 7).
-    func testLibssh2IsAtLeast1_11() {
+    /// Pins the libssh2 floor at 1.11.1, the current upstream stable release.
+    ///
+    /// 1.11 is where `libssh2_channel_request_auth_agent()` and UNIX socket
+    /// support arrived, both of which agent forwarding needs in phase 7, and
+    /// 1.11.1 carries the fixes on top of it. If a resolved dependency ever
+    /// drags in something older, this fails rather than quietly regressing.
+    func testLibssh2IsAtLeast1_11_1() {
         let outcome = StackCheck.checkLibssh2()
         XCTAssertTrue(outcome.ok, outcome.detail)
 
-        let parts = outcome.detail.split(separator: ".").compactMap { Int($0) }
-        XCTAssertGreaterThanOrEqual(parts.count, 2, "unparsable version: \(outcome.detail)")
-        guard parts.count >= 2 else { return }
+        // The version may carry a suffix such as "1.11.1_DEV"; take the leading
+        // numeric components only.
+        let parts = outcome.detail
+            .split(separator: ".")
+            .map { $0.prefix { $0.isNumber } }
+            .compactMap { Int($0) }
+
+        XCTAssertGreaterThanOrEqual(parts.count, 3, "unparsable version: \(outcome.detail)")
+        guard parts.count >= 3 else { return }
+
+        let version = (major: parts[0], minor: parts[1], patch: parts[2])
         XCTAssertTrue(
-            parts[0] > 1 || (parts[0] == 1 && parts[1] >= 11),
-            "libssh2 >= 1.11 required, found \(outcome.detail)"
+            version >= (1, 11, 1),
+            "libssh2 >= 1.11.1 required, found \(outcome.detail)"
         )
     }
 }
