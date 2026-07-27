@@ -1,0 +1,10 @@
+// Shared signing settings.
+//
+// The team ID is personal and must not be committed: put it in
+// Configs/Local.xcconfig (git-ignored) by copying Local.xcconfig.example.
+// The include is optional, so the project still builds without it — it is only
+// needed to install on a physical device and to archive.
+
+#include? "Local.xcconfig"
+
+CODE_SIGN_STYLE = Automatic
