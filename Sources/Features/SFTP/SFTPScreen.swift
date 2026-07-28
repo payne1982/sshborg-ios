@@ -22,6 +22,16 @@ struct SFTPScreen: View {
     @State private var renaming: SFTPEntry?
     @State private var renameInput = ""
     @State private var deleting: SFTPEntry?
+    @State private var transfers = TransferManager()
+    @State private var isPickingUpload = false
+    @State private var uploadConflict: UploadConflict?
+
+    /// A picked file whose name already exists on the server.
+    private struct UploadConflict: Identifiable {
+        let localURL: URL
+        let suggestedName: String
+        var id: URL { localURL }
+    }
 
     var body: some View {
         Group {
@@ -48,7 +58,34 @@ struct SFTPScreen: View {
     @ViewBuilder
     private func content(_ model: SFTPModel) -> some View {
         phaseView(model)
+            .safeAreaInset(edge: .bottom, spacing: 0) { TransfersBar(manager: transfers) }
             .toolbar { toolbar(model) }
+            .fileImporter(
+                isPresented: $isPickingUpload,
+                allowedContentTypes: [.item],
+                allowsMultipleSelection: true
+            ) { result in
+                handlePickedFiles(result, model: model)
+            }
+            .alert(
+                "File exists",
+                isPresented: .init(get: { uploadConflict != nil }, set: { if !$0 { uploadConflict = nil } }),
+                presenting: uploadConflict
+            ) { conflict in
+                Button("Cancel", role: .cancel) { uploadConflict = nil }
+                Button("Keep both") {
+                    let pending = conflict
+                    uploadConflict = nil
+                    startUpload(pending.localURL, named: pending.suggestedName, model: model)
+                }
+                Button("Replace", role: .destructive) {
+                    let pending = conflict
+                    uploadConflict = nil
+                    startUpload(pending.localURL, named: pending.localURL.lastPathComponent, model: model)
+                }
+            } message: { conflict in
+                Text("\(conflict.localURL.lastPathComponent) already exists here. Keeping both saves it as \(conflict.suggestedName).")
+            }
             .modifier(ConnectionAlerts(model: model, passwordInput: $passwordInput, onCancel: { dismiss() }))
             .modifier(FileAlerts(
                 model: model,
@@ -103,6 +140,9 @@ struct SFTPScreen: View {
                         newFolderName = ""
                         isCreatingFolder = true
                     }
+                    Button("Upload…", systemImage: "arrow.up.doc") {
+                        isPickingUpload = true
+                    }
                     Button("Refresh", systemImage: "arrow.clockwise") {
                         Task { await model.refresh() }
                     }
@@ -110,6 +150,50 @@ struct SFTPScreen: View {
                     Label("Actions", systemImage: "ellipsis.circle")
                 }
             }
+        }
+    }
+
+    // MARK: - Uploading
+
+    private func handlePickedFiles(_ result: Result<[URL], Error>, model: SFTPModel) {
+        guard case .success(let urls) = result else { return }
+
+        for url in urls {
+            let name = url.lastPathComponent
+
+            if model.existingNames.contains(name) {
+                // Ask once per clashing file rather than guessing. Only the
+                // first is queued here; the rest follow as the user answers.
+                uploadConflict = UploadConflict(
+                    localURL: url,
+                    suggestedName: TransferManager.uniqueRemoteName(
+                        for: name,
+                        existing: model.existingNames
+                    )
+                )
+                break
+            }
+            startUpload(url, named: name, model: model)
+        }
+    }
+
+    private func startUpload(_ url: URL, named name: String, model: SFTPModel) {
+        guard let session = model.activeSession else { return }
+
+        // A file picked outside the sandbox needs its access opened, and it must
+        // stay open for the whole upload, not just this function.
+        let needsScope = url.startAccessingSecurityScopedResource()
+
+        let id = transfers.upload(from: url, to: model.path, named: name, using: session)
+
+        Task {
+            // Held until this specific transfer stops. Waiting on the id rather
+            // than the name matters: two uploads can share a name.
+            while transfers.isRunning(id) {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+            }
+            if needsScope { url.stopAccessingSecurityScopedResource() }
+            await model.refresh()
         }
     }
 
@@ -169,6 +253,12 @@ struct SFTPScreen: View {
                     .buttonStyle(.plain)
                     .disabled(!entry.isDirectory)
                     .contextMenu {
+                        if !entry.isDirectory {
+                            Button("Download", systemImage: "arrow.down.circle") {
+                                guard let session = model.activeSession else { return }
+                                transfers.download(entry, from: model.path, using: session)
+                            }
+                        }
                         Button("Rename", systemImage: "pencil") {
                             renameInput = entry.name
                             renaming = entry

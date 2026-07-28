@@ -36,6 +36,10 @@ final class SFTPModel {
     @ObservationIgnored private let keys: SSHKeyRepository
     @ObservationIgnored private var session: SFTPSession?
 
+    /// Exposed so the screen can hand it to the transfer manager. `nil` until
+    /// the connection is up.
+    var activeSession: SFTPSession? { session }
+
     init(host: Host, hosts: HostRepository, keys: SSHKeyRepository) {
         self.host = host
         self.hosts = hosts
@@ -214,6 +218,11 @@ final class SFTPModel {
         } catch {
             actionError = error.localizedDescription
         }
+    }
+
+    /// Names already present here, so an upload can avoid clashing with one.
+    var existingNames: Set<String> {
+        Set(entries.map(\.name))
     }
 
     // MARK: - Paths

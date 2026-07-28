@@ -269,6 +269,7 @@ final class SFTPSession: @unchecked Sendable {
     func download(
         from remotePath: String,
         to localURL: URL,
+        isCancelled: (@Sendable () -> Bool)? = nil,
         onProgress: (@Sendable (UInt64) -> Void)? = nil
     ) async throws {
         FileManager.default.createFile(atPath: localURL.path, contents: nil)
@@ -290,6 +291,8 @@ final class SFTPSession: @unchecked Sendable {
                 var total: UInt64 = 0
 
                 while true {
+                    if isCancelled?() == true { throw SSHError.cancelled }
+
                     let count = libssh2_sftp_read(handle, &buffer, buffer.count)
                     if count == 0 { break }
                     guard count > 0 else { throw Self.error(sftp, path: remotePath) }
@@ -313,6 +316,7 @@ final class SFTPSession: @unchecked Sendable {
     func upload(
         from localURL: URL,
         to remotePath: String,
+        isCancelled: (@Sendable () -> Bool)? = nil,
         onProgress: (@Sendable (UInt64) -> Void)? = nil
     ) async throws {
         let input = try FileHandle(forReadingFrom: localURL)
@@ -332,6 +336,8 @@ final class SFTPSession: @unchecked Sendable {
             var total: UInt64 = 0
 
             while true {
+                if isCancelled?() == true { throw SSHError.cancelled }
+
                 let chunk = try input.read(upToCount: Self.chunkSize) ?? Data()
                 if chunk.isEmpty { break }
 
@@ -350,6 +356,13 @@ final class SFTPSession: @unchecked Sendable {
                 onProgress?(total)
             }
         }
+    }
+
+    /// Removes a partly written remote file, used when an upload is cancelled.
+    /// Best effort: if it fails the user sees a truncated file, which is still
+    /// better than the app pretending the upload succeeded.
+    func discardPartialUpload(at remotePath: String) async {
+        try? await removeFile(at: remotePath)
     }
 
     /// Reads a small remote file whole. Used for things like the shell history,

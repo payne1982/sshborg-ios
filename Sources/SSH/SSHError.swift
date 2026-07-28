@@ -34,6 +34,9 @@ enum SSHError: LocalizedError, Equatable {
 
     case notConnected
 
+    /// The user stopped a transfer. Not a failure, and never worth an alert.
+    case cancelled
+
     var errorDescription: String? {
         switch self {
         case .connectionFailed(let detail):
@@ -54,6 +57,8 @@ enum SSHError: LocalizedError, Equatable {
             return "SSH error \(code): \(message)"
         case .notConnected:
             return "The session is not connected."
+        case .cancelled:
+            return "Cancelled."
         }
     }
 }
