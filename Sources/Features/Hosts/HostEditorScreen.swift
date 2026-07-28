@@ -168,7 +168,7 @@ struct HostEditorScreen: View {
 
             case .key:
                 if availableKeys.isEmpty {
-                    Text("No keys yet. Key management arrives in a later version.")
+                    Text("No keys yet. Create one from the key icon on the host list.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
