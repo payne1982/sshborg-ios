@@ -10,7 +10,7 @@ import GRDB
 /// Column names deliberately mirror the Android app's Room entity (`HostEntity`),
 /// so the JSON backup format is shared between platforms without a translation
 /// layer. Do not rename columns without updating the backup importer.
-struct Host: Identifiable, Equatable, Codable, FetchableRecord, MutablePersistableRecord {
+struct Host: Identifiable, Hashable, Codable, FetchableRecord, MutablePersistableRecord {
 
     static let databaseTableName = "hosts"
 

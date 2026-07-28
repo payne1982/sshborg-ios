@@ -1,0 +1,235 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import SwiftUI
+
+/// Browses a host's files. Ported from the Android `SftpScreen`.
+///
+/// Transfers are not here yet: downloading to the Files app and uploading from
+/// it arrive with phase 6c, together with the conflict handling that needs.
+struct SFTPScreen: View {
+
+    @Environment(\.appEnvironment) private var environment
+    @Environment(\.dismiss) private var dismiss
+
+    let host: Host
+
+    @State private var model: SFTPModel?
+    @State private var passwordInput = ""
+    @State private var newFolderName = ""
+    @State private var isCreatingFolder = false
+    @State private var renaming: SFTPEntry?
+    @State private var renameInput = ""
+    @State private var deleting: SFTPEntry?
+
+    var body: some View {
+        Group {
+            if let model {
+                content(model)
+            } else {
+                ProgressView()
+            }
+        }
+        .navigationTitle(host.label)
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            guard model == nil else { return }
+            let model = SFTPModel(host: host, hosts: environment.hosts, keys: environment.keys)
+            self.model = model
+            await model.connect()
+        }
+        .onDisappear { model?.disconnect() }
+    }
+
+    /// Split into small pieces on purpose. Chaining the whole toolbar and all
+    /// six alerts onto one expression made the type-checker give up — SwiftUI
+    /// modifier chains grow the inference problem faster than they look.
+    @ViewBuilder
+    private func content(_ model: SFTPModel) -> some View {
+        phaseView(model)
+            .toolbar { toolbar(model) }
+            .modifier(ConnectionAlerts(model: model, passwordInput: $passwordInput, onCancel: { dismiss() }))
+            .modifier(FileAlerts(
+                model: model,
+                isCreatingFolder: $isCreatingFolder,
+                newFolderName: $newFolderName,
+                renaming: $renaming,
+                renameInput: $renameInput,
+                deleting: $deleting
+            ))
+    }
+
+    @ViewBuilder
+    private func phaseView(_ model: SFTPModel) -> some View {
+        VStack(spacing: 0) {
+            switch model.phase {
+            case .connecting:
+                Spacer()
+                ProgressView("Connecting to \(host.hostname)…")
+                Spacer()
+
+            case .failed(let message):
+                Spacer()
+                ContentUnavailableView {
+                    Label("Could not connect", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(message)
+                } actions: {
+                    Button("Retry") { Task { await model.connect() } }
+                        .buttonStyle(.borderedProminent)
+                }
+                Spacer()
+
+            case .browsing:
+                breadcrumb(model)
+                Divider()
+                listing(model)
+
+            case .needsPassword, .needsHostKeyApproval:
+                Spacer()
+                ProgressView()
+                Spacer()
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private func toolbar(_ model: SFTPModel) -> some ToolbarContent {
+        if model.phase == .browsing {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("New folder", systemImage: "folder.badge.plus") {
+                        newFolderName = ""
+                        isCreatingFolder = true
+                    }
+                    Button("Refresh", systemImage: "arrow.clockwise") {
+                        Task { await model.refresh() }
+                    }
+                } label: {
+                    Label("Actions", systemImage: "ellipsis.circle")
+                }
+            }
+        }
+    }
+
+    // MARK: - Pieces
+
+    private func breadcrumb(_ model: SFTPModel) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(Array(model.breadcrumb.enumerated()), id: \.offset) { index, crumb in
+                        if index > 0 {
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Button(crumb.name) {
+                            Task { await model.navigate(to: crumb.path) }
+                        }
+                        .font(.footnote)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(index == model.breadcrumb.count - 1 ? .primary : Color.accentColor)
+                        .id(index)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .onChange(of: model.path) {
+                // Keep the current directory in view when descending into a
+                // deep tree, instead of leaving it off the right edge.
+                withAnimation { proxy.scrollTo(model.breadcrumb.count - 1, anchor: .trailing) }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func listing(_ model: SFTPModel) -> some View {
+        if model.entries.isEmpty && !model.isLoading {
+            ContentUnavailableView("Empty folder", systemImage: "folder")
+        } else {
+            List {
+                if model.path != "/" {
+                    Button {
+                        Task { await model.navigateUp() }
+                    } label: {
+                        Label("..", systemImage: "arrow.turn.left.up")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                ForEach(model.entries) { entry in
+                    Button {
+                        Task { await model.navigate(into: entry) }
+                    } label: {
+                        EntryRow(entry: entry)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!entry.isDirectory)
+                    .contextMenu {
+                        Button("Rename", systemImage: "pencil") {
+                            renameInput = entry.name
+                            renaming = entry
+                        }
+                        Button("Delete", systemImage: "trash", role: .destructive) {
+                            deleting = entry
+                        }
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .refreshable { await model.refresh() }
+            .overlay {
+                if model.isLoading && model.entries.isEmpty {
+                    ProgressView()
+                }
+            }
+        }
+    }
+
+}
+
+private struct EntryRow: View {
+    let entry: SFTPEntry
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(entry.isDirectory ? Color.accentColor : .secondary)
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.name)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                HStack(spacing: 6) {
+                    if !entry.isDirectory {
+                        Text(entry.size.formatted(.byteCount(style: .file)))
+                    }
+                    if let modified = entry.modified {
+                        Text(modified.formatted(date: .abbreviated, time: .shortened))
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if entry.isDirectory {
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var icon: String {
+        if entry.isSymlink { return entry.isDirectory ? "folder.badge.questionmark" : "link" }
+        return entry.isDirectory ? "folder.fill" : "doc"
+    }
+}

@@ -22,6 +22,7 @@ struct HostsScreen: View {
     @State private var sessionPickerHost: Host?
     @State private var groupEditing: GroupEditorTarget?
     @State private var groupToDelete: HostGroup?
+    @State private var browsing: Host?
 
     /// What the editor sheet is currently doing.
     private enum EditorTarget: Identifiable {
@@ -57,6 +58,9 @@ struct HostsScreen: View {
             }
         }
         .navigationTitle("Hosts")
+        .navigationDestination(item: $browsing) { host in
+            SFTPScreen(host: host)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 NavigationLink {
@@ -193,6 +197,7 @@ struct HostsScreen: View {
             }
             .contextMenu {
                 Button("New terminal", systemImage: "terminal") { openNew(host) }
+                Button("Browse files", systemImage: "folder") { browsing = host }
                 Button("Edit", systemImage: "pencil") { editing = .existing(host) }
                 Button("Delete", systemImage: "trash", role: .destructive) { hostToDelete = host }
             }
