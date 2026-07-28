@@ -263,6 +263,35 @@ final class SSHSession: @unchecked Sendable {
         }
     }
 
+    // MARK: - Raw access
+
+    /// Runs `body` on the session's serial queue with the libssh2 handle.
+    ///
+    /// This is the seam SFTP is built on. It is deliberately the only way to
+    /// reach the raw pointer: the queue is what makes a libssh2 session safe to
+    /// touch, and handing the pointer out unguarded would break that.
+    ///
+    /// Note the session is in blocking mode until a shell is opened on it, and
+    /// SFTP therefore uses a connection of its own — the same arrangement the
+    /// Android app has, where `openSftp` builds its own session.
+    func withRawSession<T: Sendable>(
+        _ body: @escaping @Sendable (OpaquePointer) throws -> T
+    ) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { [weak self] in
+                guard let session = self?.session else {
+                    continuation.resume(throwing: SSHError.notConnected)
+                    return
+                }
+                do {
+                    continuation.resume(returning: try body(session))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     // MARK: - Keepalive
 
     /// Matches the Android configuration: a keepalive every 30 seconds, with the
