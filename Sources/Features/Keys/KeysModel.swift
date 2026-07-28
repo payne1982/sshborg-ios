@@ -43,8 +43,8 @@ final class KeysModel {
         )
     }
 
-    func importKey(text: String, label: String) async throws {
-        let imported = try OpenSSHKeyImporter.parse(text)
+    func importKey(text: String, label: String, passphrase: String? = nil) async throws {
+        let imported = try OpenSSHKeyImporter.parse(text, passphrase: passphrase)
 
         try await store(
             // Fall back to the key's own comment when the user left the name

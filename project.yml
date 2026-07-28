@@ -82,6 +82,10 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sshborg
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Declares libssh2's bcrypt_pbkdf, which lives in a private header but
+        # is compiled into the library we already link. See the header itself
+        # for why this is not reimplemented.
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Crypto/SSHBorg-Bridging-Header.h
     info:
       path: Sources/App/Info.plist
       properties:

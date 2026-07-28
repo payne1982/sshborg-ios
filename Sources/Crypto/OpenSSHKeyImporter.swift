@@ -23,7 +23,12 @@ enum OpenSSHKeyImporter {
 
     enum ImportError: LocalizedError, Equatable {
         case notAPrivateKey
-        case passphraseProtected
+        /// Encrypted, and no passphrase was supplied.
+        case passphraseRequired
+        /// A passphrase was supplied and it did not work.
+        case wrongPassphrase
+        /// The older OpenSSL-encrypted PEM form, which is a different mechanism.
+        case legacyEncryptedPEM
         case unsupportedAlgorithm(String)
         case malformed
 
@@ -31,8 +36,12 @@ enum OpenSSHKeyImporter {
             switch self {
             case .notAPrivateKey:
                 return "That does not look like a private key. Paste the file that has no .pub extension."
-            case .passphraseProtected:
-                return "This key is protected by a passphrase, which cannot be read yet. Import a key without one, or remove the passphrase with: ssh-keygen -p -f <key>"
+            case .passphraseRequired:
+                return "This key is protected by a passphrase. Enter it to import the key."
+            case .wrongPassphrase:
+                return "That passphrase does not unlock this key."
+            case .legacyEncryptedPEM:
+                return "This key uses the older OpenSSL encryption, which is not supported. Convert it with: ssh-keygen -p -f <key>"
             case .unsupportedAlgorithm(let name):
                 return "Unsupported key algorithm: \(name)."
             case .malformed:
@@ -46,11 +55,11 @@ enum OpenSSHKeyImporter {
 
     // MARK: - Entry point
 
-    static func parse(_ text: String) throws -> ImportedKey {
+    static func parse(_ text: String, passphrase: String? = nil) throws -> ImportedKey {
         let normalised = text.replacingOccurrences(of: "\r\n", with: "\n").trimmed
 
         if normalised.contains(openSSHBegin) {
-            return try parseOpenSSH(normalised)
+            return try parseOpenSSH(normalised, passphrase: passphrase)
         }
         if normalised.contains(rsaBegin) {
             return try parsePKCS1RSA(normalised)
@@ -64,7 +73,7 @@ enum OpenSSHKeyImporter {
 
     // MARK: - openssh-key-v1
 
-    private static func parseOpenSSH(_ pem: String) throws -> ImportedKey {
+    private static func parseOpenSSH(_ pem: String, passphrase: String?) throws -> ImportedKey {
         let blob = try base64Body(of: pem)
 
         let magic = Data("openssh-key-v1\0".utf8)
@@ -77,22 +86,36 @@ enum OpenSSHKeyImporter {
         do {
             let cipher = try decoder.readStringAsText()
             let kdf = try decoder.readStringAsText()
-            _ = try decoder.readString()   // kdf options
-
-            // Anything other than "none" means the private section is encrypted
-            // with a key derived by bcrypt_pbkdf, which is not implemented.
-            guard cipher == "none", kdf == "none" else {
-                throw ImportError.passphraseProtected
-            }
+            let kdfOptions = try decoder.readString()
 
             let keyCount = try decoder.readUInt32()
             guard keyCount == 1 else { throw ImportError.malformed }
 
             let publicBlob = try decoder.readString()
-            let section = try decoder.readString()
+            var section = try decoder.readString()
+
+            // Anything other than "none" means the private half is encrypted.
+            if cipher != "none" || kdf != "none" {
+                guard let passphrase, !passphrase.isEmpty else {
+                    throw ImportError.passphraseRequired
+                }
+                do {
+                    section = try OpenSSHKeyDecryptor.decrypt(
+                        section: section,
+                        cipherName: cipher,
+                        kdfName: kdf,
+                        kdfOptions: kdfOptions,
+                        passphrase: passphrase
+                    )
+                } catch {
+                    throw ImportError.wrongPassphrase
+                }
+            }
 
             let type = try algorithmType(of: publicBlob)
-            let comment = try readComment(from: section)
+            // The two check integers are how a wrong passphrase is told from a
+            // damaged file: garbage plaintext almost never produces a match.
+            let comment = try readComment(from: section, wasEncrypted: cipher != "none")
 
             return ImportedKey(
                 privateKeyPEM: pem + "\n",
@@ -113,14 +136,14 @@ enum OpenSSHKeyImporter {
 
     /// The comment sits after the key material, so reaching it means walking the
     /// per-algorithm fields first.
-    private static func readComment(from section: Data) throws -> String {
+    private static func readComment(from section: Data, wasEncrypted: Bool = false) throws -> String {
         var decoder = SSHWireDecoder(section)
 
         let first = try decoder.readUInt32()
         let second = try decoder.readUInt32()
-        // With no passphrase these always match; a mismatch means the file is
-        // damaged, since a wrong passphrase is not possible here.
-        guard first == second else { throw ImportError.malformed }
+        guard first == second else {
+            throw wasEncrypted ? ImportError.wrongPassphrase : ImportError.malformed
+        }
 
         let algorithm = try decoder.readStringAsText()
 
@@ -164,7 +187,7 @@ enum OpenSSHKeyImporter {
     private static func parsePKCS1RSA(_ pem: String) throws -> ImportedKey {
         // Legacy PEM encryption is announced in headers rather than in the body.
         guard !pem.contains("Proc-Type:"), !pem.contains("ENCRYPTED") else {
-            throw ImportError.passphraseProtected
+            throw ImportError.legacyEncryptedPEM
         }
 
         let der = try base64Body(of: pem)

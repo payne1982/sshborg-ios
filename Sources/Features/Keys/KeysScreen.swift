@@ -242,6 +242,7 @@ private struct KeyImportSheet: View {
 
     @State private var label = ""
     @State private var text = ""
+    @State private var passphrase = ""
     @State private var isChoosingFile = false
     @State private var error: String?
 
@@ -263,7 +264,13 @@ private struct KeyImportSheet: View {
             } header: {
                 Text("Private key")
             } footer: {
-                Text("Paste the private key file — the one without the .pub extension. Keys protected by a passphrase are not supported yet.")
+                Text("Paste the private key file — the one without the .pub extension.")
+            }
+
+            Section {
+                SecureField("Passphrase", text: $passphrase)
+            } footer: {
+                Text("Only needed if the key is protected by one. It unlocks the key for import and is not stored.")
             }
         }
         .navigationTitle("Import key")
@@ -305,7 +312,11 @@ private struct KeyImportSheet: View {
     private func performImport() {
         Task {
             do {
-                try await model.importKey(text: text, label: label)
+                try await model.importKey(
+                    text: text,
+                    label: label,
+                    passphrase: passphrase.isEmpty ? nil : passphrase
+                )
                 dismiss()
             } catch {
                 self.error = error.localizedDescription
