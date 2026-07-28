@@ -126,6 +126,18 @@ schemes:
       config: Debug
     test:
       config: Debug
+      # Indirection on purpose: the scheme carries only the placeholders, and
+      # the real values are passed on the xcodebuild command line, so no
+      # credential is ever committed. Without them the SSH integration tests
+      # skip themselves.
+      #
+      #   xcodebuild test … SSHBORG_TEST_HOST=… SSHBORG_TEST_USER=… \
+      #                     SSHBORG_TEST_PASSWORD=…
+      environmentVariables:
+        SSHBORG_TEST_HOST: $(SSHBORG_TEST_HOST)
+        SSHBORG_TEST_PORT: $(SSHBORG_TEST_PORT)
+        SSHBORG_TEST_USER: $(SSHBORG_TEST_USER)
+        SSHBORG_TEST_PASSWORD: $(SSHBORG_TEST_PASSWORD)
       targets:
         - SSHBorgTests
     archive:

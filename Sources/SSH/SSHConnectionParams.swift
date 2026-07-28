@@ -52,11 +52,16 @@ enum HostKeyPolicy: Equatable {
     /// Fail unless the presented key matches this stored `known_hosts` line.
     case requireMatch(String)
 
-    /// No key stored yet: accept whatever the server presents and report it back
-    /// so the caller can persist it. Only ever correct on a first connection.
-    case trustOnFirstUse
+    /// Nothing stored yet: report the key back through
+    /// ``SSHError/unknownHostKey(_:)`` so the user can check the fingerprint.
+    ///
+    /// This is the default, and it deliberately does not trust on first use.
+    /// Android shows a confirmation on the first connection too, and silently
+    /// pinning whatever answers first would make the whole `known_hosts`
+    /// mechanism decorative.
+    case promptIfUnknown
 
-    /// The user has just been shown the fingerprint and accepted it.
+    /// The user has been shown the fingerprint and accepted it.
     case acceptOnce
 }
 
@@ -66,7 +71,7 @@ struct SSHConnectionParams {
     var port: Int = 22
     var username: String
     var auth: SSHAuth
-    var hostKeyPolicy: HostKeyPolicy = .trustOnFirstUse
+    var hostKeyPolicy: HostKeyPolicy = .promptIfUnknown
     var agentForwarding: Bool = false
 
     /// Ordered jump hosts to tunnel through before reaching the target.

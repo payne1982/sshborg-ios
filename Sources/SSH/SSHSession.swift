@@ -169,8 +169,10 @@ final class SSHSession: @unchecked Sendable {
 
     private static func verify(hostKey: HostKeyInfo, policy: HostKeyPolicy) throws {
         switch policy {
-        case .trustOnFirstUse, .acceptOnce:
+        case .acceptOnce:
             return
+        case .promptIfUnknown:
+            throw SSHError.unknownHostKey(hostKey)
         case .requireMatch(let storedLine):
             let matches = KnownHostsLine.matches(
                 storedLine: storedLine,
