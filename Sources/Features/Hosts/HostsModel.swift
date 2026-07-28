@@ -101,6 +101,12 @@ final class HostsModel {
         try? await hostRepository.delete(host)
     }
 
+    /// Deleting a group keeps its hosts: the repository detaches them in the
+    /// same transaction, so they reappear as ungrouped rather than vanishing.
+    func delete(_ group: HostGroup) async {
+        try? await groupRepository.delete(group)
+    }
+
     func toggleCollapsed(_ group: HostGroup) async {
         guard let id = group.id else { return }
         try? await groupRepository.setCollapsed(id: id, !group.collapsed)

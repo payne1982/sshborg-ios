@@ -27,7 +27,10 @@ struct HostEditorScreen: View {
     @State private var keyId: Int64?
     @State private var color: Int?
 
+    @State private var groupId: Int64?
     @State private var availableKeys: [SSHKey] = []
+    @State private var availableGroups: [HostGroup] = []
+    @State private var isCreatingGroup = false
     @State private var saveError: String?
     @State private var isLoaded = false
 
@@ -55,8 +58,22 @@ struct HostEditorScreen: View {
                     .keyboardType(.numberPad)
             }
 
-            Section("Colour") {
+            Section("Group") {
+                Picker("Group", selection: $groupId) {
+                    Text("None").tag(Int64?.none)
+                    ForEach(availableGroups) { group in
+                        Text(group.name).tag(Int64?.some(group.id ?? -1))
+                    }
+                }
+                Button("New group…") { isCreatingGroup = true }
+            }
+
+            Section {
                 ColorSwatchPicker(selection: $color)
+            } header: {
+                Text("Colour")
+            } footer: {
+                Text("Without a colour of its own, a host takes its group's.")
             }
 
             Section("Authentication") {
@@ -102,7 +119,18 @@ struct HostEditorScreen: View {
             guard !isLoaded else { return }
             isLoaded = true
             availableKeys = (try? await environment.keys.fetchAll()) ?? []
+            availableGroups = (try? await environment.groups.fetchAll()) ?? []
             load()
+        }
+        .sheet(isPresented: $isCreatingGroup) {
+            NavigationStack {
+                GroupEditorScreen(group: nil) { created in
+                    // Select it straight away: creating a group from here means
+                    // the user wants this host in it.
+                    availableGroups.append(created)
+                    groupId = created.id
+                }
+            }
         }
         .alert("Could not save", isPresented: .init(
             get: { saveError != nil },
@@ -124,6 +152,7 @@ struct HostEditorScreen: View {
         port = String(host.port)
         username = host.username
         color = host.color
+        groupId = host.groupId
         keyId = host.keyId
         authMode = host.keyId == nil ? .password : .key
         password = KeychainCrypto.password(for: host) ?? ""
@@ -139,6 +168,7 @@ struct HostEditorScreen: View {
         updated.username = username.trimmed
         updated.port = Int(port) ?? 22
         updated.color = color
+        updated.groupId = groupId
 
         switch authMode {
         case .password:

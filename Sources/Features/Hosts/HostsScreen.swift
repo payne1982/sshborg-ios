@@ -20,6 +20,8 @@ struct HostsScreen: View {
     @State private var hostToDelete: Host?
     @State private var editing: EditorTarget?
     @State private var sessionPickerHost: Host?
+    @State private var groupEditing: GroupEditorTarget?
+    @State private var groupToDelete: HostGroup?
 
     /// What the editor sheet is currently doing.
     private enum EditorTarget: Identifiable {
@@ -30,6 +32,18 @@ struct HostsScreen: View {
             switch self {
             case .new: -1
             case .existing(let host): host.id ?? -1
+            }
+        }
+    }
+
+    private enum GroupEditorTarget: Identifiable {
+        case new
+        case existing(HostGroup)
+
+        var id: Int64 {
+            switch self {
+            case .new: -1
+            case .existing(let group): group.id ?? -1
             }
         }
     }
@@ -45,7 +59,12 @@ struct HostsScreen: View {
         .navigationTitle("Hosts")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Add host", systemImage: "plus") { editing = .new }
+                Menu {
+                    Button("New host", systemImage: "desktopcomputer") { editing = .new }
+                    Button("New group", systemImage: "folder") { groupEditing = .new }
+                } label: {
+                    Label("Add", systemImage: "plus")
+                }
             }
         }
         .task {
@@ -80,6 +99,30 @@ struct HostsScreen: View {
         } message: { host in
             Text("\(host.label) will be removed. Sessions already open stay connected.")
         }
+        .sheet(item: $groupEditing) { target in
+            NavigationStack {
+                switch target {
+                case .new:
+                    GroupEditorScreen(group: nil)
+                case .existing(let group):
+                    GroupEditorScreen(group: group)
+                }
+            }
+        }
+        .alert(
+            "Delete group?",
+            isPresented: .init(get: { groupToDelete != nil }, set: { if !$0 { groupToDelete = nil } }),
+            presenting: groupToDelete
+        ) { group in
+            Button("Cancel", role: .cancel) { groupToDelete = nil }
+            Button("Delete", role: .destructive) {
+                let target = group
+                groupToDelete = nil
+                Task { await model?.delete(target) }
+            }
+        } message: { group in
+            Text("\(group.name) will be removed. Its hosts are kept and become ungrouped.")
+        }
     }
 
     @ViewBuilder
@@ -105,6 +148,12 @@ struct HostsScreen: View {
                             GroupHeader(group: group, count: section.hosts.count) {
                                 Task { await model.toggleCollapsed(group) }
                             }
+                            .contextMenu {
+                                Button("Edit", systemImage: "pencil") { groupEditing = .existing(group) }
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    groupToDelete = group
+                                }
+                            }
                         }
                     } else {
                         Section {
@@ -126,10 +175,12 @@ struct HostsScreen: View {
             )
             .contentShape(.rect)
             .onTapGesture { open(host) }
-            // Swipe is the iOS way in; the context menu mirrors Android's
-            // long-press, so both habits work.
+            // Swipe reaches edit only. Deleting a host throws away its stored
+            // credentials and pinned host key, and SwiftUI promotes the first
+            // trailing action to the full-swipe gesture — so putting delete
+            // here would let a slightly long swipe destroy it with no
+            // deliberate press. Delete lives in the context menu instead.
             .swipeActions(edge: .trailing) {
-                Button("Delete", systemImage: "trash", role: .destructive) { hostToDelete = host }
                 Button("Edit", systemImage: "pencil") { editing = .existing(host) }
                     .tint(.blue)
             }
