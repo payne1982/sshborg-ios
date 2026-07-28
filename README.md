@@ -76,10 +76,12 @@ required.
 
 ## License
 
-Mozilla Public License 2.0 — see [LICENSE](LICENSE).
+GNU General Public License v3.0 or later — see [LICENSE](LICENSE), the same
+licence as the Android app.
 
-Note that the Android app is GPLv3. The two codebases are independent, and the
-iOS port is deliberately licensed differently: the GPL forbids imposing further
-restrictions, while the App Store terms impose them, and that conflict has cost
-projects their listings before. MPL-2.0 is file-level copyleft with no such
-friction — it is the license Firefox for iOS ships under.
+Note that the GPL and the App Store terms are in tension: the GPL forbids
+imposing further restrictions, and Apple's terms impose some. Projects have
+lost their listings over this before, though Blink Shell ships under GPLv3
+today. Before a first submission this needs a deliberate decision — most likely
+an additional permission under section 7 of the GPL explicitly allowing App
+Store distribution, which the sole copyright holder is free to grant.
