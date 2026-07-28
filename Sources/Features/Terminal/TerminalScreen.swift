@@ -53,9 +53,21 @@ struct TerminalScreen: View {
 
             overlay(for: session)
         }
+        // Both bars live in the bottom inset, stacked. The session tab strip is
+        // at the top of the screen, so neither can push the other out — the
+        // Android build hides the suggestion bar once a second session opens,
+        // and this arrangement makes that impossible rather than unlikely.
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if session.phase == .connected {
-                ExtraKeyRow(session: session)
+                VStack(spacing: 0) {
+                    SuggestionBar(
+                        suggestions: session.suggestions,
+                        isSticky: environment.preferences.suggestionsBarSticky
+                    ) { command in
+                        session.apply(suggestion: command)
+                    }
+                    ExtraKeyRow(session: session)
+                }
             }
         }
         .task(id: session.id) {
@@ -63,6 +75,12 @@ struct TerminalScreen: View {
             if session.phase == .connecting {
                 await session.connect()
             }
+        }
+        .task(id: session.phase == .connected) {
+            // History comes over its own SFTP connection, so it can only be
+            // fetched once the credentials are known to work.
+            guard session.phase == .connected else { return }
+            await session.loadHistory(preferences: environment.preferences)
         }
         .alert("Password", isPresented: needsPasswordBinding(for: session)) {
             SecureField("Password", text: $passwordInput)

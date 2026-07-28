@@ -44,6 +44,14 @@ final class TerminalSession: Identifiable {
     var ctrlActive = false
     var altActive = false
 
+    /// Suggestions for what is being typed, or empty when there is nothing to
+    /// offer. Driven by the terminal's own contents, so completion and history
+    /// recall move it too, not only keystrokes.
+    private(set) var suggestions: [String] = []
+
+    @ObservationIgnored private var history = CommandHistory.empty
+    @ObservationIgnored private var suggestionTask: Task<Void, Never>?
+
     @ObservationIgnored private let hosts: HostRepository
     @ObservationIgnored private let keys: SSHKeyRepository
     @ObservationIgnored private var sshSession: SSHSession?
@@ -270,6 +278,82 @@ final class TerminalSession: Identifiable {
     fileprivate func terminalDidSetTitle(_ newTitle: String) {
         title = newTitle.isEmpty ? host.label : newTitle
     }
+
+    /// The terminal redrew. Recompute suggestions, debounced: output arrives in
+    /// bursts and rescanning on every chunk would be wasted work.
+    fileprivate func terminalDidChange() {
+        guard !history.commands.isEmpty else { return }
+
+        suggestionTask?.cancel()
+        suggestionTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.refreshSuggestions() }
+        }
+    }
+
+    private func refreshSuggestions() {
+        let terminal = terminalView.getTerminal()
+        let cursor = terminal.getCursorLocation()
+
+        guard let line = terminal.getLine(row: cursor.y) else {
+            suggestions = []
+            return
+        }
+
+        // Only up to the cursor: anything after it is left over from a longer
+        // line the user is editing in the middle of.
+        let visible = line.translateToString(trimRight: true, startCol: 0, endCol: max(0, cursor.x))
+
+        guard let typed = PromptParser.typedPortion(of: visible) else {
+            suggestions = []
+            return
+        }
+        suggestions = history.suggestions(for: typed)
+    }
+
+    /// Accepts a suggestion by replacing what is on the line with it.
+    ///
+    /// Ctrl+U clears the line first, which every common shell understands, so
+    /// this does not have to count backspaces or know where the cursor is.
+    func apply(suggestion: String) {
+        send(Data([0x15]))
+        send(text: suggestion)
+        suggestions = []
+    }
+
+    // MARK: - History
+
+    /// Loads the shell history from the server so the bar has something to
+    /// offer. Best effort and silent: a missing history file is normal, and it
+    /// is not worth interrupting a working terminal over.
+    func loadHistory(preferences: AppPreferences) async {
+        guard preferences.historySuggestions else { return }
+
+        var params = SSHConnectionParams(
+            hostname: host.hostname,
+            port: host.port,
+            username: host.username,
+            auth: .password("")
+        )
+        params.hostKeyPolicy = .acceptOnce
+
+        guard let auth = try? await resolveAuth(typedPassword: nil) else { return }
+        params.auth = auth
+
+        guard let sftp = try? await SFTPSession.connect(params) else { return }
+        defer { sftp.disconnect() }
+
+        var loaded: [CommandHistory] = []
+        for name in CommandHistory.candidatePaths {
+            let path = sftp.homePath == "/" ? "/\(name)" : "\(sftp.homePath)/\(name)"
+            if let data = try? await sftp.readSmallFile(at: path) {
+                loaded.append(CommandHistory.parse(data))
+            }
+        }
+
+        history = CommandHistory.merging(loaded)
+    }
 }
 
 /// Adapts SwiftTerm's delegate to ``TerminalSession``.
@@ -322,5 +406,7 @@ private final class TerminalDelegateBridge: TerminalViewDelegate {
 
     func iTermContent(source: TerminalView, content: ArraySlice<UInt8>) {}
 
-    func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
+    func rangeChanged(source: TerminalView, startY: Int, endY: Int) {
+        MainActor.assumeIsolated { session?.terminalDidChange() }
+    }
 }
