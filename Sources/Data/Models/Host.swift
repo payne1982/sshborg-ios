@@ -108,4 +108,38 @@ extension Host {
     var lastConnectedDate: Date? {
         lastConnected.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000) }
     }
+
+    /// The hops recorded in ``jumpHostIdList``, in order.
+    ///
+    /// Unparsable entries are dropped rather than failing: the field is a plain
+    /// string in the shared backup format and can be hand-edited.
+    var jumpHostIDs: [Int64] {
+        Host.parseIDList(jumpHostIdList)
+    }
+
+    static func parseIDList(_ raw: String?) -> [Int64] {
+        guard let raw, !raw.isEmpty else { return [] }
+        return raw
+            .split(separator: ",")
+            .compactMap { Int64($0.trimmingCharacters(in: .whitespaces)) }
+    }
+
+    /// `nil` when there are no hops, which is how "not set" is stored.
+    static func formatIDList(_ ids: [Int64]) -> String? {
+        let usable = ids.filter { $0 != 0 }
+        guard !usable.isEmpty else { return nil }
+        return usable.map(String.init).joined(separator: ",")
+    }
+
+    /// Whether this host can serve as a hop for another one.
+    ///
+    /// A hop authenticates with nobody at the keyboard, so it needs a stored
+    /// credential. Android greys out the others in the picker for the same
+    /// reason.
+    var canBeJumpHost: Bool {
+        if keyId != nil { return true }
+        if let encryptedPassword, !encryptedPassword.isEmpty { return true }
+        if let password, !password.isEmpty { return true }
+        return false
+    }
 }
