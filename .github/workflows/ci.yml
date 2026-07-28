@@ -1,9 +1,19 @@
 name: CI
 
+# Manual only, on purpose.
+#
+# The full suite already runs on the build VM after every block of work, and it
+# runs *more* there: the 25 SSH and SFTP integration tests need a real server
+# and skip themselves here.
+#
+# What this does catch, and the VM cannot, is a repository that is not
+# self-sufficient — a file that was never committed, or a tool that only exists
+# on the VM because it was installed by hand. That is worth checking before a
+# release, not on every push, and macOS runners bill at ten times the Linux
+# rate against a private repository's free minutes.
+#
+# Run it from the Actions tab when you want that assurance.
 on:
-  push:
-    branches: [V1_DEV, V1]
-  pull_request:
   workflow_dispatch:
 
 concurrency:
