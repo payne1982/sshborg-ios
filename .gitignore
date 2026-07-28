@@ -5,6 +5,12 @@
 # Local signing configuration (team ID, provisioning)
 Configs/Local.xcconfig
 
+# Build VM runbook — contains credentials, never commit
+BUILD-VM.md
+
+# Build logs pulled back from the VM
+*.log
+
 # Xcode
 DerivedData/
 build/

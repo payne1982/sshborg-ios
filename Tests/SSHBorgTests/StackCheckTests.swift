@@ -26,8 +26,9 @@ final class StackCheckTests: XCTestCase {
         let outcome = StackCheck.checkLibssh2()
         XCTAssertTrue(outcome.ok, outcome.detail)
 
-        // The version may carry a suffix such as "1.11.1_DEV"; take the leading
-        // numeric components only.
+        // libssh2 reports "1.11.1_DEV" even at the official 1.11.1 tag — the
+        // suffix is only stripped when the release tarball is rolled, not in
+        // git. Take the leading numeric part of each component.
         let parts = outcome.detail
             .split(separator: ".")
             .map { $0.prefix { $0.isNumber } }

@@ -19,7 +19,13 @@ private let libssh2Bootstrap: Int32 = libssh2_init(0)
 ///
 /// Ported from the Android `SshManager`, minus the jump-host chain and port
 /// forwarding, which arrive in phase 7.
-final class SSHSession {
+///
+/// `@unchecked Sendable` is accurate rather than a shortcut: every mutable
+/// property is only ever touched from `queue`, and the keepalive timer fires on
+/// that same queue. The compiler cannot see that invariant, so it is asserted
+/// here and must be preserved by anything added later — if you introduce a
+/// property, it belongs behind `queue` too.
+final class SSHSession: @unchecked Sendable {
 
     /// The key the server presented, for the caller to persist on first connect.
     let hostKey: HostKeyInfo

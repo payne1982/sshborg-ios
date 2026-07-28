@@ -71,7 +71,8 @@ final class AppDatabaseTests: XCTestCase {
         let saved = try await repository.save(host)
         let id = try XCTUnwrap(saved.id)
 
-        let loaded = try XCTUnwrap(try await repository.fetch(id: id))
+        let fetched = try await repository.fetch(id: id)
+        let loaded = try XCTUnwrap(fetched)
         XCTAssertEqual(loaded, saved)
         XCTAssertEqual(loaded.parsedJumpMode, .hostList)
         XCTAssertEqual(loaded.parsedSFTPStartMode, .fixed)
@@ -112,7 +113,8 @@ final class AppDatabaseTests: XCTestCase {
         let date = Date(timeIntervalSince1970: 1_700_000_000)
         try await repository.updateLastConnected(id: id, to: date)
 
-        let reloaded = try XCTUnwrap(try await repository.fetch(id: id))
+        let fetched = try await repository.fetch(id: id)
+        let reloaded = try XCTUnwrap(fetched)
         XCTAssertEqual(reloaded.lastConnected, 1_700_000_000_000)
     }
 
@@ -134,11 +136,13 @@ final class AppDatabaseTests: XCTestCase {
         )
         let hostId = try XCTUnwrap(host.id)
 
-        XCTAssertEqual(try await keys.hostCount(usingKeyId: keyId), 1)
+        let usageCount = try await keys.hostCount(usingKeyId: keyId)
+        XCTAssertEqual(usageCount, 1)
 
         try await keys.delete(key)
 
-        let reloaded = try XCTUnwrap(try await hosts.fetch(id: hostId))
+        let fetched = try await hosts.fetch(id: hostId)
+        let reloaded = try XCTUnwrap(fetched)
         XCTAssertNil(reloaded.keyId, "the host must survive with its key reference cleared")
     }
 
@@ -157,8 +161,11 @@ final class AppDatabaseTests: XCTestCase {
 
         try await groups.delete(group)
 
-        XCTAssertTrue(try await groups.fetchAll().isEmpty)
-        let reloaded = try XCTUnwrap(try await hosts.fetch(id: hostId))
+        let remainingGroups = try await groups.fetchAll()
+        XCTAssertTrue(remainingGroups.isEmpty)
+
+        let fetched = try await hosts.fetch(id: hostId)
+        let reloaded = try XCTUnwrap(fetched)
         XCTAssertNil(reloaded.groupId)
     }
 
@@ -166,8 +173,11 @@ final class AppDatabaseTests: XCTestCase {
         let groups = HostGroupRepository(database)
         _ = try await groups.save(HostGroup(name: "servers", color: HostGroup.swatches[1]))
 
-        XCTAssertNotNil(try await groups.fetch(name: "servers"))
-        XCTAssertNil(try await groups.fetch(name: "missing"))
+        let existing = try await groups.fetch(name: "servers")
+        XCTAssertNotNil(existing)
+
+        let missing = try await groups.fetch(name: "missing")
+        XCTAssertNil(missing)
     }
 
     func testSetCollapsed() async throws {
@@ -177,7 +187,8 @@ final class AppDatabaseTests: XCTestCase {
 
         try await groups.setCollapsed(id: id, true)
 
-        let reloaded = try XCTUnwrap(try await groups.fetchAll().first)
+        let all = try await groups.fetchAll()
+        let reloaded = try XCTUnwrap(all.first)
         XCTAssertTrue(reloaded.collapsed)
     }
 
