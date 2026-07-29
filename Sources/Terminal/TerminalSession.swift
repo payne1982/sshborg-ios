@@ -52,6 +52,16 @@ final class TerminalSession: Identifiable {
     @ObservationIgnored private var history = CommandHistory.empty
     @ObservationIgnored private var suggestionTask: Task<Void, Never>?
 
+    /// State of this host's port forwarding rules, empty when it has none.
+    ///
+    /// Observed rather than silent because a rule that could not bind is the
+    /// one thing the user has to be told: the terminal works perfectly while
+    /// the forwarded port simply is not there.
+    private(set) var forwardingStatus: [PortForwarder.Status] = []
+
+    @ObservationIgnored private var forwarder: PortForwarder?
+    @ObservationIgnored private var forwardingTask: Task<Void, Never>?
+
     @ObservationIgnored private let hosts: HostRepository
     @ObservationIgnored private let keys: SSHKeyRepository
     @ObservationIgnored private var sshSession: SSHSession?
@@ -99,15 +109,12 @@ final class TerminalSession: Identifiable {
         }
 
         let geometry = terminalView.getTerminal()
-        var params = SSHConnectionParams(
-            hostname: host.hostname,
-            port: host.port,
-            username: host.username,
+        let planner = ConnectionPlanner(hosts: hosts, keys: keys)
+        let params = await planner.params(
+            for: host,
             auth: auth,
-            allowLegacyCiphers: host.allowLegacyCiphers
+            hostKeyPolicy: hostKeyPolicy(acceptHostKey: acceptHostKey)
         )
-        params.hostKeyPolicy = hostKeyPolicy(acceptHostKey: acceptHostKey)
-        params.agentForwarding = host.agentForwarding
 
         do {
             let session = try await SSHSession.connect(params)
@@ -121,6 +128,8 @@ final class TerminalSession: Identifiable {
             phase = .connected
 
             try? await persistAfterConnect(hostKey: session.hostKey)
+            await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
+            startForwarding(params)
             startReading(from: channel)
         } catch SSHError.unknownHostKey(let info) {
             phase = .needsHostKeyApproval(info, isChange: false)
@@ -128,6 +137,45 @@ final class TerminalSession: Identifiable {
             phase = .needsHostKeyApproval(info, isChange: true)
         } catch {
             phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Brings up this host's `-L` rules, if it has any.
+    ///
+    /// Deliberately not awaited: forwarding opens a second SSH connection, and
+    /// making the terminal wait for it would delay a working shell for a feature
+    /// the user may not be about to use. Failures land in ``forwardingStatus``
+    /// rather than stopping the session.
+    private func startForwarding(_ params: SSHConnectionParams) {
+        guard !params.portForwardings.isEmpty else { return }
+
+        forwardingTask?.cancel()
+        forwardingTask = Task { [weak self] in
+            guard let forwarder = try? await PortForwarder.start(
+                params.portForwardings,
+                params: params
+            ) else {
+                self?.forwardingStatus = params.portForwardings.map {
+                    PortForwarder.Status(
+                        rule: $0,
+                        isListening: false,
+                        failure: "Could not open a connection for port forwarding."
+                    )
+                }
+                return
+            }
+
+            guard let self, !Task.isCancelled else {
+                forwarder.stop()
+                return
+            }
+            self.forwarder = forwarder
+
+            // The listeners reach `.ready` asynchronously, so the first status
+            // read would otherwise always say "not listening yet".
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            self.forwardingStatus = forwarder.status
         }
     }
 
@@ -246,6 +294,9 @@ final class TerminalSession: Identifiable {
         readerTask = nil
         channel?.close()
         channel = nil
+        forwarder?.stop()
+        forwarder = nil
+        forwardingStatus = []
         sshSession?.disconnect()
         sshSession = nil
 
@@ -330,16 +381,19 @@ final class TerminalSession: Identifiable {
     func loadHistory(preferences: AppPreferences) async {
         guard preferences.historySuggestions else { return }
 
-        var params = SSHConnectionParams(
-            hostname: host.hostname,
-            port: host.port,
-            username: host.username,
-            auth: .password("")
-        )
-        params.hostKeyPolicy = .acceptOnce
-
         guard let auth = try? await resolveAuth(typedPassword: nil) else { return }
-        params.auth = auth
+
+        // Same path as everything else, so a host behind a bastion gets its
+        // history too. `acceptOnce` is safe here and only here: the terminal
+        // session has already connected and had its key checked, so this is a
+        // second connection to a host just verified, not a first sight of it.
+        var params = await ConnectionPlanner(hosts: hosts, keys: keys).params(
+            for: host,
+            auth: auth,
+            hostKeyPolicy: .acceptOnce
+        )
+        // History is a background convenience; it must not open listeners.
+        params.portForwardings = []
 
         guard let sftp = try? await SFTPSession.connect(params) else { return }
         defer { sftp.disconnect() }

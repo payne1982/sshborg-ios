@@ -60,6 +60,7 @@ struct TerminalScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if session.phase == .connected {
                 VStack(spacing: 0) {
+                    ForwardingNotice(statuses: session.forwardingStatus)
                     SuggestionBar(
                         suggestions: session.suggestions,
                         isSticky: environment.preferences.suggestionsBarSticky

@@ -72,6 +72,20 @@ struct HostRepository {
         }
     }
 
+    /// Persists the `known_hosts` lines of the hops, one per line.
+    ///
+    /// Only used in `simple` jump mode, where the hops are text on this record
+    /// and have nowhere else to keep a key. In `host_list` mode each hop is a
+    /// host of its own and ``updateKnownHostsEntry(id:to:)`` handles it there.
+    func updateJumpHostKeys(id: Int64, to lines: String) async throws {
+        try await database.writer.write { db in
+            try db.execute(
+                sql: "UPDATE hosts SET jumpHostKeys = ? WHERE id = ?",
+                arguments: [lines, id]
+            )
+        }
+    }
+
     /// Detaches every host from a group, used before deleting the group itself.
     func clearGroup(groupId: Int64) async throws {
         try await database.writer.write { db in

@@ -61,20 +61,23 @@ final class SFTPModel {
             return
         }
 
-        var params = SSHConnectionParams(
-            hostname: host.hostname,
-            port: host.port,
-            username: host.username,
+        // Through the planner so a jump host applies here too: browsing files on
+        // a machine only reachable through a bastion is exactly the case where
+        // it matters. Port forwarding rules come along in the parameters and are
+        // simply not started — those belong to the terminal session.
+        let planner = ConnectionPlanner(hosts: hosts, keys: keys)
+        let params = await planner.params(
+            for: host,
             auth: auth,
-            allowLegacyCiphers: host.allowLegacyCiphers
+            hostKeyPolicy: hostKeyPolicy(acceptHostKey: acceptHostKey)
         )
-        params.hostKeyPolicy = hostKeyPolicy(acceptHostKey: acceptHostKey)
 
         do {
             let session = try await SFTPSession.connect(params)
             self.session = session
 
             try? await persistAfterConnect(hostKey: session.hostKey)
+            await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
 
             path = startingPath(home: session.homePath)
             phase = .browsing

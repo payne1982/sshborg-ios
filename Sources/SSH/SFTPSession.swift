@@ -30,6 +30,10 @@ final class SFTPSession: @unchecked Sendable {
     /// The key the server presented, for the caller to persist on first connect.
     var hostKey: HostKeyInfo { session.hostKey }
 
+    /// Host keys seen for the first time on a jump host, for the caller to
+    /// store. Empty on a direct connection.
+    var newJumpHostKeys: [SSHSession.JumpHostKey] { session.newJumpHostKeys }
+
     private let session: SSHSession
     private let sftp: Handle
 
