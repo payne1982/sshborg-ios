@@ -141,16 +141,45 @@ struct HostsScreen: View {
         }
     }
 
+    /// First line of `hosts_empty`, and the rest of it.
+    ///
+    /// Every translation keeps the two-line shape, so splitting on the newline
+    /// works in all ten; a language that did not would simply get a heading and
+    /// no detail, which still reads correctly.
+    private static var emptyStateLines: [String] {
+        String(localized: .hostsEmpty)
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+    }
+
+    private static var emptyStateHeading: String {
+        emptyStateLines.first ?? String(localized: .hostsEmpty)
+    }
+
+    private static var emptyStateDetail: String? {
+        let lines = emptyStateLines
+        guard lines.count > 1 else { return nil }
+        return lines.dropFirst().joined(separator: " ")
+    }
+
     @ViewBuilder
     private func content(_ model: HostsModel) -> some View {
         if model.isEmpty {
+            // `hosts_empty` is two lines on Android — a heading and the
+            // instruction under it — so it is split back into the two slots iOS
+            // has for them. Passing the whole thing as the title rendered both
+            // lines in large bold, which is not what either platform intends.
+            //
+            // No button here on purpose. The text says to tap +, the + is in the
+            // toolbar above, and adding a second control that does the same thing
+            // left the screen telling the user to do one thing while offering
+            // another. Android has the one affordance; so does this.
             ContentUnavailableView {
-                Label(String(localized: .hostsEmpty), systemImage: "desktopcomputer")
+                Label(Self.emptyStateHeading, systemImage: "desktopcomputer")
             } description: {
-                EmptyView()
-            } actions: {
-                Button(String(localized: .hostsAddHostCd)) { editing = .new }
-                    .buttonStyle(.borderedProminent)
+                if let detail = Self.emptyStateDetail {
+                    Text(detail)
+                }
             }
         } else {
             List {
