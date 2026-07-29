@@ -11,34 +11,13 @@ import XCTest
 /// in both directions, which reading a banner would not.
 final class PortForwardingIntegrationTests: XCTestCase {
 
-    private struct Target {
-        let host: String
-        let port: Int
-        let username: String
-        let password: String
-    }
+    private typealias Target = SSHTestCredentials.Target
 
     private func target() throws -> Target {
-        func setting(_ name: String) -> String? {
-            guard let value = ProcessInfo.processInfo.environment[name],
-                  !value.isEmpty, !value.hasPrefix("$(")
-            else { return nil }
-            return value
+        guard let target = SSHTestCredentials.target() else {
+            throw XCTSkip(SSHTestCredentials.skipReason)
         }
-
-        guard let host = setting("SSHBORG_TEST_HOST"),
-              let username = setting("SSHBORG_TEST_USER"),
-              let password = setting("SSHBORG_TEST_PASSWORD")
-        else {
-            throw XCTSkip("No SSH target configured; set SSHBORG_TEST_HOST, _USER and _PASSWORD.")
-        }
-
-        return Target(
-            host: host,
-            port: Int(setting("SSHBORG_TEST_PORT") ?? "22") ?? 22,
-            username: username,
-            password: password
-        )
+        return target
     }
 
     private func params(_ target: Target) -> SSHConnectionParams {

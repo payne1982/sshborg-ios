@@ -26,6 +26,14 @@ final class SSHSessionContext {
     /// by the session, not by this.
     weak var agentForwarder: AgentForwarder?
 
+    /// The password to answer a keyboard-interactive prompt with.
+    ///
+    /// Held only for the duration of authentication and cleared immediately
+    /// after: the C callback that needs it cannot take a Swift closure, so the
+    /// value has to be reachable from the abstract pointer, and there is no
+    /// reason for it to outlive the exchange.
+    var keyboardInteractivePassword: String?
+
     /// Creates a context and stores it in `session`'s abstract pointer.
     ///
     /// The returned `Unmanaged` is the owning reference: the caller must call

@@ -276,7 +276,7 @@ final class SSHSession: @unchecked Sendable {
 
         let hostKey = try readHostKey(session: session, host: params.hostname, port: params.port)
         try verify(hostKey: hostKey, policy: params.hostKeyPolicy)
-        try authenticate(session: session, params: params)
+        try authenticate(session: session, params: params, context: context.takeUnretainedValue())
 
         // Set up after authentication: an agent is only ever asked for anything
         // once a channel exists, and a key that fails to load should not be a
@@ -385,24 +385,21 @@ final class SSHSession: @unchecked Sendable {
 
     // MARK: - Authentication
 
-    private static func authenticate(session: OpaquePointer, params: SSHConnectionParams) throws {
+    private static func authenticate(
+        session: OpaquePointer,
+        params: SSHConnectionParams,
+        context: SSHSessionContext
+    ) throws {
         let username = params.username
 
         switch params.auth {
         case .password(let password):
-            let result = username.withCString { user in
-                password.withCString { secret in
-                    libssh2_userauth_password_ex(
-                        session,
-                        user, UInt32(strlen(user)),
-                        secret, UInt32(strlen(secret)),
-                        nil
-                    )
-                }
-            }
-            guard result == 0 else {
-                throw SSHError.fromSession(session, fallback: "password rejected")
-            }
+            try authenticateWithPassword(
+                session: session,
+                username: username,
+                password: password,
+                context: context
+            )
 
         case .publicKey(let privateKeyPEM, let passphrase):
             let result = username.withCString { user in
@@ -429,6 +426,94 @@ final class SSHSession: @unchecked Sendable {
         guard libssh2_userauth_authenticated(session) == 1 else {
             throw SSHError.authenticationFailed("the server did not accept the credentials")
         }
+    }
+
+    /// Authenticates with a password, by whichever method the server offers.
+    ///
+    /// A password reaches a server two different ways, and which one works is the
+    /// server's choice, not ours:
+    ///
+    /// - **`password`**, the dedicated method. Plenty of servers disable it with
+    ///   `PasswordAuthentication no`.
+    /// - **`keyboard-interactive`**, a generic prompt exchange. This is what PAM
+    ///   answers, it is enabled by default on OpenSSH, and it is what the
+    ///   `ssh` command falls back to — which is why typing a password at the
+    ///   command line works on servers where `password` is off.
+    ///
+    /// Only supporting the first meant the app could not log in with a password
+    /// to a common configuration, and libssh2 reports it as
+    /// "Authentication failed (username/password)" — a message that reads like a
+    /// wrong password and sends you looking in the wrong place. Found by pointing
+    /// the integration tests at a real server instead of a local sshd.
+    private static func authenticateWithPassword(
+        session: OpaquePointer,
+        username: String,
+        password: String,
+        context: SSHSessionContext
+    ) throws {
+        let offered = offeredAuthMethods(session: session, username: username)
+
+        if offered.isEmpty || offered.contains("password") {
+            let result = username.withCString { user in
+                password.withCString { secret in
+                    libssh2_userauth_password_ex(
+                        session,
+                        user, UInt32(strlen(user)),
+                        secret, UInt32(strlen(secret)),
+                        nil
+                    )
+                }
+            }
+            if result == 0 { return }
+
+            // A server can advertise `password` and still refuse it. Falling
+            // through to the other method costs one round trip and rescues that
+            // case; if there is nothing to fall through to, report this failure.
+            guard offered.contains("keyboard-interactive") else {
+                throw SSHError.fromSession(session, fallback: "password rejected")
+            }
+        }
+
+        guard offered.contains("keyboard-interactive") else {
+            throw SSHError.authenticationFailed(
+                "This server does not accept passwords. It offers: \(offered.sorted().joined(separator: ", "))."
+            )
+        }
+
+        context.keyboardInteractivePassword = password
+        // Cleared as soon as the exchange is over: nothing else needs it, and a
+        // password sitting in a long-lived object is worth avoiding.
+        defer { context.keyboardInteractivePassword = nil }
+
+        let result = username.withCString { user in
+            libssh2_userauth_keyboard_interactive_ex(
+                session,
+                user, UInt32(strlen(user)),
+                keyboardInteractiveResponder
+            )
+        }
+        guard result == 0 else {
+            throw SSHError.fromSession(session, fallback: "password rejected")
+        }
+    }
+
+    /// The authentication methods the server will consider for this user.
+    ///
+    /// Costs one round trip: libssh2 asks with a `none` request, which every
+    /// server answers with its list. An empty result means the server accepted
+    /// `none` — rare, and treated as "try what we have".
+    private static func offeredAuthMethods(session: OpaquePointer, username: String) -> Set<String> {
+        let list = username.withCString { user in
+            libssh2_userauth_list(session, user, UInt32(strlen(user)))
+        }
+        guard let list else { return [] }
+
+        return Set(
+            String(cString: list)
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        )
     }
 
     // MARK: - Shell
@@ -556,6 +641,52 @@ final class SSHSession: @unchecked Sendable {
             tunnel?.close()
             tunnel = nil
         }
+    }
+}
+
+/// Answers a keyboard-interactive challenge with the stored password.
+///
+/// libssh2 allocates the response array and frees each `text` itself, using the
+/// deallocator the session was created with — `libssh2_session_init_ex(nil, …)`
+/// means plain `free`, so the buffers here must come from `malloc`. Handing it a
+/// Swift-owned pointer would be freed twice.
+///
+/// **Known limitation:** every prompt after the first is answered with an empty
+/// string. A single "Password:" prompt is the case this exists for; a server
+/// asking for a one-time code as a second prompt needs to put that question in
+/// front of the user, which the connection API has no way to do yet. Answering
+/// them all with the password would be worse than failing, because it would send
+/// the password where a code was asked for.
+private let keyboardInteractiveResponder: @convention(c) (
+    UnsafePointer<CChar>?, Int32,
+    UnsafePointer<CChar>?, Int32,
+    Int32,
+    UnsafePointer<LIBSSH2_USERAUTH_KBDINT_PROMPT>?,
+    UnsafeMutablePointer<LIBSSH2_USERAUTH_KBDINT_RESPONSE>?,
+    UnsafeMutablePointer<UnsafeMutableRawPointer?>?
+) -> Void = { _, _, _, _, promptCount, _, responses, abstract in
+    guard let responses, promptCount > 0 else { return }
+
+    let password = SSHSessionContext.from(abstract)?.keyboardInteractivePassword ?? ""
+
+    for index in 0..<Int(promptCount) {
+        let answer = index == 0 ? password : ""
+        let bytes = Array(answer.utf8)
+
+        // One extra byte for the terminator: libssh2 passes the length, but some
+        // servers and every debugger read it as a C string.
+        guard let buffer = malloc(bytes.count + 1) else {
+            responses[index].text = nil
+            responses[index].length = 0
+            continue
+        }
+        if !bytes.isEmpty {
+            bytes.withUnsafeBytes { _ = memcpy(buffer, $0.baseAddress!, bytes.count) }
+        }
+        buffer.advanced(by: bytes.count).assumingMemoryBound(to: CChar.self).pointee = 0
+
+        responses[index].text = buffer.assumingMemoryBound(to: CChar.self)
+        responses[index].length = UInt32(bytes.count)
     }
 }
 

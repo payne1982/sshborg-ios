@@ -168,6 +168,10 @@ schemes:
         SSHBORG_TEST_PORT: $(SSHBORG_TEST_PORT)
         SSHBORG_TEST_USER: $(SSHBORG_TEST_USER)
         SSHBORG_TEST_PASSWORD: $(SSHBORG_TEST_PASSWORD)
+        # Base64 channel, because Xcode *evaluates* build setting values: a `$`
+        # in a password reads as a reference to another setting, and the test
+        # receives something else. Measured: 16 characters in, 33 out.
+        SSHBORG_TEST_PASSWORD_B64: $(SSHBORG_TEST_PASSWORD_B64)
       targets:
         - SSHBorgTests
     archive:

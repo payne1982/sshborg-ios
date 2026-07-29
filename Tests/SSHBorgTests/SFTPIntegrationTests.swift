@@ -13,27 +13,15 @@ final class SFTPIntegrationTests: XCTestCase {
     private var workingDirectory: String!
 
     override func setUp() async throws {
-        let environment = ProcessInfo.processInfo.environment
-
-        func setting(_ name: String) -> String? {
-            guard let value = environment[name], !value.isEmpty, !value.hasPrefix("$(") else {
-                return nil
-            }
-            return value
-        }
-
-        guard let host = setting("SSHBORG_TEST_HOST"),
-              let username = setting("SSHBORG_TEST_USER"),
-              let password = setting("SSHBORG_TEST_PASSWORD")
-        else {
-            throw XCTSkip("No SSH target configured; set SSHBORG_TEST_HOST, _USER and _PASSWORD.")
+        guard let target = SSHTestCredentials.target() else {
+            throw XCTSkip(SSHTestCredentials.skipReason)
         }
 
         var params = SSHConnectionParams(
-            hostname: host,
-            port: Int(setting("SSHBORG_TEST_PORT") ?? "22") ?? 22,
-            username: username,
-            auth: .password(password)
+            hostname: target.host,
+            port: target.port,
+            username: target.username,
+            auth: .password(target.password)
         )
         params.hostKeyPolicy = .acceptOnce
         params.connectTimeout = 15

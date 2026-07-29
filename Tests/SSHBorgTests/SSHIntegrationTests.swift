@@ -18,27 +18,13 @@ import XCTest
 /// variable to the test process.
 final class SSHIntegrationTests: XCTestCase {
 
-    private struct Target {
-        let host: String
-        let port: Int
-        let username: String
-        let password: String
-    }
+    private typealias Target = SSHTestCredentials.Target
 
     private func target() throws -> Target {
-        guard let host = Self.setting("SSHBORG_TEST_HOST"),
-              let username = Self.setting("SSHBORG_TEST_USER"),
-              let password = Self.setting("SSHBORG_TEST_PASSWORD")
-        else {
-            throw XCTSkip("No SSH target configured; set SSHBORG_TEST_HOST, _USER and _PASSWORD.")
+        guard let target = SSHTestCredentials.target() else {
+            throw XCTSkip(SSHTestCredentials.skipReason)
         }
-
-        return Target(
-            host: host,
-            port: Self.setting("SSHBORG_TEST_PORT").flatMap(Int.init) ?? 22,
-            username: username,
-            password: password
-        )
+        return target
     }
 
     /// Reads a value the scheme forwards from a build setting.
