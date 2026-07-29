@@ -39,12 +39,34 @@ final class SSHSession: @unchecked Sendable {
     /// tracked so teardown can stop it before the session handle goes away.
     private weak var shellChannel: SSHShellChannel?
 
-    private init(session: OpaquePointer, socket: Int32, hostKey: HostKeyInfo, hostname: String, queue: DispatchQueue) {
+    /// The tunnel this session travels through, when it is behind jump hosts.
+    /// Retained so the whole chain below stays alive, and torn down after it.
+    private var tunnel: SSHTunnel?
+
+    /// Host keys seen for the first time on a hop, for the caller to store.
+    /// Empty on a direct connection.
+    private(set) var newJumpHostKeys: [JumpHostKey] = []
+
+    /// A hop's key, paired with the host record it came from when there is one.
+    struct JumpHostKey: Equatable {
+        let hostId: Int64?
+        let knownHostsLine: String
+    }
+
+    private init(
+        session: OpaquePointer,
+        socket: Int32,
+        hostKey: HostKeyInfo,
+        hostname: String,
+        queue: DispatchQueue,
+        tunnel: SSHTunnel? = nil
+    ) {
         self.session = session
         self.socket = socket
         self.hostKey = hostKey
         self.hostname = hostname
         self.queue = queue
+        self.tunnel = tunnel
     }
 
     deinit {
@@ -57,6 +79,7 @@ final class SSHSession: @unchecked Sendable {
             libssh2_session_free(session)
         }
         if socket >= 0 { close(socket) }
+        tunnel?.close()
     }
 
     // MARK: - Connecting
@@ -73,7 +96,7 @@ final class SSHSession: @unchecked Sendable {
         return try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 do {
-                    continuation.resume(returning: try makeSession(params, queue: queue))
+                    continuation.resume(returning: try makeChain(params, queue: queue))
                 } catch {
                     continuation.resume(throwing: error)
                 }
@@ -81,23 +104,128 @@ final class SSHSession: @unchecked Sendable {
         }
     }
 
+    /// Builds the jump-host chain, then the target session at the end of it.
+    ///
+    /// Every session in the chain shares one queue: a hop is only ever driven
+    /// from inside the next session's socket callbacks, so putting them on
+    /// separate queues would mean two threads inside libssh2 at once.
+    private static func makeChain(_ params: SSHConnectionParams, queue: DispatchQueue) throws -> SSHSession {
+        guard !params.jumpHosts.isEmpty else {
+            return try makeSession(params, queue: queue, tunnel: nil)
+        }
+
+        var tunnel: SSHTunnel?
+        var realSocket: Int32 = -1
+        var collectedKeys: [JumpHostKey] = []
+
+        // Unwind everything built so far if a later hop fails, rather than
+        // leaking a half-built chain of live connections.
+        func abandon() {
+            tunnel?.close()
+            tunnel = nil
+        }
+
+        for (index, hop) in params.jumpHosts.enumerated() {
+            var hopParams = SSHConnectionParams(
+                hostname: hop.host,
+                port: hop.port,
+                // A hop with no username of its own reuses the target's, which
+                // is what an ssh_config ProxyJump does.
+                username: hop.username ?? params.username,
+                auth: hop.auth ?? params.auth
+            )
+            // A hop with a stored key must match it. Without one, the hop
+            // follows the target's policy: when the user has accepted this
+            // connection they have accepted its path, and there is otherwise no
+            // way to complete a first connection through a bastion at all.
+            // A key that is stored and *differs* still stops the chain, which is
+            // the case that matters.
+            if let entry = hop.knownHostsEntry, !entry.isEmpty {
+                hopParams.hostKeyPolicy = .requireMatch(entry)
+            } else {
+                hopParams.hostKeyPolicy = params.hostKeyPolicy == .acceptOnce
+                    ? .acceptOnce
+                    : .promptIfUnknown
+            }
+            hopParams.allowLegacyCiphers = params.allowLegacyCiphers
+            hopParams.connectTimeout = params.connectTimeout
+
+            let hopSession: SSHSession
+            do {
+                hopSession = try makeSession(hopParams, queue: queue, tunnel: tunnel)
+            } catch {
+                abandon()
+                throw error
+            }
+
+            if index == 0 { realSocket = hopSession.socket }
+
+            if hop.knownHostsEntry?.isEmpty ?? true {
+                collectedKeys.append(
+                    JumpHostKey(hostId: hop.hostId, knownHostsLine: hopSession.hostKey.knownHostsLine)
+                )
+            }
+
+            // Aim at the next hop, or at the real target after the last one.
+            let isLast = index == params.jumpHosts.count - 1
+            let nextHost = isLast ? params.hostname : params.jumpHosts[index + 1].host
+            let nextPort = isLast ? params.port : params.jumpHosts[index + 1].port
+
+            do {
+                guard let raw = hopSession.session else { throw SSHError.notConnected }
+                tunnel = try SSHTunnel.open(
+                    through: hopSession,
+                    raw: raw,
+                    to: nextHost,
+                    port: nextPort,
+                    realSocket: realSocket
+                )
+            } catch {
+                hopSession.disconnect()
+                abandon()
+                throw error
+            }
+        }
+
+        do {
+            let target = try makeSession(params, queue: queue, tunnel: tunnel)
+            target.newJumpHostKeys = collectedKeys
+            return target
+        } catch {
+            abandon()
+            throw error
+        }
+    }
+
     /// The whole blocking connection sequence. Runs on `queue`.
-    private static func makeSession(_ params: SSHConnectionParams, queue: DispatchQueue) throws -> SSHSession {
+    private static func makeSession(
+        _ params: SSHConnectionParams,
+        queue: DispatchQueue,
+        tunnel: SSHTunnel?
+    ) throws -> SSHSession {
         guard libssh2Bootstrap == 0 else {
             throw SSHError.library(code: libssh2Bootstrap, message: "libssh2_init failed")
         }
 
-        let socket = try SSHSocket.connect(
-            host: params.hostname,
-            port: params.port,
-            timeout: params.connectTimeout
-        )
+        // Behind a tunnel there is no socket of our own: we wait on the real one
+        // at the bottom of the chain, which is where tunnelled bytes arrive.
+        let ownsSocket = tunnel == nil
+        let socket: Int32
+        if let tunnel {
+            socket = tunnel.realSocket
+        } else {
+            socket = try SSHSocket.connect(
+                host: params.hostname,
+                port: params.port,
+                timeout: params.connectTimeout
+            )
+        }
 
         // `libssh2_session_init` is a function-like macro and so is invisible to
         // Swift; the `_ex` form it expands to is the real symbol. The same is
         // true of most of the libssh2 API, hence the `_ex` calls throughout.
         guard let session = libssh2_session_init_ex(nil, nil, nil, nil) else {
-            close(socket)
+            if ownsSocket { close(socket) }
             throw SSHError.library(code: 0, message: "could not allocate session")
         }
 
@@ -105,12 +233,15 @@ final class SSHSession: @unchecked Sendable {
         defer {
             if !succeeded {
                 libssh2_session_free(session)
-                close(socket)
+                if ownsSocket { close(socket) }
             }
         }
 
         libssh2_session_set_blocking(session, 1)
         libssh2_session_set_timeout(session, Int(params.connectTimeout * 1000))
+        // Must be attached before the handshake: it is the first thing to put
+        // bytes on the wire.
+        tunnel?.attach(to: session)
         SSHAlgorithms.applyPreferences(to: session, allowLegacy: params.allowLegacyCiphers)
 
         guard libssh2_session_handshake(session, socket) == 0 else {
@@ -123,10 +254,11 @@ final class SSHSession: @unchecked Sendable {
 
         let sshSession = SSHSession(
             session: session,
-            socket: socket,
+            socket: ownsSocket ? socket : -1,
             hostKey: hostKey,
             hostname: params.hostname,
-            queue: queue
+            queue: queue,
+            tunnel: tunnel
         )
         sshSession.startKeepAlive(interval: params.keepAliveInterval)
 
@@ -333,6 +465,10 @@ final class SSHSession: @unchecked Sendable {
                 close(socket)
                 socket = -1
             }
+            // After this session's own handles, never before: the chain below
+            // is what its bytes were travelling through.
+            tunnel?.close()
+            tunnel = nil
         }
     }
 }

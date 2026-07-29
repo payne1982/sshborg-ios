@@ -181,6 +181,145 @@ final class SSHIntegrationTests: XCTestCase {
         }
     }
 
+    // MARK: - Jump hosts
+
+    /// The same machine serves as both bastion and destination: connect to it,
+    /// have it open a tunnel back to itself, and run SSH through that. The
+    /// tunnelling is real even though the endpoints coincide.
+    ///
+    /// Note these tests connect with `.acceptOnce`, which is what a user who has
+    /// approved the fingerprint supplies. Without it a hop with no stored key
+    /// correctly refuses, which is what the first run of these tests proved.
+    private func hop(_ target: Target) -> JumpHost {
+        JumpHost(
+            host: target.host,
+            port: target.port,
+            username: target.username,
+            knownHostsEntry: nil,
+            auth: .password(target.password)
+        )
+    }
+
+    func testConnectsThroughOneJumpHost() async throws {
+        let target = try target()
+        var params = params(target)
+        params.jumpHosts = [hop(target)]
+
+        let session = try await SSHSession.connect(params)
+        defer { session.disconnect() }
+
+        // A shell over the tunnel proves the whole path carries data, not just
+        // that the handshake completed.
+        let channel = try await session.openShell(columns: 80, rows: 24)
+        defer { channel.close() }
+
+        let marker = "JUMPED_\(UUID().uuidString.prefix(8))"
+        channel.send(Data("echo \(marker)\n".utf8))
+
+        let output = try await collect(from: channel, until: marker, timeout: 30)
+        XCTAssertTrue(output.contains(marker), "nothing came back through the jump host:\n\(output)")
+    }
+
+    func testConnectsThroughTwoJumpHosts() async throws {
+        let target = try target()
+        var params = params(target)
+        params.jumpHosts = [hop(target), hop(target)]
+
+        let session = try await SSHSession.connect(params)
+        defer { session.disconnect() }
+
+        XCTAssertFalse(session.hostKey.base64Key.isEmpty)
+    }
+
+    /// Keys for hops seen for the first time come back so the caller can store
+    /// them, which is what makes the second connection verifiable.
+    func testUnseenJumpHostKeysAreReported() async throws {
+        let target = try target()
+        var params = params(target)
+        params.jumpHosts = [hop(target)]
+
+        let session = try await SSHSession.connect(params)
+        defer { session.disconnect() }
+
+        XCTAssertEqual(session.newJumpHostKeys.count, 1)
+        let line = try XCTUnwrap(session.newJumpHostKeys.first?.knownHostsLine)
+        XCTAssertFalse(line.isEmpty)
+        XCTAssertNotNil(KnownHostsLine.parse(line))
+    }
+
+    /// A hop whose key was pinned must still connect on the next attempt.
+    func testPinnedJumpHostKeyIsAccepted() async throws {
+        let target = try target()
+
+        var first = params(target)
+        first.jumpHosts = [hop(target)]
+        let discovery = try await SSHSession.connect(first)
+        let pinned = try XCTUnwrap(discovery.newJumpHostKeys.first?.knownHostsLine)
+        discovery.disconnect()
+
+        var second = params(target)
+        var pinnedHop = hop(target)
+        pinnedHop.knownHostsEntry = pinned
+        second.jumpHosts = [pinnedHop]
+
+        let session = try await SSHSession.connect(second)
+        session.disconnect()
+    }
+
+    /// A hop with no stored key must refuse under the default policy, exactly
+    /// as the final host does. Trusting a bastion on sight would defeat the
+    /// point of routing through one.
+    func testUnknownJumpHostKeyIsRefusedByDefault() async throws {
+        let target = try target()
+        var params = params(target, policy: .promptIfUnknown)
+        params.jumpHosts = [hop(target)]
+
+        do {
+            let session = try await SSHSession.connect(params)
+            session.disconnect()
+            XCTFail("an unknown jump host key was accepted without asking")
+        } catch SSHError.unknownHostKey(let info) {
+            XCTAssertTrue(info.fingerprint.hasPrefix("SHA256:"))
+        }
+    }
+
+    /// A hop that cannot be reached must fail the whole chain, not fall through
+    /// to a direct connection — that would silently bypass the bastion.
+    func testUnreachableJumpHostFailsTheChain() async throws {
+        let target = try target()
+        var params = params(target)
+        var deadHop = hop(target)
+        deadHop.port = 1
+        params.jumpHosts = [deadHop]
+        params.connectTimeout = 5
+
+        do {
+            let session = try await SSHSession.connect(params)
+            session.disconnect()
+            XCTFail("the chain connected despite an unreachable jump host")
+        } catch {
+            XCTAssertTrue(error is SSHError)
+        }
+    }
+
+    /// A hop presenting a key that does not match the stored one must stop the
+    /// chain, exactly as the final host would.
+    func testChangedJumpHostKeyIsRefused() async throws {
+        let target = try target()
+        var params = params(target)
+        var wrongHop = hop(target)
+        wrongHop.knownHostsEntry = "\(target.host) ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIWRONGWRONGWRONG"
+        params.jumpHosts = [wrongHop]
+
+        do {
+            let session = try await SSHSession.connect(params)
+            session.disconnect()
+            XCTFail("a mismatched jump host key was accepted")
+        } catch SSHError.hostKeyMismatch {
+            // expected
+        }
+    }
+
     // MARK: - Resizing
 
     func testResizeIsAccepted() async throws {
