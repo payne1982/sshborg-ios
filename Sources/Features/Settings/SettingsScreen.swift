@@ -34,7 +34,7 @@ struct SettingsScreen: View {
             backupSection
             aboutSection
         }
-        .navigationTitle("Settings")
+        .navigationTitle(Text(.settingsTitle))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             model = model ?? SettingsModel(
@@ -56,16 +56,16 @@ struct SettingsScreen: View {
     // MARK: - General
 
     private var generalSection: some View {
-        Section("General") {
+        Section(String(localized: .settingsSectionGeneral)) {
             Toggle(isOn: binding(\.confirmExit)) {
-                Text("Confirm before closing a session")
-                Text("Ask before disconnecting a terminal.")
+                Text(.settingsConfirmExitTitle)
+                Text(.settingsConfirmExitSubtitle)
             }
 
-            Picker("Appearance", selection: binding(\.nightMode)) {
-                Text("Follow system").tag(AppPreferences.NightMode.followSystem)
-                Text("Light").tag(AppPreferences.NightMode.light)
-                Text("Dark").tag(AppPreferences.NightMode.dark)
+            Picker(String(localized: .settingsThemeTitle), selection: binding(\.nightMode)) {
+                Text(.settingsThemeFollowSystem).tag(AppPreferences.NightMode.followSystem)
+                Text(.settingsThemeLight).tag(AppPreferences.NightMode.light)
+                Text(.settingsThemeDark).tag(AppPreferences.NightMode.dark)
             }
 
             Button {
@@ -73,7 +73,7 @@ struct SettingsScreen: View {
                     openURL(url)
                 }
             } label: {
-                LabeledContent("Language", value: "System settings")
+                LabeledContent(String(localized: .settingsLanguage), value: String(localized: .settingsLanguageSystem))
             }
             .tint(.primary)
         }
@@ -82,50 +82,51 @@ struct SettingsScreen: View {
     // MARK: - Terminal
 
     private var terminalSection: some View {
-        Section("Terminal") {
-            Picker("Colours", selection: binding(\.terminalColorScheme)) {
-                Text("Dark").tag(AppPreferences.TerminalColorScheme.dark)
-                Text("Light").tag(AppPreferences.TerminalColorScheme.light)
-                Text("Follow app").tag(AppPreferences.TerminalColorScheme.followApp)
+        Section(String(localized: .settingsSectionTerminal)) {
+            Picker(String(localized: .settingsTerminalColorsTitle), selection: binding(\.terminalColorScheme)) {
+                Text(.settingsThemeDark).tag(AppPreferences.TerminalColorScheme.dark)
+                Text(.settingsThemeLight).tag(AppPreferences.TerminalColorScheme.light)
+                Text(.settingsTerminalColorsFollowApp).tag(AppPreferences.TerminalColorScheme.followApp)
             }
 
-            Picker("Double tap", selection: binding(\.doubleTapAction)) {
-                Text("Nothing").tag(AppPreferences.DoubleTapAction.none)
-                Text("Send Tab").tag(AppPreferences.DoubleTapAction.tab)
-                Text("Send Tab twice").tag(AppPreferences.DoubleTapAction.tabTwice)
+            Picker(String(localized: .settingsDoubleTapTitle), selection: binding(\.doubleTapAction)) {
+                Text(.settingsDoubleTapNone).tag(AppPreferences.DoubleTapAction.none)
+                Text(.settingsDoubleTapTab).tag(AppPreferences.DoubleTapAction.tab)
+                Text(.settingsDoubleTapTabTwice).tag(AppPreferences.DoubleTapAction.tabTwice)
             }
 
             Stepper(value: binding(\.terminalFontSize),
                     in: AppPreferences.Limits.minTerminalFontSize...AppPreferences.Limits.maxTerminalFontSize) {
-                LabeledContent("Font size", value: "\(preferences.terminalFontSize) pt")
+                LabeledContent(String(localized: .settingsFontSizeTitle), value: "\(preferences.terminalFontSize)")
             }
 
-            Picker("Scrollback", selection: binding(\.scrollbackLines)) {
+            Picker(String(localized: .settingsScrollbackTitle), selection: binding(\.scrollbackLines)) {
                 ForEach([500, 1000, 2000, 5000, 10000], id: \.self) { lines in
-                    Text("\(lines) lines").tag(lines)
+                    Text(verbatim: "\(lines)").tag(lines)
                 }
             }
 
             Toggle(isOn: binding(\.invertTerminalScroll)) {
-                Text("Invert scrolling")
-                Text("Swipe up to see earlier output.")
+                Text(.settingsInvertScrollTitle)
+                Text(.settingsInvertScrollSubtitle)
             }
 
             Toggle(isOn: binding(\.keepScreenOn)) {
-                Text("Keep the screen on")
-                Text("While a terminal is open.")
+                Text(.settingsKeepScreenOnTitle)
+                Text(.settingsKeepScreenOnSubtitle)
             }
 
             Toggle(isOn: binding(\.historySuggestions)) {
-                Text("Suggest from shell history")
-                Text("Reads the history file on the server over SFTP.")
+                Text(.settingsHistorySuggestionsTitle)
+                Text(.settingsHistorySuggestionsSubtitle)
             }
 
             // Nested under the switch above, because a sticky bar for
             // suggestions that are turned off means nothing.
             if preferences.historySuggestions {
                 Toggle(isOn: binding(\.suggestionsBarSticky)) {
-                    Text("Keep the suggestion bar visible")
+                    Text(.settingsSuggestionsBarStickyTitle)
+                    Text(.settingsSuggestionsBarStickySubtitle)
                 }
             }
         }
@@ -136,29 +137,31 @@ struct SettingsScreen: View {
     private var securitySection: some View {
         Section {
             Toggle(isOn: binding(\.biometricLock)) {
-                Text("Unlock with \(BiometricLock.availability().displayName)")
+                Text(.settingsBiometricLockTitle)
                 Text(BiometricLock.canAuthenticate()
-                     ? "Ask to unlock when the app is opened."
-                     : "Not set up on this device.")
+                     ? String(localized: .settingsBiometricAvailable)
+                     : String(localized: .settingsBiometricUnavailable))
             }
             .disabled(!BiometricLock.canAuthenticate())
 
             if preferences.biometricLock {
-                Picker("Lock after", selection: binding(\.lockTimeoutSeconds)) {
-                    Text("Immediately").tag(0)
-                    Text("30 seconds").tag(30)
-                    Text("1 minute").tag(60)
-                    Text("5 minutes").tag(300)
-                    Text("15 minutes").tag(900)
+                Picker(String(localized: .settingsLockAfterTitle), selection: binding(\.lockTimeoutSeconds)) {
+                    Text(.timeoutImmediately).tag(0)
+                    Text(.timeout30Seconds).tag(30)
+                    Text(.timeout1Minute).tag(60)
+                    Text(.timeout3Minutes).tag(180)
+                    Text(.timeout5Minutes).tag(300)
+                    Text(.timeout15Minutes).tag(900)
+                    Text(.timeout30Minutes).tag(1800)
                 }
             }
 
             Toggle(isOn: binding(\.keychainEncryption)) {
-                Text("Encrypt saved credentials")
-                Text("Passwords and private keys are encrypted with a key held in the keychain.")
+                Text(.settingsEncryptTitle)
+                Text(.settingsEncryptSubtitle)
             }
         } header: {
-            Text("Security")
+            Text(.settingsSectionSecurity)
         }
     }
 
@@ -170,8 +173,8 @@ struct SettingsScreen: View {
                 Task { await model?.prepareExport() }
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Export hosts")
-                    Text("Hosts, groups and settings. No passwords or keys are included.")
+                    Text(.settingsBackupExportTitle)
+                    Text(.settingsBackupExportSubtitle)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -182,26 +185,26 @@ struct SettingsScreen: View {
                 isChoosingFile = true
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Import hosts")
-                    Text("Reads a backup from this app or from SSHBorg for Android.")
+                    Text(.settingsBackupImportTitle)
+                    Text(.settingsBackupImportSubtitle)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
             .disabled(model?.isWorking ?? true)
         } header: {
-            Text("Backup")
+            Text(.settingsSectionBackup)
         } footer: {
-            Text("A backup carries no credentials, so it can be stored and sent like any other file. Existing hosts keep their saved passwords and keys when a backup is imported over them.")
+            Text(.settingsBackupExportSubtitle)
         }
     }
 
     // MARK: - About
 
     private var aboutSection: some View {
-        Section("About") {
-            LabeledContent("Version", value: Self.version)
-            LabeledContent("Licence", value: "GPL-3.0-or-later")
+        Section(String(localized: .aboutSectionTitle)) {
+            LabeledContent(String(localized: .aboutVersion), value: Self.version)
+            LabeledContent(String(localized: .aboutLicence), value: "GPL-3.0-or-later")
         }
     }
 
@@ -263,18 +266,18 @@ private struct BackupFileHandling: ViewModifier {
             // Importing merges into what is already there, so it is worth one
             // question first: it can change every host in the list.
             .confirmationDialog(
-                "Import this backup?",
+                String(localized: .settingsBackupImportTitle),
                 isPresented: $isConfirmingImport,
                 titleVisibility: .visible
             ) {
-                Button("Import") {
+                Button(String(localized: .settingsBackupImportAction)) {
                     guard let url = pendingImport else { return }
                     Task { await model?.importBackup(from: url) }
                     pendingImport = nil
                 }
-                Button("Cancel", role: .cancel) { pendingImport = nil }
+                Button(String(localized: .actionCancel), role: .cancel) { pendingImport = nil }
             } message: {
-                Text("Hosts with the same name are updated, keeping their saved passwords and keys. Other hosts are left alone.")
+                Text(.settingsBackupImportSubtitle)
             }
             .alert(
                 alertTitle,
@@ -283,22 +286,24 @@ private struct BackupFileHandling: ViewModifier {
                     set: { if !$0 { model?.dismissOutcome() } }
                 )
             ) {
-                Button("OK", role: .cancel) { model?.dismissOutcome() }
+                Button(String(localized: .actionDone), role: .cancel) { model?.dismissOutcome() }
             } message: {
                 Text(alertMessage)
             }
     }
 
     private var alertTitle: String {
-        model?.outcome?.isFailure == true ? "Something went wrong" : "Done"
+        String(localized: model?.outcome?.isFailure == true ? .errorUnknown : .actionDone)
     }
 
     private var alertMessage: String {
         switch model?.outcome {
         case .exported(let hosts):
-            return hosts == 1 ? "Exported 1 host." : "Exported \(hosts) hosts."
+            return String(localized: .backupExportSuccess).replacingOccurrences(of: "%1$d", with: "\(hosts)")
         case .imported(let inserted, let updated):
-            return "Added \(inserted), updated \(updated)."
+            return String(localized: .backupImportSuccess)
+                .replacingOccurrences(of: "%1$d", with: "\(inserted)")
+                .replacingOccurrences(of: "%2$d", with: "\(updated)")
         case .failed(let message):
             return message
         case nil:

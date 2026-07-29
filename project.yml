@@ -15,6 +15,21 @@ options:
   createIntermediateGroups: true
   groupSortPosition: top
   generateEmptyDirectories: true
+  developmentLanguage: en
+  # The ten languages of Localizable.xcstrings, imported from the Android app by
+  # scripts/import-android-strings.py. Xcode only emits a localisation it knows
+  # about, so a language missing here is silently dropped from the build.
+  knownRegions:
+    - en
+    - de
+    - es
+    - fr
+    - it
+    - ja
+    - pt
+    - ru
+    - uk
+    - zh-Hans
 
 configs:
   Debug: debug
