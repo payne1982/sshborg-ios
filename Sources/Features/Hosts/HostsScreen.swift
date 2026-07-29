@@ -55,7 +55,7 @@ struct HostsScreen: View {
                 ProgressView()
             }
         }
-        .navigationTitle("Hosts")
+        .navigationTitle(Text(.hostsTitle))
         .navigationDestination(item: $browsing) { host in
             SFTPScreen(host: host)
         }
@@ -64,22 +64,22 @@ struct HostsScreen: View {
                 NavigationLink {
                     KeysScreen()
                 } label: {
-                    Label("SSH keys", systemImage: "key")
+                    Label(String(localized: .keysTitle), systemImage: "key")
                 }
             }
             ToolbarItem(placement: .topBarLeading) {
                 NavigationLink {
                     SettingsScreen()
                 } label: {
-                    Label("Settings", systemImage: "gearshape")
+                    Label(String(localized: .settingsTitle), systemImage: "gearshape")
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("New host", systemImage: "desktopcomputer") { editing = .new }
-                    Button("New group", systemImage: "folder") { groupEditing = .new }
+                    Button(String(localized: .addHostTitle), systemImage: "desktopcomputer") { editing = .new }
+                    Button(String(localized: .groupDialogTitleNew), systemImage: "folder") { groupEditing = .new }
                 } label: {
-                    Label("Add", systemImage: "plus")
+                    Label(String(localized: .hostsAddHostCd), systemImage: "plus")
                 }
             }
         }
@@ -102,18 +102,18 @@ struct HostsScreen: View {
             SessionPickerSheet(host: host) { sessionPickerHost = nil }
         }
         .alert(
-            "Delete host?",
+            String(localized: .hostsDeleteTitle),
             isPresented: .init(get: { hostToDelete != nil }, set: { if !$0 { hostToDelete = nil } }),
             presenting: hostToDelete
         ) { host in
-            Button("Cancel", role: .cancel) { hostToDelete = nil }
-            Button("Delete", role: .destructive) {
+            Button(String(localized: .actionCancel), role: .cancel) { hostToDelete = nil }
+            Button(String(localized: .actionDelete), role: .destructive) {
                 let target = host
                 hostToDelete = nil
                 Task { await model?.delete(target) }
             }
         } message: { host in
-            Text("\(host.label) will be removed. Sessions already open stay connected.")
+            Text(String(localized: .hostsDeleteMessage).replacingOccurrences(of: "%1$@", with: host.label))
         }
         .sheet(item: $groupEditing) { target in
             NavigationStack {
@@ -126,18 +126,18 @@ struct HostsScreen: View {
             }
         }
         .alert(
-            "Delete group?",
+            String(localized: .groupDeleteTitle),
             isPresented: .init(get: { groupToDelete != nil }, set: { if !$0 { groupToDelete = nil } }),
             presenting: groupToDelete
         ) { group in
-            Button("Cancel", role: .cancel) { groupToDelete = nil }
-            Button("Delete", role: .destructive) {
+            Button(String(localized: .actionCancel), role: .cancel) { groupToDelete = nil }
+            Button(String(localized: .actionDelete), role: .destructive) {
                 let target = group
                 groupToDelete = nil
                 Task { await model?.delete(target) }
             }
         } message: { group in
-            Text("\(group.name) will be removed. Its hosts are kept and become ungrouped.")
+            Text(String(localized: .groupDeleteMessage).replacingOccurrences(of: "%1$@", with: group.name))
         }
     }
 
@@ -145,11 +145,11 @@ struct HostsScreen: View {
     private func content(_ model: HostsModel) -> some View {
         if model.isEmpty {
             ContentUnavailableView {
-                Label("No hosts", systemImage: "desktopcomputer")
+                Label(String(localized: .hostsEmpty), systemImage: "desktopcomputer")
             } description: {
-                Text("Add a host to connect to it.")
+                EmptyView()
             } actions: {
-                Button("Add host") { editing = .new }
+                Button(String(localized: .hostsAddHostCd)) { editing = .new }
                     .buttonStyle(.borderedProminent)
             }
         } else {
@@ -165,8 +165,8 @@ struct HostsScreen: View {
                                 Task { await model.toggleCollapsed(group) }
                             }
                             .contextMenu {
-                                Button("Edit", systemImage: "pencil") { groupEditing = .existing(group) }
-                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                Button(String(localized: .actionEdit), systemImage: "pencil") { groupEditing = .existing(group) }
+                                Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) {
                                     groupToDelete = group
                                 }
                             }
@@ -197,14 +197,14 @@ struct HostsScreen: View {
             // here would let a slightly long swipe destroy it with no
             // deliberate press. Delete lives in the context menu instead.
             .swipeActions(edge: .trailing) {
-                Button("Edit", systemImage: "pencil") { editing = .existing(host) }
+                Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
                     .tint(.blue)
             }
             .contextMenu {
-                Button("New terminal", systemImage: "terminal") { openNew(host) }
+                Button(String(localized: .hostMenuNewTerminal), systemImage: "terminal") { openNew(host) }
                 Button("Browse files", systemImage: "folder") { browsing = host }
-                Button("Edit", systemImage: "pencil") { editing = .existing(host) }
-                Button("Delete", systemImage: "trash", role: .destructive) { hostToDelete = host }
+                Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
+                Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) { hostToDelete = host }
             }
         }
     }

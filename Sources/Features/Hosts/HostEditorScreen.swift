@@ -78,10 +78,10 @@ struct HostEditorScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button(String(localized: .actionCancel)) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
+                Button(String(localized: .actionSave)) { save() }
                     .disabled(!isValid)
             }
         }
@@ -105,7 +105,7 @@ struct HostEditorScreen: View {
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }
         )) {
-            Button("OK", role: .cancel) { saveError = nil }
+            Button(String(localized: .actionDone), role: .cancel) { saveError = nil }
         } message: {
             Text(saveError ?? "")
         }
@@ -115,28 +115,28 @@ struct HostEditorScreen: View {
 
     private var basicsSection: some View {
         Section {
-            TextField("Label", text: $label)
-            TextField("Hostname", text: $hostname)
+            TextField(String(localized: .hostFieldLabel), text: $label)
+            TextField(String(localized: .hostFieldHostname), text: $hostname)
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            TextField("Username", text: $username)
+            TextField(String(localized: .hostFieldUsername), text: $username)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            TextField("Port", text: $port)
+            TextField(String(localized: .hostFieldPort), text: $port)
                 .keyboardType(.numberPad)
         }
     }
 
     private var groupSection: some View {
-        Section("Group") {
-            Picker("Group", selection: $groupId) {
-                Text("None").tag(Int64?.none)
+        Section(String(localized: .hostGroupLabel)) {
+            Picker(String(localized: .hostGroupLabel), selection: $groupId) {
+                Text(.hostGroupNone).tag(Int64?.none)
                 ForEach(availableGroups) { group in
                     Text(group.name).tag(Int64?.some(group.id ?? -1))
                 }
             }
-            Button("New group…") { isCreatingGroup = true }
+            Button(String(localized: .hostGroupNew)) { isCreatingGroup = true }
         }
     }
 
@@ -144,7 +144,7 @@ struct HostEditorScreen: View {
         Section {
             ColorSwatchPicker(selection: $color)
         } header: {
-            Text("Colour")
+            Text(.hostColorLabel)
         } footer: {
             Text("Without a colour of its own, a host takes its group's.")
         }
@@ -152,8 +152,8 @@ struct HostEditorScreen: View {
 
     @ViewBuilder
     private var authenticationSection: some View {
-        Section("Authentication") {
-            Picker("Method", selection: $authMode) {
+        Section(String(localized: .hostSectionAuthentication)) {
+            Picker(String(localized: .hostAuthPassword), selection: $authMode) {
                 ForEach(AuthMode.allCases, id: \.self) { mode in
                     Text(mode.rawValue).tag(mode)
                 }
@@ -162,16 +162,16 @@ struct HostEditorScreen: View {
 
             switch authMode {
             case .password:
-                SecureField("Password", text: $password)
+                SecureField(String(localized: .hostFieldPassword), text: $password)
 
             case .key:
                 if availableKeys.isEmpty {
-                    Text("No keys yet. Create one from the key icon on the host list.")
+                    Text(.hostKeyNoKeys)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
-                    Picker("Key", selection: $keyId) {
-                        Text("None").tag(Int64?.none)
+                    Picker(String(localized: .hostAuthSshKey), selection: $keyId) {
+                        Text(.hostGroupNone).tag(Int64?.none)
                         ForEach(availableKeys) { key in
                             Text(key.label).tag(Int64?.some(key.id ?? -1))
                         }
@@ -183,8 +183,8 @@ struct HostEditorScreen: View {
 
     private var optionsSection: some View {
         Section {
-            Toggle("Agent forwarding", isOn: $agentForwarding)
-            Toggle("Allow legacy ciphers", isOn: $allowLegacyCiphers)
+            Toggle(String(localized: .hostAgentForwarding), isOn: $agentForwarding)
+            Toggle(String(localized: .hostAllowLegacyCiphers), isOn: $allowLegacyCiphers)
         } header: {
             Text("Options")
         } footer: {
@@ -195,15 +195,15 @@ struct HostEditorScreen: View {
     @ViewBuilder
     private var jumpHostsSection: some View {
         Section {
-            Picker("Mode", selection: $jumpMode) {
-                Text("Simple").tag(Host.JumpMode.simple)
-                Text("Host list").tag(Host.JumpMode.hostList)
+            Picker(String(localized: .hostJumpModeSimple), selection: $jumpMode) {
+                Text(.hostJumpModeSimple).tag(Host.JumpMode.simple)
+                Text(.hostJumpModeHostList).tag(Host.JumpMode.hostList)
             }
             .pickerStyle(.segmented)
 
             switch jumpMode {
             case .simple:
-                TextField("host1:22,user@host2:2222", text: $jumpHostsText)
+                TextField(String(localized: .hostJumpHostsPlaceholder), text: $jumpHostsText)
                     .keyboardType(.URL)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
@@ -217,12 +217,12 @@ struct HostEditorScreen: View {
                     ForEach(Array(jumpHostIds.enumerated()), id: \.offset) { index, selected in
                         HStack {
                             Picker("Hop \(index + 1)", selection: binding(forHopAt: index)) {
-                                Text("Select host…").tag(Int64(0))
+                                Text(.hostJumpSelectPlaceholder).tag(Int64(0))
                                 ForEach(jumpCandidates) { candidate in
                                     Text(candidate.label).tag(candidate.id ?? -1)
                                 }
                             }
-                            Button("Remove", systemImage: "minus.circle.fill") {
+                            Button(String(localized: .hostColorRemove), systemImage: "minus.circle.fill") {
                                 jumpHostIds.remove(at: index)
                             }
                             .labelStyle(.iconOnly)
@@ -232,13 +232,13 @@ struct HostEditorScreen: View {
                         .id(selected)
                     }
 
-                    Button("Add jump host", systemImage: "plus") {
+                    Button(String(localized: .hostJumpAdd), systemImage: "plus") {
                         jumpHostIds.append(0)
                     }
                 }
             }
         } header: {
-            Text("Jump hosts")
+            Text(.hostSectionJumpHosts)
         } footer: {
             jumpHostsFooter
         }
@@ -249,9 +249,9 @@ struct HostEditorScreen: View {
         VStack(alignment: .leading, spacing: 4) {
             switch jumpMode {
             case .simple:
-                Text("Comma-separated: [user@]host[:port]. Defaults to port 22 and the same username.")
+                Text(.hostJumpHostsSupporting)
             case .hostList:
-                Text("Each hop uses that host's own saved credentials.")
+                Text(.hostJumpModeHostList)
                 if unusableJumpCandidateCount > 0 {
                     Text("\(unusableJumpCandidateCount) host(s) are not listed because they have no saved password or key, which a hop cannot prompt for.")
                 }
@@ -273,7 +273,7 @@ struct HostEditorScreen: View {
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
         } header: {
-            Text("Port forwarding")
+            Text(.hostSectionPortForwarding)
         } footer: {
             Text("One rule per line: [bindAddr:]localPort:remoteHost:remotePort. An -L prefix is accepted. Forwarding starts working in a later version.")
         }
@@ -281,31 +281,31 @@ struct HostEditorScreen: View {
 
     private var startDirectorySection: some View {
         Section {
-            Picker("Start in", selection: $sftpStartMode) {
-                Text("Last visited").tag(Host.SFTPStartMode.last)
-                Text("Fixed path").tag(Host.SFTPStartMode.fixed)
-                Text("Home").tag(Host.SFTPStartMode.home)
+            Picker(String(localized: .hostSectionStartDirectory), selection: $sftpStartMode) {
+                Text(.hostStartModeLast).tag(Host.SFTPStartMode.last)
+                Text(.hostStartModeFixed).tag(Host.SFTPStartMode.fixed)
+                Text(.hostStartModeHome).tag(Host.SFTPStartMode.home)
             }
 
             // Editable only for a fixed path: the other two modes are computed,
             // so an editable field would imply a choice that is not there.
-            TextField("Path", text: sftpStartMode == .home ? .constant("~") : $sftpStartDir)
+            TextField(String(localized: .hostFieldStartDirectory), text: sftpStartMode == .home ? .constant("~") : $sftpStartDir)
                 .disabled(sftpStartMode != .fixed)
                 .foregroundStyle(sftpStartMode == .fixed ? .primary : .secondary)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
         } header: {
-            Text("SFTP start directory")
+            Text(.hostSectionStartDirectory)
         }
     }
 
     private var hostKeysSection: some View {
         Section {
-            Toggle("Forget saved host keys", isOn: $resetHostKeys)
+            Toggle(String(localized: .hostResetHostKeys), isOn: $resetHostKeys)
         } header: {
-            Text("Host keys")
+            Text(.hostResetHostKeys)
         } footer: {
-            Text("Clears the pinned key for this host and any cached jump-host keys, so the next connection asks you to check the fingerprint again. Use this when a server has legitimately been rebuilt.")
+            Text(.hostResetHostKeysHint)
         }
     }
 

@@ -17,7 +17,7 @@ struct ConnectionAlerts: ViewModifier {
         content
             .alert("Password", isPresented: needsPassword) {
                 SecureField("Password", text: $passwordInput)
-                Button("Cancel", role: .cancel, action: onCancel)
+                Button(String(localized: .actionCancel), role: .cancel, action: onCancel)
                 Button("Connect") {
                     let password = passwordInput
                     passwordInput = ""
@@ -31,7 +31,7 @@ struct ConnectionAlerts: ViewModifier {
                 isPresented: needsHostKey,
                 presenting: hostKeyInfo
             ) { _ in
-                Button("Cancel", role: .cancel, action: onCancel)
+                Button(String(localized: .actionCancel), role: .cancel, action: onCancel)
                 Button("Accept", role: isChange ? .destructive : nil) {
                     Task { await model.connect(acceptHostKey: true) }
                 }
@@ -96,7 +96,7 @@ struct FileAlerts: ViewModifier {
         content
             .alert("New folder", isPresented: $isCreatingFolder) {
                 TextField("Name", text: $newFolderName)
-                Button("Cancel", role: .cancel) {}
+                Button(String(localized: .actionCancel), role: .cancel) {}
                 Button("Create") {
                     let name = newFolderName.trimmed
                     guard !name.isEmpty else { return }
@@ -105,8 +105,8 @@ struct FileAlerts: ViewModifier {
             }
             .alert("Rename", isPresented: isRenaming) {
                 TextField("Name", text: $renameInput)
-                Button("Cancel", role: .cancel) { renaming = nil }
-                Button("Rename") {
+                Button(String(localized: .actionCancel), role: .cancel) { renaming = nil }
+                Button(String(localized: .sftpMenuRename)) {
                     guard let entry = renaming else { return }
                     let name = renameInput.trimmed
                     renaming = nil
@@ -116,8 +116,8 @@ struct FileAlerts: ViewModifier {
                 }
             }
             .alert("Delete?", isPresented: isDeleting, presenting: deleting) { entry in
-                Button("Cancel", role: .cancel) { deleting = nil }
-                Button("Delete", role: .destructive) {
+                Button(String(localized: .actionCancel), role: .cancel) { deleting = nil }
+                Button(String(localized: .actionDelete), role: .destructive) {
                     let target = entry
                     deleting = nil
                     Task { await model.delete(target) }
@@ -128,7 +128,7 @@ struct FileAlerts: ViewModifier {
                      : "\(entry.name) will be deleted on the server. This cannot be undone.")
             }
             .alert("Failed", isPresented: hasActionError) {
-                Button("OK", role: .cancel) { model.actionError = nil }
+                Button(String(localized: .actionDone), role: .cancel) { model.actionError = nil }
             } message: {
                 Text(model.actionError ?? "")
             }

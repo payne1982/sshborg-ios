@@ -29,7 +29,7 @@ struct GroupEditorScreen: View {
     var body: some View {
         Form {
             Section {
-                TextField("Name", text: $name)
+                TextField(String(localized: .groupDialogName), text: $name)
             }
 
             Section("Colour") {
@@ -46,10 +46,10 @@ struct GroupEditorScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button(String(localized: .actionCancel)) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
+                Button(String(localized: .actionSave)) { save() }
                     .disabled(!isValid)
             }
         }

@@ -28,12 +28,12 @@ struct KeysScreen: View {
                 ProgressView()
             }
         }
-        .navigationTitle("SSH keys")
+        .navigationTitle(Text(.keysTitle))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Generate…", systemImage: "wand.and.stars") { isGenerating = true }
-                    Button("Import…", systemImage: "square.and.arrow.down") { isImporting = true }
+                    Button(String(localized: .keysGenerateCd), systemImage: "wand.and.stars") { isGenerating = true }
+                    Button(String(localized: .keysImportCd), systemImage: "square.and.arrow.down") { isImporting = true }
                 } label: {
                     Label("Add", systemImage: "plus")
                 }
@@ -68,8 +68,8 @@ struct KeysScreen: View {
             ),
             presenting: pendingDeletion
         ) { pending in
-            Button("Cancel", role: .cancel) { pendingDeletion = nil }
-            Button("Delete", role: .destructive) {
+            Button(String(localized: .actionCancel), role: .cancel) { pendingDeletion = nil }
+            Button(String(localized: .keysDeleteCd), role: .destructive) {
                 let key = pending.key
                 pendingDeletion = nil
                 Task { await model?.delete(key) }
@@ -87,13 +87,13 @@ struct KeysScreen: View {
     private func content(_ model: KeysModel) -> some View {
         if model.keys.isEmpty {
             ContentUnavailableView {
-                Label("No keys", systemImage: "key")
+                Label(String(localized: .keysEmpty), systemImage: "key")
             } description: {
                 Text("Generate a key, or import one you already use.")
             } actions: {
-                Button("Generate a key") { isGenerating = true }
+                Button(String(localized: .keygenTitle)) { isGenerating = true }
                     .buttonStyle(.borderedProminent)
-                Button("Import") { isImporting = true }
+                Button(String(localized: .keysImportAction)) { isImporting = true }
             }
         } else {
             List {
@@ -101,10 +101,10 @@ struct KeysScreen: View {
                     Button { inspecting = key } label: { KeyRow(key: key) }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            Button("Copy public key", systemImage: "doc.on.doc") {
+                            Button(String(localized: .keysShowPublicKeyCd), systemImage: "doc.on.doc") {
                                 UIPasteboard.general.string = key.publicKey
                             }
-                            Button("Delete", systemImage: "trash", role: .destructive) {
+                            Button(String(localized: .keysDeleteCd), systemImage: "trash", role: .destructive) {
                                 Task {
                                     pendingDeletion = PendingDeletion(
                                         key: key,
@@ -161,13 +161,13 @@ private struct KeyGeneratorSheet: View {
     var body: some View {
         Form {
             Section {
-                TextField("Name", text: $label)
+                TextField(String(localized: .keygenFieldLabel), text: $label)
             } footer: {
                 Text("Also stored as the key's comment, which is what a server shows in its logs.")
             }
 
             Section {
-                Picker("Type", selection: $type) {
+                Picker(String(localized: .keygenKeyType), selection: $type) {
                     ForEach(SSHKey.KeyType.allCases, id: \.self) { type in
                         Text(type.displayName).tag(type)
                     }
@@ -183,31 +183,31 @@ private struct KeyGeneratorSheet: View {
                     }
                 }
             } header: {
-                Text("Type")
+                Text(.keygenKeyType)
             } footer: {
                 if type == .ed25519 {
-                    Text("Ed25519 is the recommended choice: short, fast, and secure. It has one size.")
+                    Text(.keygenFixedSize)
                 }
             }
         }
-        .navigationTitle("Generate key")
+        .navigationTitle(Text(.keygenTitle))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button(String(localized: .actionCancel)) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Generate") { generate() }
+                Button(String(localized: .actionGenerate)) { generate() }
                     .disabled(label.trimmed.isEmpty || isWorking)
             }
         }
         .onChange(of: type, initial: true) {
             bits = SSHKeyGenerator.defaultSize(for: type) ?? 0
         }
-        .alert("Could not generate", isPresented: .init(
+        .alert(String(localized: .errorUnknown), isPresented: .init(
             get: { error != nil }, set: { if !$0 { error = nil } }
         )) {
-            Button("OK", role: .cancel) { error = nil }
+            Button(String(localized: .actionDone), role: .cancel) { error = nil }
         } message: {
             Text(error ?? "")
         }
@@ -249,38 +249,38 @@ private struct KeyImportSheet: View {
     var body: some View {
         Form {
             Section {
-                TextField("Name (optional)", text: $label)
+                TextField(String(localized: .keygenFieldLabel), text: $label)
             } footer: {
                 Text("Left blank, the key's own comment is used.")
             }
 
             Section {
-                Button("Choose a file…", systemImage: "folder") { isChoosingFile = true }
+                Button(String(localized: .keysImportLoadFromFile), systemImage: "folder") { isChoosingFile = true }
                 TextEditor(text: $text)
                     .font(.caption.monospaced())
                     .frame(minHeight: 160)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
             } header: {
-                Text("Private key")
+                Text(.keysImportPemLabel)
             } footer: {
-                Text("Paste the private key file — the one without the .pub extension.")
+                Text(.keysImportPemLabel)
             }
 
             Section {
-                SecureField("Passphrase", text: $passphrase)
+                SecureField(String(localized: .keysImportPassphraseLabel), text: $passphrase)
             } footer: {
-                Text("Only needed if the key is protected by one. It unlocks the key for import and is not stored.")
+                Text(.keysImportPassphraseLabel)
             }
         }
-        .navigationTitle("Import key")
+        .navigationTitle(Text(.keysImportTitle))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button(String(localized: .actionCancel)) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Import") { performImport() }
+                Button(String(localized: .keysImportAction)) { performImport() }
                     .disabled(text.trimmed.isEmpty)
             }
         }
@@ -300,10 +300,10 @@ private struct KeyImportSheet: View {
                 self.error = "That file could not be read as text."
             }
         }
-        .alert("Could not import", isPresented: .init(
+        .alert(String(localized: .keysImportErrorInvalid), isPresented: .init(
             get: { error != nil }, set: { if !$0 { error = nil } }
         )) {
-            Button("OK", role: .cancel) { error = nil }
+            Button(String(localized: .actionDone), role: .cancel) { error = nil }
         } message: {
             Text(error ?? "")
         }
@@ -335,7 +335,7 @@ private struct KeyDetailSheet: View {
 
     var body: some View {
         Form {
-            Section("Public key") {
+            Section(String(localized: .keysPublicKeyLabel)) {
                 Text(key.publicKey)
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
@@ -361,7 +361,7 @@ private struct KeyDetailSheet: View {
             }
 
             Section {
-                Text("Add the public key above to ~/.ssh/authorized_keys on the server to log in with this key.")
+                Text(.keysPublicKeyLabel)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -370,7 +370,7 @@ private struct KeyDetailSheet: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Done") { dismiss() }
+                Button(String(localized: .actionDone)) { dismiss() }
             }
         }
     }

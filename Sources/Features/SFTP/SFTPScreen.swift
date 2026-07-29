@@ -70,7 +70,7 @@ struct SFTPScreen: View {
                 isPresented: .init(get: { uploadConflict != nil }, set: { if !$0 { uploadConflict = nil } }),
                 presenting: uploadConflict
             ) { conflict in
-                Button("Cancel", role: .cancel) { uploadConflict = nil }
+                Button(String(localized: .actionCancel), role: .cancel) { uploadConflict = nil }
                 Button("Keep both") {
                     let pending = conflict
                     uploadConflict = nil
@@ -134,7 +134,7 @@ struct SFTPScreen: View {
         if model.phase == .browsing {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("New folder", systemImage: "folder.badge.plus") {
+                    Button(String(localized: .sftpMkdirTitle), systemImage: "folder.badge.plus") {
                         newFolderName = ""
                         isCreatingFolder = true
                     }
@@ -252,16 +252,16 @@ struct SFTPScreen: View {
                     .disabled(!entry.isDirectory)
                     .contextMenu {
                         if !entry.isDirectory {
-                            Button("Download", systemImage: "arrow.down.circle") {
+                            Button(String(localized: .sftpDownloadCd), systemImage: "arrow.down.circle") {
                                 guard let session = model.activeSession else { return }
                                 transfers.download(entry, from: model.path, using: session)
                             }
                         }
-                        Button("Rename", systemImage: "pencil") {
+                        Button(String(localized: .sftpMenuRename), systemImage: "pencil") {
                             renameInput = entry.name
                             renaming = entry
                         }
-                        Button("Delete", systemImage: "trash", role: .destructive) {
+                        Button(String(localized: .sftpMenuDelete), systemImage: "trash", role: .destructive) {
                             deleting = entry
                         }
                     }

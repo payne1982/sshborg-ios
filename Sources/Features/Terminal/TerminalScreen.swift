@@ -84,9 +84,9 @@ struct TerminalScreen: View {
             await session.loadHistory(preferences: environment.preferences)
         }
         .alert("Password", isPresented: needsPasswordBinding(for: session)) {
-            SecureField("Password", text: $passwordInput)
-            Button("Cancel", role: .cancel) { manager.close(session) }
-            Button("Connect") {
+            SecureField(String(localized: .hostFieldPassword), text: $passwordInput)
+            Button(String(localized: .actionCancel), role: .cancel) { manager.close(session) }
+            Button(String(localized: .actionConnect)) {
                 let password = passwordInput
                 passwordInput = ""
                 Task { await session.connect(password: password) }
@@ -99,7 +99,7 @@ struct TerminalScreen: View {
             isPresented: needsHostKeyBinding(for: session),
             presenting: hostKeyInfo(for: session)
         ) { _ in
-            Button("Cancel", role: .cancel) { manager.close(session) }
+            Button(String(localized: .actionCancel), role: .cancel) { manager.close(session) }
             Button("Accept", role: hostKeyIsChange(for: session) ? .destructive : nil) {
                 Task { await session.connect(acceptHostKey: true) }
             }
