@@ -16,6 +16,22 @@ enum BiometricLock {
         case biometrics(LABiometryType)
         case passcodeOnly
         case unavailable
+
+        /// What to call this in the interface.
+        ///
+        /// Apple's guidelines require the actual mechanism to be named — a
+        /// device with Touch ID must not be told about Face ID — so the label
+        /// follows what the device reports rather than being fixed text.
+        var displayName: String {
+            switch self {
+            case .biometrics(.faceID): "Face ID"
+            case .biometrics(.touchID): "Touch ID"
+            case .biometrics(.opticID): "Optic ID"
+            case .biometrics: "biometrics"
+            case .passcodeOnly: "passcode"
+            case .unavailable: "biometrics"
+            }
+        }
     }
 
     /// What this device can actually do right now. Re-evaluate on each use:

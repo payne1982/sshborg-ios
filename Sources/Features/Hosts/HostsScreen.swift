@@ -67,6 +67,13 @@ struct HostsScreen: View {
                     Label("SSH keys", systemImage: "key")
                 }
             }
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    SettingsScreen()
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button("New host", systemImage: "desktopcomputer") { editing = .new }
