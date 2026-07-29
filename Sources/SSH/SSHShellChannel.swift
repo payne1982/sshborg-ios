@@ -41,6 +41,11 @@ final class SSHShellChannel {
 
     private(set) var exitStatus: Int32?
 
+    /// Why the output stream ended. A shell that stops is indistinguishable from
+    /// one that never had anything to say, so the reason is recorded rather than
+    /// inferred. Read after the stream finishes.
+    private(set) var finishReason: String?
+
     private enum Pump {
         /// Delay after a read that produced nothing.
         static let minimumDelay: TimeInterval = 0.02
@@ -68,7 +73,8 @@ final class SSHShellChannel {
         queue: DispatchQueue,
         term: String,
         columns: Int,
-        rows: Int
+        rows: Int,
+        requestAgentForwarding: Bool = false
     ) throws {
         self.session = session
         self.queue = queue
@@ -107,6 +113,14 @@ final class SSHShellChannel {
         }
         guard ptyResult == 0 else {
             throw SSHError.fromSession(session, fallback: "the server refused a PTY")
+        }
+
+        // Asked for before the shell starts, so SSH_AUTH_SOCK is already in the
+        // environment the shell inherits. A server with AllowAgentForwarding no
+        // simply refuses, and that is not worth failing the connection over —
+        // the user gets a shell, just without an agent in it.
+        if requestAgentForwarding {
+            _ = libssh2_channel_request_auth_agent(channel)
         }
 
         guard libssh2_channel_process_startup(channel, "shell", 5, nil, 0) == 0 else {
@@ -193,8 +207,20 @@ final class SSHShellChannel {
                 return readAny
             }
 
-            // Zero means the peer sent EOF; anything else is a real failure.
-            // Either way the shell is over.
+            if count == 0 {
+                // Zero is *not* proof of EOF: libssh2 also returns it when this
+                // read produced nothing for this channel, which happens when the
+                // packet it processed belonged to another one. Agent forwarding
+                // makes that routine — the auth-agent channel opens inside this
+                // very read — and treating it as EOF killed the shell the moment
+                // the remote touched SSH_AUTH_SOCK. Only `channel_eof` decides.
+                guard libssh2_channel_eof(channel) == 1 else { return readAny }
+                finishReason = "eof"
+            } else {
+                finishReason = "read error \(count)"
+            }
+
+            // A genuine EOF, or a real error. Either way the shell is over.
             finish()
             return readAny
         }
@@ -275,6 +301,7 @@ final class SSHShellChannel {
         queue.async { [weak self] in
             guard let self, let channel = self.channel else { return }
             _ = libssh2_channel_close(channel)
+            self.finishReason = self.finishReason ?? "closed by caller"
             self.finish()
         }
     }
@@ -284,6 +311,7 @@ final class SSHShellChannel {
     /// The session uses this to stop the pump before it frees the session and
     /// closes the socket, so no scheduled work can touch a dangling handle.
     func teardownOnQueue() {
+        finishReason = finishReason ?? "session teardown"
         finish()
     }
 

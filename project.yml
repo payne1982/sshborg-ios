@@ -58,6 +58,15 @@ packages:
   CSSH2:
     url: https://github.com/Lakr233/libssh2-spm
     from: 2.0.3
+  # Already in the graph as libssh2's crypto backend; declared here so Swift can
+  # import it too. Agent forwarding has to sign with an RSA key held as OpenSSH
+  # stores it — n, e, d, p, q and no dp/dq — which SecKey cannot load, so
+  # SSHSigner uses OpenSSL's bignums instead of growing its own. The version
+  # range matches libssh2-spm's exactly, so SPM resolves one shared checkout and
+  # the binary gains nothing.
+  OpenSSL:
+    url: https://github.com/Lakr233/openssl-spm
+    from: 3.6.0
 
 targets:
   SSHBorg:
@@ -78,6 +87,8 @@ targets:
         product: GRDB
       - package: CSSH2
         product: CSSH2
+      - package: OpenSSL
+        product: OpenSSL
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sshborg

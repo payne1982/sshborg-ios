@@ -43,6 +43,13 @@ final class SSHSession: @unchecked Sendable {
     /// Retained so the whole chain below stays alive, and torn down after it.
     private var tunnel: SSHTunnel?
 
+    /// Serves this session's forwarded agent, when the host asked for one.
+    private var agentForwarder: AgentForwarder?
+
+    /// Owns the object in libssh2's abstract pointer. Released only after
+    /// `libssh2_session_free`, because a callback can fire until then.
+    private var context: Unmanaged<SSHSessionContext>?
+
     /// Host keys seen for the first time on a hop, for the caller to store.
     /// Empty on a direct connection.
     private(set) var newJumpHostKeys: [JumpHostKey] = []
@@ -59,7 +66,9 @@ final class SSHSession: @unchecked Sendable {
         hostKey: HostKeyInfo,
         hostname: String,
         queue: DispatchQueue,
-        tunnel: SSHTunnel? = nil
+        tunnel: SSHTunnel? = nil,
+        context: Unmanaged<SSHSessionContext>? = nil,
+        agentForwarder: AgentForwarder? = nil
     ) {
         self.session = session
         self.socket = socket
@@ -67,6 +76,8 @@ final class SSHSession: @unchecked Sendable {
         self.hostname = hostname
         self.queue = queue
         self.tunnel = tunnel
+        self.context = context
+        self.agentForwarder = agentForwarder
     }
 
     deinit {
@@ -74,10 +85,13 @@ final class SSHSession: @unchecked Sendable {
         // these handles.
         keepAliveTimer?.cancel()
         shellChannel?.teardownOnQueue()
+        agentForwarder?.stopOnQueue()
         if let session {
             libssh2_session_disconnect_ex(session, SSH_DISCONNECT_BY_APPLICATION, "closing", "")
             libssh2_session_free(session)
         }
+        context?.release()
+        context = nil
         if socket >= 0 { close(socket) }
         tunnel?.close()
     }
@@ -229,19 +243,31 @@ final class SSHSession: @unchecked Sendable {
             throw SSHError.library(code: 0, message: "could not allocate session")
         }
 
+        // One context per session, shared by the tunnel and the agent — see
+        // ``SSHSessionContext`` for why they cannot each have their own.
+        let context = SSHSessionContext.attach(to: session)
+
         var succeeded = false
         defer {
             if !succeeded {
                 libssh2_session_free(session)
+                context.release()
                 if ownsSocket { close(socket) }
             }
+        }
+
+        // Off unless asked for: tracing prints every packet to stderr, which is
+        // useful for a day and unacceptable in a shipped build. Enable with
+        // SSHBORG_LIBSSH2_TRACE=1 in the test environment.
+        if ProcessInfo.processInfo.environment["SSHBORG_LIBSSH2_TRACE"] == "1" {
+            libssh2_trace(session, LIBSSH2_TRACE_CONN | LIBSSH2_TRACE_ERROR)
         }
 
         libssh2_session_set_blocking(session, 1)
         libssh2_session_set_timeout(session, Int(params.connectTimeout * 1000))
         // Must be attached before the handshake: it is the first thing to put
         // bytes on the wire.
-        tunnel?.attach(to: session)
+        tunnel?.attach(to: session, context: context.takeUnretainedValue())
         SSHAlgorithms.applyPreferences(to: session, allowLegacy: params.allowLegacyCiphers)
 
         guard libssh2_session_handshake(session, socket) == 0 else {
@@ -252,18 +278,62 @@ final class SSHSession: @unchecked Sendable {
         try verify(hostKey: hostKey, policy: params.hostKeyPolicy)
         try authenticate(session: session, params: params)
 
+        // Set up after authentication: an agent is only ever asked for anything
+        // once a channel exists, and a key that fails to load should not be a
+        // reason the connection itself fails.
+        let agentForwarder = makeAgentForwarder(
+            params: params,
+            session: session,
+            queue: queue,
+            context: context.takeUnretainedValue()
+        )
+
         let sshSession = SSHSession(
             session: session,
             socket: ownsSocket ? socket : -1,
             hostKey: hostKey,
             hostname: params.hostname,
             queue: queue,
-            tunnel: tunnel
+            tunnel: tunnel,
+            context: context,
+            agentForwarder: agentForwarder
         )
         sshSession.startKeepAlive(interval: params.keepAliveInterval)
 
         succeeded = true
         return sshSession
+    }
+
+    // MARK: - Agent forwarding
+
+    /// Loads the identities the agent will serve and installs the callback.
+    ///
+    /// A key that cannot be read is dropped rather than fatal: it would be a
+    /// poor trade to refuse a connection because one of several stored keys has
+    /// an algorithm this build cannot sign with. The remote `ssh-add -l` shows
+    /// what did load, which is where the user would look anyway.
+    private static func makeAgentForwarder(
+        params: SSHConnectionParams,
+        session: OpaquePointer,
+        queue: DispatchQueue,
+        context: SSHSessionContext
+    ) -> AgentForwarder? {
+        guard params.agentForwarding else { return nil }
+
+        let identities = params.agentIdentities.compactMap { identity in
+            try? SSHSigner.make(
+                privateKeyPEM: identity.privateKeyPEM,
+                passphrase: identity.passphrase,
+                comment: identity.comment.isEmpty ? nil : identity.comment
+            )
+        }
+
+        let forwarder = AgentForwarder(
+            agent: SSHAgent(identities: identities),
+            queue: queue
+        )
+        forwarder.install(on: session, context: context)
+        return forwarder
     }
 
     // MARK: - Host key
@@ -382,7 +452,8 @@ final class SSHSession: @unchecked Sendable {
                         queue: self.queue,
                         term: term,
                         columns: columns,
-                        rows: rows
+                        rows: rows,
+                        requestAgentForwarding: self.agentForwarder != nil
                     )
                     self.shellChannel = channel
                     continuation.resume(returning: channel)
@@ -391,6 +462,12 @@ final class SSHSession: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    /// How far the forwarded agent got, or `nil` when forwarding is off.
+    /// Exists for diagnosis: a failure on the far end is silent from here.
+    var agentDiagnostics: AgentForwarder.Diagnostics? {
+        agentForwarder?.diagnostics
     }
 
     // MARK: - Raw access
@@ -456,11 +533,20 @@ final class SSHSession: @unchecked Sendable {
             shellChannel?.teardownOnQueue()
             shellChannel = nil
 
+            // Agent channels are the server's, not ours, and outlive the shell:
+            // they have to go before the session that owns them.
+            agentForwarder?.stopOnQueue()
+            agentForwarder = nil
+
             if let session {
                 libssh2_session_disconnect_ex(session, SSH_DISCONNECT_BY_APPLICATION, "closing", "")
                 libssh2_session_free(session)
                 self.session = nil
             }
+            // Only now: until the session is freed, libssh2 could still call a
+            // callback that reaches through this pointer.
+            context?.release()
+            context = nil
             if socket >= 0 {
                 close(socket)
                 socket = -1

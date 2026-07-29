@@ -5,11 +5,11 @@ import Foundation
 /// Reads an existing private key well enough to file it: what type it is, what
 /// its public half is, and what comment it carries.
 ///
-/// This is the inverse of ``SSHKeyGenerator`` and shares its decoder. Note that
-/// SSHBorg never needs to *use* the parsed material — libssh2 is handed the PEM
-/// text and does its own parsing at authentication time. Everything here exists
-/// so the key list can show something meaningful and so the public key can be
-/// copied to a server.
+/// This is the inverse of ``SSHKeyGenerator``, and the container walk it needs
+/// lives in ``OpenSSHPrivateKeyFile``. Nothing here looks at the private half:
+/// for authentication libssh2 is handed the PEM text and parses it itself, and
+/// the one place that does need the private material — ``SSHSigner``, for agent
+/// forwarding — reads it from the shared parser directly.
 enum OpenSSHKeyImporter {
 
     struct ImportedKey {
@@ -50,8 +50,22 @@ enum OpenSSHKeyImporter {
         }
     }
 
-    private static let openSSHBegin = "-----BEGIN OPENSSH PRIVATE KEY-----"
+    private static let openSSHBegin = OpenSSHPrivateKeyFile.beginMarker
     private static let rsaBegin = "-----BEGIN RSA PRIVATE KEY-----"
+
+    /// Restates a parser failure in the words the key-import screen shows.
+    ///
+    /// The two enums are kept separate on purpose: the parser reports what the
+    /// bytes were, this reports what the user should do about it.
+    private static func imported(_ error: OpenSSHPrivateKeyFile.ParseError) -> ImportError {
+        switch error {
+        case .notOpenSSHFormat: .notAPrivateKey
+        case .malformed: .malformed
+        case .passphraseRequired: .passphraseRequired
+        case .wrongPassphrase: .wrongPassphrase
+        case .unsupportedAlgorithm(let name): .unsupportedAlgorithm(name)
+        }
+    }
 
     // MARK: - Entry point
 
@@ -74,109 +88,30 @@ enum OpenSSHKeyImporter {
     // MARK: - openssh-key-v1
 
     private static func parseOpenSSH(_ pem: String, passphrase: String?) throws -> ImportedKey {
-        let blob = try base64Body(of: pem)
-
-        let magic = Data("openssh-key-v1\0".utf8)
-        guard blob.count > magic.count, blob.prefix(magic.count) == magic else {
-            throw ImportError.malformed
-        }
-
-        var decoder = SSHWireDecoder(blob.dropFirst(magic.count))
-
+        let contents: OpenSSHPrivateKeyFile.Contents
         do {
-            let cipher = try decoder.readStringAsText()
-            let kdf = try decoder.readStringAsText()
-            let kdfOptions = try decoder.readString()
-
-            let keyCount = try decoder.readUInt32()
-            guard keyCount == 1 else { throw ImportError.malformed }
-
-            let publicBlob = try decoder.readString()
-            var section = try decoder.readString()
-
-            // Anything other than "none" means the private half is encrypted.
-            if cipher != "none" || kdf != "none" {
-                guard let passphrase, !passphrase.isEmpty else {
-                    throw ImportError.passphraseRequired
-                }
-                do {
-                    section = try OpenSSHKeyDecryptor.decrypt(
-                        section: section,
-                        cipherName: cipher,
-                        kdfName: kdf,
-                        kdfOptions: kdfOptions,
-                        passphrase: passphrase
-                    )
-                } catch {
-                    throw ImportError.wrongPassphrase
-                }
-            }
-
-            let type = try algorithmType(of: publicBlob)
-            // The two check integers are how a wrong passphrase is told from a
-            // damaged file: garbage plaintext almost never produces a match.
-            let comment = try readComment(from: section, wasEncrypted: cipher != "none")
-
-            return ImportedKey(
-                privateKeyPEM: pem + "\n",
-                publicKeyLine: SSHKeyGenerator.publicLine(
-                    algorithm: try algorithmName(of: publicBlob),
-                    blob: publicBlob,
-                    comment: comment
-                ),
-                type: type,
-                comment: comment
-            )
-        } catch let error as ImportError {
-            throw error
-        } catch {
-            throw ImportError.malformed
-        }
-    }
-
-    /// The comment sits after the key material, so reaching it means walking the
-    /// per-algorithm fields first.
-    private static func readComment(from section: Data, wasEncrypted: Bool = false) throws -> String {
-        var decoder = SSHWireDecoder(section)
-
-        let first = try decoder.readUInt32()
-        let second = try decoder.readUInt32()
-        guard first == second else {
-            throw wasEncrypted ? ImportError.wrongPassphrase : ImportError.malformed
+            contents = try OpenSSHPrivateKeyFile.parse(pem: pem, passphrase: passphrase)
+        } catch let error as OpenSSHPrivateKeyFile.ParseError {
+            throw imported(error)
         }
 
-        let algorithm = try decoder.readStringAsText()
-
-        switch algorithm {
-        case "ssh-ed25519":
-            _ = try decoder.readString()   // public
-            _ = try decoder.readString()   // private
-        case let name where name.hasPrefix("ecdsa-sha2-"):
-            _ = try decoder.readString()   // curve
-            _ = try decoder.readString()   // point
-            _ = try decoder.readString()   // scalar
-        case "ssh-rsa":
-            for _ in 0..<6 { _ = try decoder.readString() }  // n, e, d, iqmp, p, q
-        default:
-            throw ImportError.unsupportedAlgorithm(algorithm)
-        }
-
-        return try decoder.readStringAsText()
+        return ImportedKey(
+            privateKeyPEM: pem + "\n",
+            publicKeyLine: SSHKeyGenerator.publicLine(
+                algorithm: contents.algorithm,
+                blob: contents.publicBlob,
+                comment: contents.comment
+            ),
+            type: try keyType(of: contents.algorithm),
+            comment: contents.comment
+        )
     }
 
-    private static func algorithmName(of publicBlob: Data) throws -> String {
-        var decoder = SSHWireDecoder(publicBlob)
-        return try decoder.readStringAsText()
-    }
-
-    private static func algorithmType(of publicBlob: Data) throws -> SSHKey.KeyType {
-        let name = try algorithmName(of: publicBlob)
-
-        switch name {
-        case "ssh-ed25519": return .ed25519
-        case "ssh-rsa": return .rsa
-        case let value where value.hasPrefix("ecdsa-sha2-"): return .ecdsa
-        default: throw ImportError.unsupportedAlgorithm(name)
+    private static func keyType(of algorithm: String) throws -> SSHKey.KeyType {
+        do {
+            return try OpenSSHPrivateKeyFile.keyType(of: algorithm)
+        } catch let error as OpenSSHPrivateKeyFile.ParseError {
+            throw imported(error)
         }
     }
 
@@ -220,15 +155,10 @@ enum OpenSSHKeyImporter {
 
     /// Everything between the BEGIN and END lines, base64-decoded.
     private static func base64Body(of pem: String) throws -> Data {
-        let body = pem
-            .split(separator: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.hasPrefix("-----") && !$0.isEmpty && !$0.contains(":") }
-            .joined()
-
-        guard let data = Data(base64Encoded: body), !data.isEmpty else {
-            throw ImportError.malformed
+        do {
+            return try OpenSSHPrivateKeyFile.base64Body(of: pem)
+        } catch let error as OpenSSHPrivateKeyFile.ParseError {
+            throw imported(error)
         }
-        return data
     }
 }

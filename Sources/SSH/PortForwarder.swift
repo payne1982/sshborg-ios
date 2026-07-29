@@ -296,7 +296,14 @@ private final class ForwardedConnection: @unchecked Sendable {
                     }
                     if read > 0 { return Data(buffer[0..<Int(read)]) }
                     if read == Int(LIBSSH2_ERROR_EAGAIN) { return Data() }
-                    return nil // EOF or error
+                    if read == 0 {
+                        // Same trap as in SSHShellChannel: zero means "nothing
+                        // for this channel just now" as well as EOF, so only
+                        // `channel_eof` may end the connection. Empty Data here
+                        // means "try again", not "no bytes ever".
+                        return libssh2_channel_eof(channel.pointer) == 1 ? nil : Data()
+                    }
+                    return nil // a real error
                 }
 
                 guard let chunk else { break }

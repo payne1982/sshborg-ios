@@ -8,6 +8,20 @@ enum SSHAuth: Equatable {
     case publicKey(privateKeyPEM: String, passphrase: String? = nil)
 }
 
+/// One key a forwarded agent will offer and sign with.
+///
+/// Kept separate from ``SSHAuth/publicKey(privateKeyPEM:passphrase:)`` because
+/// the two are different decisions: the auth key proves who you are to *this*
+/// server, while these are the keys you are willing to let that server borrow.
+struct AgentIdentity: Equatable {
+    var privateKeyPEM: String
+    var passphrase: String?
+
+    /// Shown by `ssh-add -l` on the far end. Falls back to the comment stored
+    /// in the key file when empty.
+    var comment: String = ""
+}
+
 /// A single local port-forwarding rule (`-L`).
 ///
 /// Connections to `bindAddress:localPort` are tunnelled to
@@ -71,6 +85,14 @@ struct SSHConnectionParams {
     var auth: SSHAuth
     var hostKeyPolicy: HostKeyPolicy = .promptIfUnknown
     var agentForwarding: Bool = false
+
+    /// Keys the forwarded agent offers. Ignored unless ``agentForwarding``.
+    ///
+    /// The SSH layer does not read the key store itself — the caller passes in
+    /// whichever identities the user has, already unlocked. An agent with no
+    /// identities is still useful: `SSH_AUTH_SOCK` exists on the far end and
+    /// answers "no keys", which is a truthful answer and not a broken socket.
+    var agentIdentities: [AgentIdentity] = []
 
     /// Ordered jump hosts to tunnel through before reaching the target.
     var jumpHosts: [JumpHost] = []

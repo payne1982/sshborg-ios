@@ -26,7 +26,6 @@ final class SSHTunnel {
     /// Held so the chain below this hop cannot be freed while it is in use.
     private let outer: SSHSession
     private let channel: OpaquePointer
-    private var context: Unmanaged<TunnelContext>?
 
     /// The real socket at the bottom of the chain, which every session in it
     /// waits on.
@@ -66,15 +65,13 @@ final class SSHTunnel {
     }
 
     /// Points a freshly created session's socket operations at this tunnel.
-    func attach(to innerSession: OpaquePointer) {
-        let context = TunnelContext(channel: channel)
-        let retained = Unmanaged.passRetained(context)
-        self.context = retained
-
-        // The abstract pointer is how a C callback finds its way back to us.
-        if let abstract = libssh2_session_abstract(innerSession) {
-            abstract.pointee = retained.toOpaque()
-        }
+    ///
+    /// `context` is the inner session's, already installed in its abstract
+    /// pointer by ``SSHSession``; the callbacks below find the channel through
+    /// it. It is shared with agent forwarding, so this sets one field and
+    /// leaves the rest alone.
+    func attach(to innerSession: OpaquePointer, context: SSHSessionContext) {
+        context.tunnelChannel = channel
 
         libssh2_session_callback_set2(
             innerSession,
@@ -92,18 +89,7 @@ final class SSHTunnel {
     func close() {
         libssh2_channel_close(channel)
         libssh2_channel_free(channel)
-        context?.release()
-        context = nil
         outer.disconnect()
-    }
-}
-
-/// What the C callbacks receive through libssh2's abstract pointer.
-private final class TunnelContext {
-    let channel: OpaquePointer
-
-    init(channel: OpaquePointer) {
-        self.channel = channel
     }
 }
 
@@ -111,18 +97,21 @@ private final class TunnelContext {
 /// negative `EAGAIN` as "would block" and waits on the socket before retrying.
 private let wouldBlock = -Int(EAGAIN)
 
-private func context(from abstract: UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> TunnelContext? {
-    guard let pointer = abstract?.pointee else { return nil }
-    return Unmanaged<TunnelContext>.fromOpaque(pointer).takeUnretainedValue()
+/// The tunnel channel a callback should work on, or `nil` if the session is not
+/// tunnelled — in which case libssh2 should never have called us at all.
+private func tunnelChannel(
+    from abstract: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
+) -> OpaquePointer? {
+    SSHSessionContext.from(abstract)?.tunnelChannel
 }
 
 private let tunnelSend: @convention(c) (
     libssh2_socket_t, UnsafeRawPointer?, Int, Int32, UnsafeMutablePointer<UnsafeMutableRawPointer?>?
 ) -> Int = { _, buffer, length, _, abstract in
-    guard let context = context(from: abstract), let buffer, length > 0 else { return wouldBlock }
+    guard let channel = tunnelChannel(from: abstract), let buffer, length > 0 else { return wouldBlock }
 
     let written = libssh2_channel_write_ex(
-        context.channel,
+        channel,
         0,
         buffer.assumingMemoryBound(to: CChar.self),
         length
@@ -137,10 +126,10 @@ private let tunnelSend: @convention(c) (
 private let tunnelReceive: @convention(c) (
     libssh2_socket_t, UnsafeMutableRawPointer?, Int, Int32, UnsafeMutablePointer<UnsafeMutableRawPointer?>?
 ) -> Int = { _, buffer, length, _, abstract in
-    guard let context = context(from: abstract), let buffer, length > 0 else { return wouldBlock }
+    guard let channel = tunnelChannel(from: abstract), let buffer, length > 0 else { return wouldBlock }
 
     let read = libssh2_channel_read_ex(
-        context.channel,
+        channel,
         0,
         buffer.assumingMemoryBound(to: CChar.self),
         length
@@ -150,7 +139,7 @@ private let tunnelReceive: @convention(c) (
     if read == 0 {
         // Zero from a channel means EOF, not "try again". Reporting it as a
         // would-block would hang the inner session forever.
-        return libssh2_channel_eof(context.channel) == 1 ? 0 : wouldBlock
+        return libssh2_channel_eof(channel) == 1 ? 0 : wouldBlock
     }
     return read < 0 ? -Int(ECONNRESET) : read
 }

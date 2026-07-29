@@ -89,15 +89,22 @@ final class PortForwardingIntegrationTests: XCTestCase {
         let channel = try await session.openShell(columns: 80, rows: 24)
         defer { channel.close() }
 
-        let marker = "FORWARDED_\(UUID().uuidString.prefix(8))"
-        channel.send(Data("echo \(marker)\n".utf8))
+        // Split by empty quotes in what is typed, so the echo of the command
+        // line reads `FORWARD''ED_x` and only the shell's own output contains
+        // the marker. Counting occurrences instead is not safe: a PTY echoes
+        // the line and the shell redraws it, so the marker can appear twice
+        // before the command has run — which is exactly how the agent
+        // forwarding tests came to read the prompt instead of the output.
+        let id = UUID().uuidString.prefix(8)
+        let marker = "FORWARDED_\(id)"
+        channel.send(Data("echo FORWARD''ED_\(id)\n".utf8))
 
         var output = ""
         let collector = Task { () -> String in
             var text = ""
             for await chunk in channel.output {
                 text += String(decoding: chunk, as: UTF8.self)
-                if text.components(separatedBy: marker).count > 2 { return text }
+                if text.contains(marker) { return text }
             }
             return text
         }
