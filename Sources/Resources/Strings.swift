@@ -369,6 +369,108 @@ extension LocalizedStringResource {
     /// SSHBorg
     static let hostsTitle = LocalizedStringResource("hosts_title")
 
+    /// Add
+    static let iosActionAdd = LocalizedStringResource("ios_action_add")
+
+    /// Reconnect
+    static let iosActionReconnect = LocalizedStringResource("ios_action_reconnect")
+
+    /// Retry
+    static let iosActionRetry = LocalizedStringResource("ios_action_retry")
+
+    /// Stop
+    static let iosActionStop = LocalizedStringResource("ios_action_stop")
+
+    /// Could not save
+    static let iosErrorSaveFailed = LocalizedStringResource("ios_error_save_failed")
+
+    /// %1$d port forwarding rules are not active
+    static let iosForwardingInactiveMany = LocalizedStringResource("ios_forwarding_inactive_many")
+
+    /// A port forwarding rule is not active
+    static let iosForwardingInactiveOne = LocalizedStringResource("ios_forwarding_inactive_one")
+
+    /// Colour
+    static let iosGroupColour = LocalizedStringResource("ios_group_colour")
+
+    /// Without a colour of its own, a host takes its group's.
+    static let iosHostColourFooter = LocalizedStringResource("ios_host_colour_footer")
+
+    /// %1$d hosts are not listed because they have no saved password or key, which a hop can…
+    static let iosHostHiddenCandidates = LocalizedStringResource("ios_host_hidden_candidates")
+
+    /// Hop %1$d
+    static let iosHostHopNumber = LocalizedStringResource("ios_host_hop_number")
+
+    /// Legacy ciphers let you reach old servers, at the cost of weaker cryptography. Leave o…
+    static let iosHostLegacyFooter = LocalizedStringResource("ios_host_legacy_footer")
+
+    /// No other host has a saved credential to use as a hop.
+    static let iosHostNoJumpCandidates = LocalizedStringResource("ios_host_no_jump_candidates")
+
+    /// Host key changed
+    static let iosHostkeyChangedTitle = LocalizedStringResource("ios_hostkey_changed_title")
+
+    /// Left blank, the key's own comment is used.
+    static let iosKeysCommentBlank = LocalizedStringResource("ios_keys_comment_blank")
+
+    /// Created
+    static let iosKeysCreated = LocalizedStringResource("ios_keys_created")
+
+    /// %1$@ is used by %2$d hosts. They will be kept but fall back to password authenticatio…
+    static let iosKeysDeleteImpact = LocalizedStringResource("ios_keys_delete_impact")
+
+    /// The private key cannot be recovered once deleted.
+    static let iosKeysDeleteWarning = LocalizedStringResource("ios_keys_delete_warning")
+
+    /// Details
+    static let iosKeysDetails = LocalizedStringResource("ios_keys_details")
+
+    /// Generate a key, or import one you already use.
+    static let iosKeysEmptyHint = LocalizedStringResource("ios_keys_empty_hint")
+
+    /// Fingerprint
+    static let iosKeysFingerprint = LocalizedStringResource("ios_keys_fingerprint")
+
+    /// Also stored as the key's comment, which is what a server shows in its logs.
+    static let iosKeysLabelFooter = LocalizedStringResource("ios_keys_label_footer")
+
+    /// Stored
+    static let iosKeysStored = LocalizedStringResource("ios_keys_stored")
+
+    /// Type
+    static let iosKeysType = LocalizedStringResource("ios_keys_type")
+
+    /// Enter the password for %1$@.
+    static let iosPasswordPrompt = LocalizedStringResource("ios_password_prompt")
+
+    /// Session %1$d
+    static let iosSessionNumber = LocalizedStringResource("ios_session_number")
+
+    /// Actions
+    static let iosSftpActions = LocalizedStringResource("ios_sftp_actions")
+
+    /// %1$@ already exists here. Keeping both saves it as %2$@.
+    static let iosSftpConflictDetail = LocalizedStringResource("ios_sftp_conflict_detail")
+
+    /// Upload…
+    static let iosSftpUpload = LocalizedStringResource("ios_sftp_upload")
+
+    /// Connecting to %1$@…
+    static let iosTerminalConnecting = LocalizedStringResource("ios_terminal_connecting")
+
+    /// No open sessions
+    static let iosTerminalNoSessions = LocalizedStringResource("ios_terminal_no_sessions")
+
+    /// Connect to a host to open a terminal.
+    static let iosTerminalNoSessionsHint = LocalizedStringResource("ios_terminal_no_sessions_hint")
+
+    /// Clear finished
+    static let iosTransfersClear = LocalizedStringResource("ios_transfers_clear")
+
+    /// Transfers
+    static let iosTransfersTitle = LocalizedStringResource("ios_transfers_title")
+
     /// Curve (bit)
     static let keygenCurveBits = LocalizedStringResource("keygen_curve_bits")
 

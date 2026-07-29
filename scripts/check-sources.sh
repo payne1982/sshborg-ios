@@ -57,6 +57,49 @@ if [ -n "$hits" ]; then
     echo "$hits"
 fi
 
+# 4. Localisation keys that do not exist in the catalog.
+#
+# `Text(.someKey)` and `String(localized: .someKey)` resolve against generated
+# constants, so a key that does not exist is a compile error — eventually, after
+# a four-minute round trip to the build machine. Four keys were invented in one
+# session by plausible analogy with real ones (host_dialog_title_new,
+# sftp_upload_cd, sftp_uploading_label, terminalTitle), which is a systematic
+# mistake rather than carelessness, so it gets a mechanical check.
+hits=$(python3 - <<'PYCHECK'
+import json, pathlib, re, sys
+
+catalog = pathlib.Path("Sources/Resources/Localizable.xcstrings")
+if not catalog.exists():
+    sys.exit(0)
+
+def identifier(key):
+    head, *rest = key.split("_")
+    name = head + "".join(p.capitalize() for p in rest)
+    return "_" + name if name[:1].isdigit() else name
+
+known = {identifier(k) for k in json.loads(catalog.read_text(encoding="utf-8"))["strings"]}
+
+used = re.compile(r'(?:String\(localized:\s*|Text\(|\bTogglee?\()\s*\.([a-z][A-Za-z0-9]*)')
+problems = []
+for path in sorted(pathlib.Path("Sources").rglob("*.swift")):
+    if path.name == "Strings.swift":
+        continue
+    text = path.read_text(encoding="utf-8")
+    for m in used.finditer(text):
+        name = m.group(1)
+        # SwiftUI has its own leading-dot members; only flag names that look
+        # like catalog keys and are absent from it.
+        if name not in known and re.match(r'^(ios|action|host|hosts|keys|keygen|settings|sftp|group|terminal|error|backup|about|timeout|hostkey|session|notification|transfer)', name):
+            problems.append(f"{path}:{text[:m.start()].count(chr(10)) + 1}: .{name}")
+
+print("\n".join(problems))
+PYCHECK
+)
+if [ -n "$hits" ]; then
+    fail "localisation key not in Localizable.xcstrings:"
+    echo "$hits"
+fi
+
 if [ "$status" -eq 0 ]; then
     printf '\033[32mok\033[0m — no known-pattern problems\n'
 fi

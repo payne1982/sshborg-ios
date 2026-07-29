@@ -66,7 +66,7 @@ struct SFTPScreen: View {
                 handlePickedFiles(result, model: model)
             }
             .alert(
-                "File exists",
+                String(localized: .sftpConflictTitle),
                 isPresented: .init(get: { uploadConflict != nil }, set: { if !$0 { uploadConflict = nil } }),
                 presenting: uploadConflict
             ) { conflict in
@@ -76,7 +76,7 @@ struct SFTPScreen: View {
                     uploadConflict = nil
                     startUpload(pending.localURL, named: pending.suggestedName, model: model)
                 }
-                Button("Replace", role: .destructive) {
+                Button(String(localized: .actionOverwrite), role: .destructive) {
                     let pending = conflict
                     uploadConflict = nil
                     startUpload(pending.localURL, named: pending.localURL.lastPathComponent, model: model)
@@ -107,11 +107,11 @@ struct SFTPScreen: View {
             case .failed(let message):
                 Spacer()
                 ContentUnavailableView {
-                    Label("Could not connect", systemImage: "exclamationmark.triangle")
+                    Label(String(localized: .errorConnectionFailed), systemImage: "exclamationmark.triangle")
                 } description: {
                     Text(message)
                 } actions: {
-                    Button("Retry") { Task { await model.connect() } }
+                    Button(String(localized: .iosActionRetry)) { Task { await model.connect() } }
                         .buttonStyle(.borderedProminent)
                 }
                 Spacer()
@@ -138,14 +138,14 @@ struct SFTPScreen: View {
                         newFolderName = ""
                         isCreatingFolder = true
                     }
-                    Button("Upload…", systemImage: "arrow.up.doc") {
+                    Button(String(localized: .iosSftpUpload), systemImage: "arrow.up.doc") {
                         isPickingUpload = true
                     }
                     Button("Refresh", systemImage: "arrow.clockwise") {
                         Task { await model.refresh() }
                     }
                 } label: {
-                    Label("Actions", systemImage: "ellipsis.circle")
+                    Label(String(localized: .iosSftpActions), systemImage: "ellipsis.circle")
                 }
             }
         }
@@ -237,7 +237,7 @@ struct SFTPScreen: View {
                     Button {
                         Task { await model.navigateUp() }
                     } label: {
-                        Label("..", systemImage: "arrow.turn.left.up")
+                        Label { Text(verbatim: "..") } icon: { Image(systemName: "arrow.turn.left.up") }
                             .foregroundStyle(.secondary)
                     }
                 }

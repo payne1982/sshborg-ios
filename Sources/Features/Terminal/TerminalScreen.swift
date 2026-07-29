@@ -26,18 +26,18 @@ struct TerminalScreen: View {
                 terminal(for: session)
             } else {
                 ContentUnavailableView(
-                    "No open sessions",
+                    String(localized: .iosTerminalNoSessions),
                     systemImage: "terminal",
-                    description: Text("Connect to a host to open a terminal.")
+                    description: Text(.iosTerminalNoSessionsHint)
                 )
             }
         }
-        .navigationTitle(manager.selected?.title ?? "Terminal")
+        .navigationTitle(manager.selected?.title ?? String(localized: .terminalTitleDefault))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if let session = manager.selected {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close", systemImage: "xmark.circle") {
+                    Button(String(localized: .actionClose), systemImage: "xmark.circle") {
                         manager.close(session)
                     }
                 }
@@ -100,7 +100,7 @@ struct TerminalScreen: View {
             presenting: hostKeyInfo(for: session)
         ) { _ in
             Button(String(localized: .actionCancel), role: .cancel) { manager.close(session) }
-            Button("Accept", role: hostKeyIsChange(for: session) ? .destructive : nil) {
+            Button(String(localized: .actionAccept), role: hostKeyIsChange(for: session) ? .destructive : nil) {
                 Task { await session.connect(acceptHostKey: true) }
             }
         } message: { info in
@@ -114,7 +114,7 @@ struct TerminalScreen: View {
         case .connecting:
             statusCard {
                 ProgressView()
-                Text("Connecting to \(session.host.hostname)…")
+                Text(String(localized: .iosTerminalConnecting).replacingOccurrences(of: "%1$@", with: session.host.hostname))
             }
 
         case .failed(let message):
@@ -123,7 +123,7 @@ struct TerminalScreen: View {
                     .foregroundStyle(.orange)
                 Text(message)
                     .multilineTextAlignment(.center)
-                Button("Retry") { Task { await session.connect() } }
+                Button(String(localized: .iosActionRetry)) { Task { await session.connect() } }
                     .buttonStyle(.borderedProminent)
             }
 
@@ -131,11 +131,11 @@ struct TerminalScreen: View {
             statusCard {
                 Image(systemName: "bolt.horizontal.circle")
                     .foregroundStyle(.secondary)
-                Text(reason.map { "Disconnected — \($0)" } ?? "Disconnected")
+                Text(reason.map { "\(String(localized: .terminalDisconnected)) — \($0)" } ?? String(localized: .terminalDisconnected))
                 HStack {
-                    Button("Reconnect") { Task { await session.connect() } }
+                    Button(String(localized: .iosActionReconnect)) { Task { await session.connect() } }
                         .buttonStyle(.borderedProminent)
-                    Button("Close") { manager.close(session) }
+                    Button(String(localized: .actionClose)) { manager.close(session) }
                 }
             }
 
@@ -177,7 +177,7 @@ struct TerminalScreen: View {
     }
 
     private func hostKeyTitle(for session: TerminalSession) -> String {
-        hostKeyIsChange(for: session) ? "Host key changed" : "Unknown host key"
+        hostKeyIsChange(for: session) ? String(localized: .iosHostkeyChangedTitle) : String(localized: .hostkeyTitle)
     }
 
     private func hostKeyMessage(for session: TerminalSession, info: HostKeyInfo) -> String {

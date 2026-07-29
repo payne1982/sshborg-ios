@@ -32,8 +32,9 @@ struct ForwardingNotice: View {
 
                     Text(
                         failures.count == 1
-                            ? "A port forwarding rule is not active"
-                            : "\(failures.count) port forwarding rules are not active"
+                            ? String(localized: .iosForwardingInactiveOne)
+                            : String(localized: .iosForwardingInactiveMany)
+                                .replacingOccurrences(of: "%1$d", with: "\(failures.count)")
                     )
                     .font(.subheadline.weight(.semibold))
 
@@ -46,7 +47,7 @@ struct ForwardingNotice: View {
                             .font(.footnote.weight(.semibold))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Dismiss")
+                    .accessibilityLabel(String(localized: .sftpBackgroundDismissCd))
                 }
 
                 ForEach(failures) { status in

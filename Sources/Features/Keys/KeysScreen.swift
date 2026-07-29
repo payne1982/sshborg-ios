@@ -35,7 +35,7 @@ struct KeysScreen: View {
                     Button(String(localized: .keysGenerateCd), systemImage: "wand.and.stars") { isGenerating = true }
                     Button(String(localized: .keysImportCd), systemImage: "square.and.arrow.down") { isImporting = true }
                 } label: {
-                    Label("Add", systemImage: "plus")
+                    Label(String(localized: .iosActionAdd), systemImage: "plus")
                 }
             }
         }
@@ -61,7 +61,7 @@ struct KeysScreen: View {
             NavigationStack { KeyDetailSheet(key: key) }
         }
         .alert(
-            "Delete key?",
+            String(localized: .keysDeleteTitle),
             isPresented: .init(
                 get: { pendingDeletion != nil },
                 set: { if !$0 { pendingDeletion = nil } }
@@ -78,7 +78,7 @@ struct KeysScreen: View {
             if pending.hostCount > 0 {
                 Text("\(pending.key.label) is used by \(pending.hostCount) host(s). They will be kept but fall back to password authentication. The private key cannot be recovered.")
             } else {
-                Text("The private key cannot be recovered once deleted.")
+                Text(.iosKeysDeleteWarning)
             }
         }
     }
@@ -89,7 +89,7 @@ struct KeysScreen: View {
             ContentUnavailableView {
                 Label(String(localized: .keysEmpty), systemImage: "key")
             } description: {
-                Text("Generate a key, or import one you already use.")
+                Text(.iosKeysEmptyHint)
             } actions: {
                 Button(String(localized: .keygenTitle)) { isGenerating = true }
                     .buttonStyle(.borderedProminent)
@@ -163,7 +163,7 @@ private struct KeyGeneratorSheet: View {
             Section {
                 TextField(String(localized: .keygenFieldLabel), text: $label)
             } footer: {
-                Text("Also stored as the key's comment, which is what a server shows in its logs.")
+                Text(.iosKeysLabelFooter)
             }
 
             Section {
@@ -251,7 +251,7 @@ private struct KeyImportSheet: View {
             Section {
                 TextField(String(localized: .keygenFieldLabel), text: $label)
             } footer: {
-                Text("Left blank, the key's own comment is used.")
+                Text(.iosKeysCommentBlank)
             }
 
             Section {
@@ -347,17 +347,17 @@ private struct KeyDetailSheet: View {
                 .disabled(didCopy)
             }
 
-            Section("Details") {
-                LabeledContent("Type", value: key.parsedKeyType?.displayName ?? key.keyType)
+            Section(String(localized: .iosKeysDetails)) {
+                LabeledContent(String(localized: .iosKeysType), value: key.parsedKeyType?.displayName ?? key.keyType)
                 if let fingerprint = key.fingerprint {
-                    LabeledContent("Fingerprint") {
+                    LabeledContent(String(localized: .iosKeysFingerprint)) {
                         Text(fingerprint)
                             .font(.caption.monospaced())
                             .textSelection(.enabled)
                     }
                 }
-                LabeledContent("Created", value: key.createdAtDate.formatted(date: .abbreviated, time: .shortened))
-                LabeledContent("Stored", value: key.isEncrypted ? "Encrypted" : "Plain text")
+                LabeledContent(String(localized: .iosKeysCreated), value: key.createdAtDate.formatted(date: .abbreviated, time: .shortened))
+                LabeledContent(String(localized: .iosKeysStored), value: key.isEncrypted ? "Encrypted" : "Plain text")
             }
 
             Section {

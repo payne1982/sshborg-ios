@@ -14,11 +14,11 @@ struct TransfersBar: View {
                 Divider()
 
                 HStack {
-                    Text("Transfers")
+                    Text(.iosTransfersTitle)
                         .font(.caption.weight(.semibold))
                     Spacer()
                     if manager.transfers.contains(where: { !$0.isActive }) {
-                        Button("Clear finished") { manager.dismissFinished() }
+                        Button(String(localized: .iosTransfersClear)) { manager.dismissFinished() }
                             .font(.caption)
                     }
                 }
@@ -83,7 +83,7 @@ private struct TransferRow: View {
     private var trailingControl: some View {
         switch transfer.status {
         case .running:
-            Button("Stop", systemImage: "stop.circle") { manager.cancel(transfer.id) }
+            Button(String(localized: .iosActionStop), systemImage: "stop.circle") { manager.cancel(transfer.id) }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)

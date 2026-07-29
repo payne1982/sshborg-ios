@@ -202,7 +202,7 @@ struct HostsScreen: View {
             }
             .contextMenu {
                 Button(String(localized: .hostMenuNewTerminal), systemImage: "terminal") { openNew(host) }
-                Button("Browse files", systemImage: "folder") { browsing = host }
+                Button(String(localized: .hostMenuFiles), systemImage: "folder") { browsing = host }
                 Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
                 Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) { hostToDelete = host }
             }
@@ -247,7 +247,7 @@ private struct GroupHeader: View {
                     .frame(width: 10, height: 10)
 
                 Text(group.name)
-                Text("(\(count))")
+                Text(verbatim: "(\(count))")
                     .foregroundStyle(.secondary)
 
                 Spacer()
@@ -273,7 +273,7 @@ private struct HostRow: View {
                 .font(.title3)
                 .overlay(alignment: .topTrailing) {
                     if sessionCount > 0 {
-                        Text("\(sessionCount)")
+                        Text(verbatim: "\(sessionCount)")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 15, height: 15)
@@ -284,7 +284,7 @@ private struct HostRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(host.label)
-                Text("\(host.username)@\(host.hostname):\(String(host.port))")
+                Text(verbatim: "\(host.username)@\(host.hostname):\(String(host.port))")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
             }
@@ -313,7 +313,7 @@ private struct SessionPickerSheet: View {
                         HStack {
                             Image(systemName: "terminal")
                             VStack(alignment: .leading) {
-                                Text("Session \(index + 1)")
+                                Text(String(localized: .iosSessionNumber).replacingOccurrences(of: "%1$d", with: "\(index + 1)"))
                                 Text(status(of: session))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)

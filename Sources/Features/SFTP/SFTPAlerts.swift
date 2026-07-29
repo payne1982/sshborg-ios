@@ -127,7 +127,7 @@ struct FileAlerts: ViewModifier {
                      ? "\(entry.name) must be empty to be removed."
                      : "\(entry.name) will be deleted on the server. This cannot be undone.")
             }
-            .alert("Failed", isPresented: hasActionError) {
+            .alert(String(localized: .errorUnknown), isPresented: hasActionError) {
                 Button(String(localized: .actionDone), role: .cancel) { model.actionError = nil }
             } message: {
                 Text(model.actionError ?? "")

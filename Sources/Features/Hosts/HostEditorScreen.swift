@@ -101,7 +101,7 @@ struct HostEditorScreen: View {
                 }
             }
         }
-        .alert("Could not save", isPresented: .init(
+        .alert(String(localized: .iosErrorSaveFailed), isPresented: .init(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }
         )) {
@@ -146,7 +146,7 @@ struct HostEditorScreen: View {
         } header: {
             Text(.hostColorLabel)
         } footer: {
-            Text("Without a colour of its own, a host takes its group's.")
+            Text(.iosHostColourFooter)
         }
     }
 
@@ -186,9 +186,9 @@ struct HostEditorScreen: View {
             Toggle(String(localized: .hostAgentForwarding), isOn: $agentForwarding)
             Toggle(String(localized: .hostAllowLegacyCiphers), isOn: $allowLegacyCiphers)
         } header: {
-            Text("Options")
+            Text(.hostSectionAuthentication)
         } footer: {
-            Text("Legacy ciphers let you reach old servers, at the cost of weaker cryptography. Leave off unless a server refuses to connect.")
+            Text(.iosHostLegacyFooter)
         }
     }
 
@@ -210,13 +210,13 @@ struct HostEditorScreen: View {
 
             case .hostList:
                 if jumpCandidates.isEmpty {
-                    Text("No other host has a saved credential to use as a hop.")
+                    Text(.iosHostNoJumpCandidates)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(Array(jumpHostIds.enumerated()), id: \.offset) { index, selected in
                         HStack {
-                            Picker("Hop \(index + 1)", selection: binding(forHopAt: index)) {
+                            Picker(String(localized: .iosHostHopNumber).replacingOccurrences(of: "%1$d", with: "\(index + 1)"), selection: binding(forHopAt: index)) {
                                 Text(.hostJumpSelectPlaceholder).tag(Int64(0))
                                 ForEach(jumpCandidates) { candidate in
                                     Text(candidate.label).tag(candidate.id ?? -1)
@@ -253,18 +253,16 @@ struct HostEditorScreen: View {
             case .hostList:
                 Text(.hostJumpModeHostList)
                 if unusableJumpCandidateCount > 0 {
-                    Text("\(unusableJumpCandidateCount) host(s) are not listed because they have no saved password or key, which a hop cannot prompt for.")
+                    Text(String(localized: .iosHostHiddenCandidates).replacingOccurrences(of: "%1$d", with: "\(unusableJumpCandidateCount)"))
                 }
             }
-            Text("Tunnelling itself arrives in a later version; the setting is stored now.")
-                .foregroundStyle(.secondary)
         }
     }
 
     private var portForwardingSection: some View {
         Section {
             TextField(
-                "8080:localhost:8080",
+                String(localized: .hostPortForwardingPlaceholder),
                 text: $portForwardingsText,
                 axis: .vertical
             )
@@ -275,7 +273,7 @@ struct HostEditorScreen: View {
         } header: {
             Text(.hostSectionPortForwarding)
         } footer: {
-            Text("One rule per line: [bindAddr:]localPort:remoteHost:remotePort. An -L prefix is accepted. Forwarding starts working in a later version.")
+            Text(.hostPortForwardingSupporting)
         }
     }
 

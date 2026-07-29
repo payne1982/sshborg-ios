@@ -32,7 +32,7 @@ struct GroupEditorScreen: View {
                 TextField(String(localized: .groupDialogName), text: $name)
             }
 
-            Section("Colour") {
+            Section(String(localized: .iosGroupColour)) {
                 ColorSwatchPicker(
                     selection: Binding(
                         get: { color },
@@ -61,11 +61,11 @@ struct GroupEditorScreen: View {
                 color = group.color
             }
         }
-        .alert("Could not save", isPresented: .init(
+        .alert(String(localized: .iosErrorSaveFailed), isPresented: .init(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }
         )) {
-            Button("OK", role: .cancel) { saveError = nil }
+            Button(String(localized: .actionDone), role: .cancel) { saveError = nil }
         } message: {
             Text(saveError ?? "")
         }
