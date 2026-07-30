@@ -169,34 +169,52 @@ struct SettingsScreen: View {
 
     private var backupSection: some View {
         Section {
-            Button {
+            backupRow(
+                title: .settingsBackupExportTitle,
+                detail: .settingsBackupExportSubtitle,
+                action: .settingsBackupExportAction
+            ) {
                 Task { await model?.prepareExport() }
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(.settingsBackupExportTitle)
-                    Text(.settingsBackupExportSubtitle)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
             }
-            .disabled(model?.isWorking ?? true)
 
-            Button {
+            backupRow(
+                title: .settingsBackupImportTitle,
+                detail: .settingsBackupImportSubtitle,
+                action: .settingsBackupImportAction
+            ) {
                 isChoosingFile = true
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(.settingsBackupImportTitle)
-                    Text(.settingsBackupImportSubtitle)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
             }
-            .disabled(model?.isWorking ?? true)
         } header: {
             Text(.settingsSectionBackup)
-        } footer: {
-            Text(.settingsBackupExportSubtitle)
         }
+        // No footer: it repeated the export row's own subtitle word for word,
+        // which is what running the app showed. The rows already say it.
+    }
+
+    /// A description with its action beside it, which is the shape the Android
+    /// screen uses — `ListItem` plus a trailing button.
+    ///
+    /// The text sits outside the button on purpose. Inside one, SwiftUI resolves
+    /// `.secondary` as a dimmer shade of the *accent* colour rather than grey, so
+    /// the explanation came out blue and read as part of the link.
+    private func backupRow(
+        title: LocalizedStringResource,
+        detail: LocalizedStringResource,
+        action: LocalizedStringResource,
+        perform: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+            Text(detail)
+                .font(.footnote)
+                .foregroundStyle(Color.secondary)
+
+            Button(String(localized: action), action: perform)
+                .buttonStyle(.bordered)
+                .disabled(model?.isWorking ?? true)
+                .padding(.top, 2)
+        }
+        .padding(.vertical, 4)
     }
 
     // MARK: - About

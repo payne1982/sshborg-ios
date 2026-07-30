@@ -147,6 +147,18 @@ targets:
     dependencies:
       - target: SSHBorg
 
+  # Drives the running app. Exists because reports like "the settings screen
+  # does not scroll" cannot be settled by reading code, and because the unit
+  # tests never render a view — these attach screenshots, which is the only
+  # automated look anyone gets at the interface.
+  SSHBorgUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/SSHBorgUITests
+    dependencies:
+      - target: SSHBorg
+
 schemes:
   SSHBorg:
     build:
@@ -174,5 +186,6 @@ schemes:
         SSHBORG_TEST_PASSWORD_B64: $(SSHBORG_TEST_PASSWORD_B64)
       targets:
         - SSHBorgTests
+        - SSHBorgUITests
     archive:
       config: Release

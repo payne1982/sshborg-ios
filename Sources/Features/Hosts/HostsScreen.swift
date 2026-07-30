@@ -60,14 +60,18 @@ struct HostsScreen: View {
             SFTPScreen(host: host)
         }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            // All three on the trailing side, in the Android order: keys,
+            // settings, add. The Android top bar puts them in `actions`, which
+            // is the right-hand group, and a user moving between the two builds
+            // should not have to look for them somewhere else.
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     KeysScreen()
                 } label: {
                     Label(String(localized: .keysTitle), systemImage: "key")
                 }
             }
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     SettingsScreen()
                 } label: {
