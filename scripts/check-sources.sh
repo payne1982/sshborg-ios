@@ -100,6 +100,55 @@ if [ -n "$hits" ]; then
     echo "$hits"
 fi
 
+# 5. An iOS-only string whose English text already exists on the Android side.
+#
+# The iOS-only keys are meant for text Android has no equivalent for. Two of them
+# turned out to be word-for-word copies of existing Android strings under
+# different names — `ios_session_number` was `session_picker_session_label` — so
+# they were translated here by hand when a reviewed translation already existed.
+#
+# The earlier check compares *names*, which is exactly what missed this: a
+# different name with identical text passes it. This compares the English text.
+#
+# Needs the Android tree; skipped silently when it is not beside this one.
+ANDROID_STRINGS="../claude-sshborg/app/src/main/res/values/strings.xml"
+if [ -f "$ANDROID_STRINGS" ]; then
+    hits=$(python3 - "$ANDROID_STRINGS" <<'PYDUP'
+import json, pathlib, re, sys, xml.etree.ElementTree as ET
+
+catalog = pathlib.Path("Sources/Resources/Localizable.xcstrings")
+if not catalog.exists():
+    sys.exit(0)
+
+def normalise(text):
+    text = text.replace("\\'", "'").replace('\\"', '"').replace("\\n", "\n")
+    return re.sub(r'%(\d+\$)s', r'%\1@', text).strip().lower()
+
+android = {}
+for element in ET.parse(sys.argv[1]).getroot():
+    if element.tag == "string" and element.get("name"):
+        android.setdefault(normalise("".join(element.itertext())), element.get("name"))
+
+problems = []
+for key, entry in json.loads(catalog.read_text(encoding="utf-8"))["strings"].items():
+    if "iOS only" not in (entry.get("comment") or ""):
+        continue
+    english = entry.get("localizations", {}).get("en", {}).get("stringUnit", {}).get("value")
+    if not english:
+        continue
+    twin = android.get(normalise(english))
+    if twin:
+        problems.append(f"  {key} duplicates Android's {twin}")
+
+print("\n".join(problems))
+PYDUP
+)
+    if [ -n "$hits" ]; then
+        fail "iOS-only string that Android already has — use the Android key, its translation is reviewed:"
+        echo "$hits"
+    fi
+fi
+
 if [ "$status" -eq 0 ]; then
     printf '\033[32mok\033[0m — no known-pattern problems\n'
 fi

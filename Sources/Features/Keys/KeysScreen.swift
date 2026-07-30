@@ -78,7 +78,7 @@ struct KeysScreen: View {
             if pending.hostCount > 0 {
                 Text("\(pending.key.label) is used by \(pending.hostCount) host(s). They will be kept but fall back to password authentication. The private key cannot be recovered.")
             } else {
-                Text(.iosKeysDeleteWarning)
+                Text(.keysDeleteWarning)
             }
         }
     }

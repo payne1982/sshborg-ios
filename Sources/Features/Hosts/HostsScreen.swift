@@ -342,7 +342,7 @@ private struct SessionPickerSheet: View {
                         HStack {
                             Image(systemName: "terminal")
                             VStack(alignment: .leading) {
-                                Text(String(localized: .iosSessionNumber).replacingOccurrences(of: "%1$d", with: "\(index + 1)"))
+                                Text(String(localized: .sessionPickerSessionLabel).replacingOccurrences(of: "%1$d", with: "\(index + 1)"))
                                 Text(status(of: session))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)

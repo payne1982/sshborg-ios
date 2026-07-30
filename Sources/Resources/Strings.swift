@@ -420,9 +420,6 @@ extension LocalizedStringResource {
     /// %1$@ is used by %2$d hosts. They will be kept but fall back to password authenticatio…
     static let iosKeysDeleteImpact = LocalizedStringResource("ios_keys_delete_impact")
 
-    /// The private key cannot be recovered once deleted.
-    static let iosKeysDeleteWarning = LocalizedStringResource("ios_keys_delete_warning")
-
     /// Details
     static let iosKeysDetails = LocalizedStringResource("ios_keys_details")
 
@@ -443,9 +440,6 @@ extension LocalizedStringResource {
 
     /// Enter the password for %1$@.
     static let iosPasswordPrompt = LocalizedStringResource("ios_password_prompt")
-
-    /// Session %1$d
-    static let iosSessionNumber = LocalizedStringResource("ios_session_number")
 
     /// Actions
     static let iosSftpActions = LocalizedStringResource("ios_sftp_actions")
@@ -497,6 +491,9 @@ extension LocalizedStringResource {
 
     /// Delete key
     static let keysDeleteTitle = LocalizedStringResource("keys_delete_title")
+
+    /// The private key cannot be recovered once deleted.
+    static let keysDeleteWarning = LocalizedStringResource("keys_delete_warning")
 
     /// No keys yet. Tap + to generate one.
     static let keysEmpty = LocalizedStringResource("keys_empty")
