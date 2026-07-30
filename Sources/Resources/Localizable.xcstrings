@@ -9730,6 +9730,72 @@
         }
       }
     },
+    "ios_terminal_reconnected": {
+      "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neu verbunden — dies ist eine neue Shell"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reconnected — this is a new shell"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reconectado: esta es una shell nueva"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reconnecté — ceci est un nouveau shell"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "riconnesso — questa è una nuova shell"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再接続しました — 新しいシェルです"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reconectado — esta é uma nova shell"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "переподключено — это новая оболочка"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "перепідключено — це нова оболонка"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已重新连接 — 这是一个新的 shell"
+          }
+        }
+      }
+    },
     "ios_transfers_clear": {
       "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
       "extractionState": "manual",

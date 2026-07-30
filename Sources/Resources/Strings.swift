@@ -459,6 +459,9 @@ extension LocalizedStringResource {
     /// Connect to a host to open a terminal.
     static let iosTerminalNoSessionsHint = LocalizedStringResource("ios_terminal_no_sessions_hint")
 
+    /// reconnected — this is a new shell
+    static let iosTerminalReconnected = LocalizedStringResource("ios_terminal_reconnected")
+
     /// Clear finished
     static let iosTransfersClear = LocalizedStringResource("ios_transfers_clear")
 

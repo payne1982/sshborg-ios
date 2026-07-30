@@ -555,6 +555,25 @@ final class SSHSession: @unchecked Sendable {
         agentForwarder?.diagnostics
     }
 
+    /// Whether the connection is still usable, asked rather than assumed.
+    ///
+    /// iOS suspends an app within about thirty seconds of it leaving the screen,
+    /// and the far end drops the connection while nothing here is running to
+    /// notice. On returning, the session looks connected because no read has
+    /// failed yet. A keepalive is the cheapest question that gets a real answer:
+    /// it goes on the wire, so a dead link reports itself immediately instead of
+    /// at the first keystroke the user types.
+    func isAlive() async -> Bool {
+        let alive = try? await withRawSession { raw -> Bool in
+            var secondsToNext: Int32 = 0
+            let result = libssh2_keepalive_send(raw, &secondsToNext)
+            // EAGAIN only means the socket is busy, which is not a failure: the
+            // session goes non-blocking once a shell is open.
+            return result == 0 || result == LIBSSH2_ERROR_EAGAIN
+        }
+        return alive ?? false
+    }
+
     // MARK: - Raw access
 
     /// Runs `body` on the session's serial queue with the libssh2 handle.

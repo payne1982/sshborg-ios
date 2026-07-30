@@ -7,6 +7,7 @@ import SwiftUI
 struct RootView: View {
 
     @Environment(\.appEnvironment) private var environment
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -14,6 +15,15 @@ struct RootView: View {
                 .navigationDestination(isPresented: hasOpenSession) {
                     TerminalScreen(manager: environment.sessions)
                 }
+        }
+        // iOS suspends an app about thirty seconds after it leaves the screen and
+        // the connections die with it. Android holds them open with a foreground
+        // service, which has no counterpart here, so the sessions are brought
+        // back on the way in. This lives at the root because the terminal may not
+        // be the visible screen when the app returns.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await environment.sessions.reconnectAfterForeground() }
         }
     }
 

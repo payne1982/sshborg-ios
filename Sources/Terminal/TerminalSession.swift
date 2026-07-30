@@ -59,6 +59,14 @@ final class TerminalSession: Identifiable {
     /// the forwarded port simply is not there.
     private(set) var forwardingStatus: [PortForwarder.Status] = []
 
+    /// Set when the user closed the session, so returning to the foreground does
+    /// not resurrect something they deliberately ended.
+    @ObservationIgnored private var closedByUser = false
+
+    /// Set when the remote shell exited by itself — `exit`, or a killed session.
+    /// Reconnecting then would undo what the user just asked for.
+    @ObservationIgnored private var endedByRemote = false
+
     @ObservationIgnored private var forwarder: PortForwarder?
     @ObservationIgnored private var forwardingTask: Task<Void, Never>?
 
@@ -94,6 +102,8 @@ final class TerminalSession: Identifiable {
     ///   - password: typed by the user when the host has no stored credential.
     ///   - acceptHostKey: set once the user has seen the fingerprint and agreed.
     func connect(password: String? = nil, acceptHostKey: Bool = false) async {
+        closedByUser = false
+        endedByRemote = false
         phase = .connecting
 
         let auth: SSHAuth
@@ -236,7 +246,71 @@ final class TerminalSession: Identifiable {
         // is what tells them apart.
         let status = channel?.exitStatus
         let reason = (status == nil || status == 0) ? nil : "exit status \(status!)"
+        // A shell that exited on its own is finished, and reconnecting it would
+        // undo what the user just did by typing `exit`.
+        endedByRemote = status != nil
         phase = .disconnected(reason: reason)
+    }
+
+    // MARK: - Returning to the foreground
+
+    /// Brings the session back after iOS has suspended the app.
+    ///
+    /// An app off screen is suspended within about thirty seconds and its
+    /// connections die. Android keeps them with a foreground service, which iOS
+    /// has no equivalent of, so this is the mitigation named in the plan.
+    ///
+    /// **A reconnection is a new shell, not the old one.** Whatever was running
+    /// is gone, along with the working directory and the environment. That is
+    /// why it is announced in the scrollback rather than done quietly: the old
+    /// output is still on screen, and without a marker the user would be typing
+    /// into what looks like their session.
+    func handleReturnToForeground() async {
+        switch phase {
+        case .connected:
+            guard let sshSession, await sshSession.isAlive() == false else { return }
+            endedByRemote = false
+            phase = .disconnected(reason: nil)
+            await reconnectAutomatically()
+
+        case .disconnected:
+            await reconnectAutomatically()
+
+        // Nothing to do while connecting, and the two `needs…` cases are
+        // questions already in front of the user.
+        case .connecting, .needsPassword, .needsHostKeyApproval, .failed:
+            return
+        }
+    }
+
+    /// Reconnects when it can be done without asking anything.
+    ///
+    /// It deliberately does not reuse a password the user typed by hand. Keeping
+    /// one in memory for the life of the app to make this seamless is a trade
+    /// worth making explicitly rather than by default, so a host without a saved
+    /// credential asks again — which the password prompt already handles.
+    private func reconnectAutomatically() async {
+        guard !closedByUser, !endedByRemote else { return }
+
+        guard let auth = try? await resolveAuth(typedPassword: nil), auth != nil else {
+            phase = .needsPassword
+            return
+        }
+
+        let before = phase
+        await connect()
+
+        if case .connected = phase, case .disconnected = before {
+            announceReconnection()
+        }
+    }
+
+    /// Writes a rule into the local scrollback. Nothing is sent to the server —
+    /// this is the app talking to the user, in the middle of the server's output.
+    private func announceReconnection() {
+        let label = String(localized: .iosTerminalReconnected)
+        let banner = "\r\n\u{1B}[2m── \(label) ──\u{1B}[0m\r\n"
+        terminalView.feed(text: banner)
     }
 
     // MARK: - Input
@@ -290,6 +364,7 @@ final class TerminalSession: Identifiable {
     // MARK: - Teardown
 
     func disconnect() {
+        closedByUser = true
         readerTask?.cancel()
         readerTask = nil
         channel?.close()

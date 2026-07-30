@@ -56,6 +56,33 @@ final class SSHIntegrationTests: XCTestCase {
     // MARK: - The happy path
 
     /// The one that matters: connect, get a shell, run a command, see its output.
+    /// `isAlive()` is what the foreground path asks before deciding whether a
+    /// session survived being suspended, so it has to be right in both
+    /// directions. Getting a false negative would throw away a working shell;
+    /// a false positive would leave a dead tab looking connected until the user
+    /// typed into it.
+    func testIsAliveAnswersBothWays() async throws {
+        let target = try target()
+
+        let session = try await SSHSession.connect(params(target))
+        var alive = await session.isAlive()
+        XCTAssertTrue(alive, "a session that just connected reported itself dead")
+
+        // Still true with a shell open, which is when it actually gets asked —
+        // the session is non-blocking by then and a keepalive can return EAGAIN.
+        let channel = try await session.openShell(columns: 80, rows: 24)
+        alive = await session.isAlive()
+        XCTAssertTrue(alive, "a session with an open shell reported itself dead")
+
+        channel.close()
+        session.disconnect()
+        // disconnect() hops onto the session queue, so give it a moment to land.
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        alive = await session.isAlive()
+        XCTAssertFalse(alive, "a disconnected session still reported itself alive")
+    }
+
     func testRunsACommandAndSeesItsOutput() async throws {
         let target = try target()
         let session = try await SSHSession.connect(params(target))

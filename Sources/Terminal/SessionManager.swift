@@ -44,6 +44,22 @@ final class SessionManager {
         selectedID = nil
     }
 
+    /// Revives every tab that iOS killed while the app was off screen.
+    ///
+    /// Called from the scene phase, not from a screen: the terminal view may not
+    /// even be on display when the app comes back — the user could have left it
+    /// on the host list — and the tabs still have to come back to life.
+    ///
+    /// Sequential rather than concurrent on purpose. Several tabs on one host
+    /// would otherwise open their connections in the same instant, which some
+    /// servers rate-limit as a burst; and the reconnections may each need to
+    /// read a key out of the keychain.
+    func reconnectAfterForeground() async {
+        for session in sessions {
+            await session.handleReturnToForeground()
+        }
+    }
+
     /// Existing tabs for a host, so the UI can offer to reuse one instead of
     /// opening a duplicate connection.
     func sessions(forHostID hostID: Int64) -> [TerminalSession] {
