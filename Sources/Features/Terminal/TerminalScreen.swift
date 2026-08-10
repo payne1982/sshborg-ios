@@ -18,11 +18,6 @@ struct TerminalScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if manager.sessions.count > 1 {
-                SessionTabRow(manager: manager)
-                Divider()
-            }
-
             if let session = manager.selected {
                 terminal(for: session)
             } else {
@@ -51,16 +46,28 @@ struct TerminalScreen: View {
         ZStack {
             TerminalHostView(session: session, fontSize: environment.preferences.terminalFontSize)
                 .ignoresSafeArea(.container, edges: .bottom)
+                // Deliberately *not* keyed on the session id: the view swaps the
+                // terminal itself and carries the keyboard focus across. Keying
+                // it here would make each switch a teardown, and the keyboard
+                // would drop every time. See TerminalHostView.
 
             overlay(for: session)
         }
-        // Both bars live in the bottom inset, stacked. The session tab strip is
-        // at the top of the screen, so neither can push the other out — the
-        // Android build hides the suggestion bar once a second session opens,
-        // and this arrangement makes that impossible rather than unlikely.
+        // Every bar lives in the bottom inset, tabs closest to the terminal —
+        // the Android order, and the reason is the thumb: the tab strip is the
+        // control reached for most often while typing, and at the top of a phone
+        // it is the hardest place to reach. The numbered picker opens upward,
+        // away from the strip, so it never covers the tab that spawned it.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if session.phase == .connected {
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                // Not gated on the phase: switching away from a session that
+                // failed is exactly when the tabs are needed most.
+                if manager.sessions.count > 1 {
+                    Divider()
+                    SessionTabRow(manager: manager)
+                }
+
+                if session.phase == .connected {
                     ForwardingNotice(statuses: session.forwardingStatus)
                     SuggestionBar(
                         suggestions: session.suggestions,
@@ -282,6 +289,9 @@ private struct SessionTabRow: View {
                 .padding(.vertical, 6)
             }
         }
+        // Opaque: the terminal ignores the bottom safe area and draws underneath
+        // this strip, so anything translucent here reads as terminal output.
+        .background(Color(.systemBackground))
         // Collapse the picker as soon as its host is no longer the point.
         .onChange(of: manager.selectedID) { _, _ in
             if let expandedHostID, manager.selected?.host.id != expandedHostID {
@@ -321,7 +331,10 @@ private struct SessionTabRow: View {
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(Color.secondary.opacity(0.25), in: .capsule)
-                    Image(systemName: expandedHostID == group.hostID ? "chevron.up" : "chevron.down")
+                    // Points where the picker will go: up to open, down to put
+                    // it away. The strip sits at the bottom of the screen, so
+                    // the arrow that means "more" is the one pointing up.
+                    Image(systemName: expandedHostID == group.hostID ? "chevron.down" : "chevron.up")
                         .font(.caption2)
                 }
             }
