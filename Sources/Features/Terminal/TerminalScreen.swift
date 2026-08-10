@@ -14,6 +14,7 @@ struct TerminalScreen: View {
     @Bindable var manager: SessionManager
 
     @State private var passwordInput = ""
+    @State private var keyboard = KeyboardVisibility()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,13 +68,18 @@ struct TerminalScreen: View {
                     ) { command in
                         session.apply(suggestion: command)
                     }
-                    ExtraKeyRow(
-                        session: session,
-                        isPinned: Binding(
-                            get: { environment.preferences.extraKeysBarPinned },
-                            set: { environment.preferences.extraKeysBarPinned = $0 }
+                    // With the keyboard, or without it when pinned. Showing it
+                    // unconditionally — which is what happened before — left the
+                    // pin controlling nothing at all.
+                    if keyboard.isVisible || environment.preferences.extraKeysBarPinned {
+                        ExtraKeyRow(
+                            session: session,
+                            isPinned: Binding(
+                                get: { environment.preferences.extraKeysBarPinned },
+                                set: { environment.preferences.extraKeysBarPinned = $0 }
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -99,18 +105,6 @@ struct TerminalScreen: View {
             }
         } message: {
             Text("Enter the password for \(session.host.username)@\(session.host.hostname).")
-        }
-        .alert(
-            hostKeyTitle(for: session),
-            isPresented: needsHostKeyBinding(for: session),
-            presenting: hostKeyInfo(for: session)
-        ) { _ in
-            Button(String(localized: .actionCancel), role: .cancel) { manager.close(session) }
-            Button(String(localized: .actionAccept), role: hostKeyIsChange(for: session) ? .destructive : nil) {
-                Task { await session.connect(acceptHostKey: true) }
-            }
-        } message: { info in
-            Text(hostKeyMessage(for: session, info: info))
         }
     }
 
@@ -157,76 +151,82 @@ struct TerminalScreen: View {
                 )
             )
 
-        case .connected, .needsPassword, .needsHostKeyApproval:
+        case .needsHostKeyApproval(let info, let isChange):
+            // In the layout, not a system alert.
+            //
+            // As an alert it sat over an empty black terminal, and someone who
+            // did not notice it — or brushed it away — was left staring at that
+            // black screen with nothing saying what it waited for. It cost an
+            // hour of misdiagnosis during testing, which is a fair warning about
+            // what it costs a user. Android shows its dialog inside the screen
+            // for the same reason.
+            StatusOverlay(
+                kind: .failure,
+                message: isChange
+                    ? String(localized: .iosHostkeyChangedTitle)
+                    : String(localized: .hostkeyTitle),
+                detail: hostKeyDetail(for: session, info: info, isChange: isChange),
+                actions: AnyView(
+                    HStack {
+                        Button(String(localized: .actionTrust)) {
+                            Task { await session.connect(acceptHostKey: true) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        // Red when a stored key has changed: that is the case
+                        // where accepting out of reflex is the expensive one.
+                        .tint(isChange ? Color.red : Color.accentColor)
+
+                        Button(String(localized: .actionReject)) { manager.close(session) }
+                    }
+                )
+            )
+
+        case .connected, .needsPassword:
             EmptyView()
         }
     }
 
 
-    // MARK: - Alert plumbing
+    // MARK: - Prompts
     //
-    // SwiftUI wants a Bool binding, while the truth lives in the session's phase.
-    // These translate between the two, and never set the phase directly: a
-    // dismissal is always routed through an explicit button.
+    // The password prompt is still a system alert: it needs a secure text field,
+    // which an in-layout overlay would have to rebuild. The host key prompt is
+    // not — see the overlay above for why it moved.
 
     private func needsPasswordBinding(for session: TerminalSession) -> Binding<Bool> {
         Binding(get: { session.phase == .needsPassword }, set: { _ in })
     }
 
-    private func needsHostKeyBinding(for session: TerminalSession) -> Binding<Bool> {
-        Binding(get: { hostKeyInfo(for: session) != nil }, set: { _ in })
-    }
+    /// The fingerprint and the reason to look at it, shown as the overlay's
+    /// expandable detail so the headline stays one line.
+    private func hostKeyDetail(
+        for session: TerminalSession,
+        info: HostKeyInfo,
+        isChange: Bool
+    ) -> String {
+        let host = String(localized: .hostkeyTerminalHost)
+            .replacingOccurrences(of: "%1$@", with: session.host.hostname)
+        let fingerprint = """
+        \(String(localized: .hostkeyTerminalFingerprint))
+        \(info.algorithm)
+        \(info.fingerprint)
+        """
 
-    private func hostKeyInfo(for session: TerminalSession) -> HostKeyInfo? {
-        guard case .needsHostKeyApproval(let info, _) = session.phase else { return nil }
-        return info
-    }
-
-    private func hostKeyIsChange(for session: TerminalSession) -> Bool {
-        guard case .needsHostKeyApproval(_, let isChange) = session.phase else { return false }
-        return isChange
-    }
-
-    private func hostKeyTitle(for session: TerminalSession) -> String {
-        hostKeyIsChange(for: session) ? String(localized: .iosHostkeyChangedTitle) : String(localized: .hostkeyTitle)
-    }
-
-    private func hostKeyMessage(for session: TerminalSession, info: HostKeyInfo) -> String {
-        let fingerprint = "\(info.algorithm)\n\(info.fingerprint)"
-
-        if hostKeyIsChange(for: session) {
-            return """
-            The key presented by \(session.host.hostname) does not match the one stored for it.
-
-            \(fingerprint)
-
-            This happens when a server is rebuilt, but it is also what an intercepted connection looks like. Only accept if you know the server changed.
-            """
+        guard isChange else {
+            return "\(host)\n\(fingerprint)\n\n\(String(localized: .hostkeyTerminalTrustQuestion))"
         }
 
         return """
-        \(session.host.hostname) has not been seen before. Check that this fingerprint matches the server.
-
+        \(host)
         \(fingerprint)
+
+        This does not match the key stored for this host. A rebuilt server looks \
+        like this — so does an intercepted connection. Accept only if you know \
+        the server changed.
         """
     }
 }
 
-/// The strip of open tabs, shown only when there is more than one.
-/// The tab strip above the terminal.
-///
-/// Adaptive, ported from the Android rework: with sessions open on more than one
-/// host it shows **one tab per host** rather than one per session, because a
-/// dozen tabs all reading "web-01" tell you nothing about which is which. A host
-/// with a single session is a direct jump; a host with several expands a
-/// numbered picker.
-///
-/// That picker is laid out **inline, above the tabs — not a popup**. A menu or a
-/// sheet resigns first responder, so the soft keyboard closes and has to be
-/// brought back after every session switch. Keeping it in the layout is the
-/// whole reason it looks like this.
-///
-/// With one host it stays as it was: a tab per session.
 private struct SessionTabRow: View {
 
     @Bindable var manager: SessionManager

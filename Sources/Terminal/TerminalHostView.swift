@@ -15,7 +15,13 @@ struct TerminalHostView: UIViewRepresentable {
     var fontSize: Int
 
     func makeUIView(context: Context) -> TerminalView {
-        session.terminalView
+        let view = session.terminalView
+        // SwiftTerm ships its own accessory bar above the keyboard, and this app
+        // has a ported one with more keys and the pin. Both were showing, two
+        // rows deep, eating screen the terminal needs — found by looking at a
+        // screenshot with the keyboard up, which no test would have caught.
+        view.inputAccessoryView = nil
+        return view
     }
 
     func updateUIView(_ view: TerminalView, context: Context) {
