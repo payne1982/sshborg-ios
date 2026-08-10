@@ -161,11 +161,16 @@ struct TerminalScreen: View {
             // what it costs a user. Android shows its dialog inside the screen
             // for the same reason.
             StatusOverlay(
-                kind: .failure,
+                // A first connection is a question, not a fault. A key that has
+                // *changed* is a warning, and keeps the alarming presentation.
+                kind: isChange ? .failure : .question,
                 message: isChange
                     ? String(localized: .iosHostkeyChangedTitle)
                     : String(localized: .hostkeyTitle),
                 detail: hostKeyDetail(for: session, info: info, isChange: isChange),
+                // Never behind a disclosure: the fingerprint is the thing the
+                // user is being asked to look at.
+                showsDetailOutright: true,
                 actions: AnyView(
                     HStack {
                         Button(String(localized: .actionTrust)) {
