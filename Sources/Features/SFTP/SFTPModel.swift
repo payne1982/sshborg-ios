@@ -138,20 +138,34 @@ final class SFTPModel {
 
     func navigate(into entry: SFTPEntry) async {
         guard entry.isDirectory else { return }
-        path = join(path, entry.name)
-        await refresh()
-        await rememberLastVisited()
+        await navigate(to: join(path, entry.name))
     }
 
     func navigateUp() async {
         guard path != "/" else { return }
-        path = (path as NSString).deletingLastPathComponent
-        if path.isEmpty { path = "/" }
-        await refresh()
-        await rememberLastVisited()
+        var parent = (path as NSString).deletingLastPathComponent
+        if parent.isEmpty { parent = "/" }
+        await navigate(to: parent)
     }
 
+    /// Moves to a directory, ignoring taps that arrive while a move is already
+    /// under way.
+    ///
+    /// Dropped rather than queued, which is what the Android build settled on:
+    /// someone tapping twice on a slow link means "go here", not "go here and
+    /// then somewhere else", and queueing walked several levels at once.
+    ///
+    /// The reason differs from Android's, which is worth saying because the fix
+    /// looks like a copy and is not. There, concurrent listings corrupted the
+    /// JSch channel and dropped the whole connection; here every libssh2 call is
+    /// already serialised on the session queue, so the stream is safe. What is
+    /// not safe is the *order*: two listings in flight can finish in either one,
+    /// leaving the entries of one directory on screen under the path of another.
     func navigate(to absolutePath: String) async {
+        guard !isNavigating else { return }
+        isNavigating = true
+        defer { isNavigating = false }
+
         path = absolutePath.isEmpty ? "/" : absolutePath
         await refresh()
         await rememberLastVisited()
@@ -166,6 +180,10 @@ final class SFTPModel {
         updated.sftpStartDir = path
         _ = try? await hosts.save(updated)
     }
+
+    /// True while a directory change is in flight. Not `isLoading`: that also
+    /// covers a plain refresh, and a refresh must not block navigation.
+    private(set) var isNavigating = false
 
     func refresh() async {
         guard let session else { return }
