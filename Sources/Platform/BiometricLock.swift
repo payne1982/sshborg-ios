@@ -59,17 +59,28 @@ enum BiometricLock {
     ///
     /// A wrong-but-retryable attempt does not resolve this call: `LAContext`
     /// keeps its own retry loop and only returns once the outcome is final.
-    static func authenticate(reason: String) async -> Bool {
+    /// - Parameter mode: which gate the user chose.
+    ///   ``AppPreferences/LockMode/device`` accepts the passcode as a first-class
+    ///   answer rather than as a fallback, which is what someone who does not
+    ///   want to use biometrics at all is asking for.
+    static func authenticate(reason: String, mode: AppPreferences.LockMode = .biometric) async -> Bool {
         let context = LAContext()
-        context.localizedCancelTitle = String(localized: "Cancel")
+        context.localizedCancelTitle = String(localized: .actionCancel)
 
         let policy: LAPolicy
-        switch availability() {
-        case .biometrics:
-            policy = .deviceOwnerAuthenticationWithBiometrics
-        case .passcodeOnly:
+        switch (mode, availability()) {
+        case (.none, _):
+            return true
+        case (.device, _):
             policy = .deviceOwnerAuthentication
-        case .unavailable:
+        case (.biometric, .biometrics):
+            policy = .deviceOwnerAuthenticationWithBiometrics
+        // Biometric was asked for and none is enrolled any more. Falling back to
+        // the passcode lets the user back into their own hosts instead of
+        // locking them out for good — the rule the Android build settles on too.
+        case (.biometric, .passcodeOnly):
+            policy = .deviceOwnerAuthentication
+        case (.biometric, .unavailable):
             return false
         }
 

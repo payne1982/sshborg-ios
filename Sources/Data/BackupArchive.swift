@@ -63,6 +63,15 @@ struct BackupArchive: Equatable {
         /// Group *name*, not ID: names are what survive between installations.
         var group: String?
 
+        /// Label of the SSH key this host uses, if any.
+        ///
+        /// The label rather than the row ID, for the same reason groups travel
+        /// by name: an ID means nothing in another installation. The key itself
+        /// is never exported — only which one to look for — so a backup still
+        /// carries no secret. A host whose key is not present after import is
+        /// simply left without one.
+        var keyLabel: String?
+
         /// Per-host ARGB tint, or `nil` to inherit the group's.
         var color: Int?
     }
@@ -81,6 +90,7 @@ struct BackupArchive: Equatable {
         var historySuggestions: Bool?
         var suggestionsBarSticky: Bool?
         var doubleTapAction: Int?
+        var extraKeysBarPinned: Bool?
     }
 
     enum DecodingFailure: LocalizedError, Equatable {
@@ -144,6 +154,7 @@ extension BackupArchive {
         if let value = host.portForwardings { object["portForwardings"] = value }
         if let value = host.sftpStartDir { object["sftpStartDir"] = value }
         if let value = host.group { object["group"] = value }
+        if let value = host.keyLabel { object["keyLabel"] = value }
         if let value = host.color { object["color"] = value }
 
         return object
@@ -164,6 +175,7 @@ extension BackupArchive {
         if let value = settings.historySuggestions { object["history_suggestions"] = value }
         if let value = settings.suggestionsBarSticky { object["suggestions_bar_sticky"] = value }
         if let value = settings.doubleTapAction { object["double_tap_action"] = value }
+        if let value = settings.extraKeysBarPinned { object["extra_keys_bar_pinned"] = value }
 
         return object
     }
@@ -218,6 +230,7 @@ extension BackupArchive {
                 portForwardings: nonEmpty(raw["portForwardings"]),
                 sftpStartDir: nonEmpty(raw["sftpStartDir"]),
                 group: nonEmpty(raw["group"]),
+                keyLabel: nonEmpty(raw["keyLabel"]),
                 color: raw["color"] as? Int
             )
         }
@@ -235,7 +248,8 @@ extension BackupArchive {
                 terminalColorScheme: rawSettings["terminal_color_scheme"] as? Int,
                 historySuggestions: rawSettings["history_suggestions"] as? Bool,
                 suggestionsBarSticky: rawSettings["suggestions_bar_sticky"] as? Bool,
-                doubleTapAction: rawSettings["double_tap_action"] as? Int
+                doubleTapAction: rawSettings["double_tap_action"] as? Int,
+                extraKeysBarPinned: rawSettings["extra_keys_bar_pinned"] as? Bool
             )
         }
 

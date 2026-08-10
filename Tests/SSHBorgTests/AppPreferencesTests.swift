@@ -23,7 +23,7 @@ final class AppPreferencesTests: XCTestCase {
     /// These defaults are part of the cross-platform contract: a fresh install
     /// must behave identically on both platforms.
     func testDefaultsMatchAndroid() {
-        XCTAssertFalse(preferences.biometricLock)
+        XCTAssertEqual(preferences.lockMode, AppPreferences.LockMode.none)
         XCTAssertFalse(preferences.keychainEncryption)
         XCTAssertFalse(preferences.confirmExit)
         XCTAssertEqual(preferences.lockTimeoutSeconds, 60)
@@ -193,4 +193,37 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertTrue(preferences.confirmExit)
         XCTAssertEqual(preferences.terminalFontSize, 20, "an absent key must leave the setting untouched")
     }
+
+    // MARK: - App lock
+
+    /// `lock_mode` replaced the older `biometric_lock` boolean. Someone who had
+    /// the lock switched on must still have it after the update: silently
+    /// dropping a security setting is worse than any migration bug, because
+    /// nothing tells the user it happened.
+    func testLockModeInheritsTheOldBiometricFlag() {
+        defaults.set(true, forKey: "biometric_lock")
+        XCTAssertEqual(preferences.lockMode, .biometric)
+
+        // And once the new key is written, it is the one that counts.
+        preferences.lockMode = .device
+        XCTAssertEqual(preferences.lockMode, .device)
+    }
+
+    func testLockModeIsNoneWhenTheOldFlagWasOff() {
+        defaults.set(false, forKey: "biometric_lock")
+        XCTAssertEqual(preferences.lockMode, AppPreferences.LockMode.none)
+    }
+
+    /// The raw values are stored and read by the Android build, so they are part
+    /// of the contract rather than an implementation detail.
+    func testLockModeRawValuesMatchAndroid() {
+        XCTAssertEqual(AppPreferences.LockMode.none.rawValue, 0)
+        XCTAssertEqual(AppPreferences.LockMode.biometric.rawValue, 1)
+        XCTAssertEqual(AppPreferences.LockMode.device.rawValue, 2)
+    }
+
+    func testExtraKeysBarPinnedDefaultsToOff() {
+        XCTAssertFalse(preferences.extraKeysBarPinned)
+    }
+
 }

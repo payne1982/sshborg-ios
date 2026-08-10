@@ -420,9 +420,6 @@ extension LocalizedStringResource {
     /// %1$@ is used by %2$d hosts. They will be kept but fall back to password authenticatio…
     static let iosKeysDeleteImpact = LocalizedStringResource("ios_keys_delete_impact")
 
-    /// Details
-    static let iosKeysDetails = LocalizedStringResource("ios_keys_details")
-
     /// Generate a key, or import one you already use.
     static let iosKeysEmptyHint = LocalizedStringResource("ios_keys_empty_hint")
 
@@ -594,7 +591,7 @@ extension LocalizedStringResource {
     /// Security warning
     static let rootWarningTitle = LocalizedStringResource("root_warning_title")
 
-    /// Enable biometric lock and hardware encryption in Settings to keep your credentials safe.
+    /// Enable an app lock and hardware encryption in Settings to keep your credentials safe.
     static let securityReminderBody = LocalizedStringResource("security_reminder_body")
 
     /// Security tip
@@ -632,6 +629,9 @@ extension LocalizedStringResource {
 
     /// Allow screenshots
     static let settingsAllowScreenshotsTitle = LocalizedStringResource("settings_allow_screenshots_title")
+
+    /// App lock
+    static let settingsAppLockTitle = LocalizedStringResource("settings_app_lock_title")
 
     /// Export
     static let settingsBackupExportAction = LocalizedStringResource("settings_backup_export_action")
@@ -693,6 +693,12 @@ extension LocalizedStringResource {
     /// Encrypt sensitive data
     static let settingsEncryptTitle = LocalizedStringResource("settings_encrypt_title")
 
+    /// Keep the extra key bar (Ctrl, arrows, F-keys…) visible even when the keyboard is clos…
+    static let settingsExtraKeysBarSubtitle = LocalizedStringResource("settings_extra_keys_bar_subtitle")
+
+    /// Always-visible extra keys
+    static let settingsExtraKeysBarTitle = LocalizedStringResource("settings_extra_keys_bar_title")
+
     /// Default terminal text size (sp); pinch to zoom in a session
     static let settingsFontSizeSubtitle = LocalizedStringResource("settings_font_size_subtitle")
 
@@ -728,6 +734,15 @@ extension LocalizedStringResource {
 
     /// Lock after
     static let settingsLockAfterTitle = LocalizedStringResource("settings_lock_after_title")
+
+    /// Biometric only
+    static let settingsLockModeBiometric = LocalizedStringResource("settings_lock_mode_biometric")
+
+    /// Device lock (PIN or biometric)
+    static let settingsLockModeDevice = LocalizedStringResource("settings_lock_mode_device")
+
+    /// None
+    static let settingsLockModeNone = LocalizedStringResource("settings_lock_mode_none")
 
     /// %1$d seconds
     static let settingsLockTimeoutFallback = LocalizedStringResource("settings_lock_timeout_fallback")
@@ -945,6 +960,9 @@ extension LocalizedStringResource {
     /// Copy all
     static let terminalCopyAll = LocalizedStringResource("terminal_copy_all")
 
+    /// Copy error
+    static let terminalCopyError = LocalizedStringResource("terminal_copy_error")
+
     /// Copy selection
     static let terminalCopySelection = LocalizedStringResource("terminal_copy_selection")
 
@@ -954,8 +972,14 @@ extension LocalizedStringResource {
     /// Disconnected
     static let terminalDisconnected = LocalizedStringResource("terminal_disconnected")
 
+    /// Details
+    static let terminalErrorDetails = LocalizedStringResource("terminal_error_details")
+
     /// Paste
     static let terminalPasteCd = LocalizedStringResource("terminal_paste_cd")
+
+    /// Keep key bar visible
+    static let terminalPinKeysCd = LocalizedStringResource("terminal_pin_keys_cd")
 
     /// Terminal
     static let terminalTitleDefault = LocalizedStringResource("terminal_title_default")

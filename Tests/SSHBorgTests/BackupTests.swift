@@ -17,6 +17,7 @@ final class BackupTests: XCTestCase {
     private var database: AppDatabase!
     private var hosts: HostRepository!
     private var groups: HostGroupRepository!
+    private var keys: SSHKeyRepository!
     private var preferences: AppPreferences!
     private var service: BackupService!
 
@@ -24,6 +25,7 @@ final class BackupTests: XCTestCase {
         database = try AppDatabase.makeInMemory()
         hosts = HostRepository(database)
         groups = HostGroupRepository(database)
+        keys = SSHKeyRepository(database)
 
         // A suite of its own, so the test never reads or writes the real defaults.
         let suiteName = "backup-tests-\(UUID().uuidString)"
@@ -31,7 +33,7 @@ final class BackupTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
         preferences = AppPreferences(defaults: defaults)
 
-        service = BackupService(hosts: hosts, groups: groups, preferences: preferences)
+        service = BackupService(hosts: hosts, groups: groups, keys: keys, preferences: preferences)
     }
 
     // MARK: - The Android file

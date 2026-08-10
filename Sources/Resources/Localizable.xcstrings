@@ -8872,72 +8872,6 @@
         }
       }
     },
-    "ios_keys_details": {
-      "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Details"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Details"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detalles"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Détails"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dettagli"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "詳細"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detalhes"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подробности"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подробиці"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "详细信息"
-          }
-        }
-      }
-    },
     "ios_keys_empty_hint": {
       "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
       "extractionState": "manual",
@@ -12928,61 +12862,61 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aktiviere biometrische Sperre und Hardware-Verschlüsselung in den Einstellungen, um deine Zugangsdaten zu schützen."
+            "value": "Aktiviere eine App-Sperre und Hardware-Verschlüsselung in den Einstellungen, um deine Zugangsdaten zu schützen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enable biometric lock and hardware encryption in Settings to keep your credentials safe."
+            "value": "Enable an app lock and hardware encryption in Settings to keep your credentials safe."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activa el bloqueo biométrico y el cifrado por hardware en Ajustes para mantener seguras tus credenciales."
+            "value": "Activa un bloqueo de la app y el cifrado por hardware en Ajustes para mantener seguras tus credenciales."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activez le verrouillage biométrique et le chiffrement matériel dans les Paramètres pour protéger vos identifiants."
+            "value": "Activez un verrouillage de l'app et le chiffrement matériel dans les Paramètres pour protéger vos identifiants."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abilita il blocco biometrico e la cifratura hardware nelle Impostazioni per tenere al sicuro le tue credenziali."
+            "value": "Abilita un blocco dell'app e la cifratura hardware nelle Impostazioni per tenere al sicuro le tue credenziali."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "認証情報を安全に保つため、設定で生体認証ロックとハードウェア暗号化を有効にしてください。"
+            "value": "認証情報を安全に保つため、設定でアプリのロックとハードウェア暗号化を有効にしてください。"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ative o bloqueio biométrico e a encriptação por hardware nas Definições para manter as suas credenciais seguras."
+            "value": "Ative um bloqueio da app e a encriptação por hardware nas Definições para manter as suas credenciais seguras."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Включите биометрическую блокировку и аппаратное шифрование в настройках, чтобы защитить свои данные."
+            "value": "Включите блокировку приложения и аппаратное шифрование в настройках, чтобы защитить свои данные."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Увімкніть біометричне блокування та апаратне шифрування в Налаштуваннях для захисту ваших облікових даних."
+            "value": "Увімкніть блокування застосунку та апаратне шифрування в Налаштуваннях для захисту ваших облікових даних."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请在设置中启用生物识别锁定和硬件加密，以保护您的凭据安全。"
+            "value": "请在设置中启用应用锁和硬件加密，以保护您的凭据安全。"
           }
         }
       }
@@ -13763,6 +13697,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "允许截图"
+          }
+        }
+      }
+    },
+    "settings_app_lock_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App-Sperre"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App lock"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloqueo de la app"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verrouillage de l'app"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocco app"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリのロック"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloqueio da app"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокировка приложения"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокування застосунку"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用锁"
           }
         }
       }
@@ -15067,6 +15066,136 @@
         }
       }
     },
+    "settings_extra_keys_bar_subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hält die Zusatztastenleiste (Strg, Pfeile, F-Tasten…) auch bei geschlossener Tastatur sichtbar. Auch über die Pinnadel auf der Leiste umschaltbar."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the extra key bar (Ctrl, arrows, F-keys…) visible even when the keyboard is closed. You can also toggle this with the pin on the bar."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantiene visible la barra de teclas adicionales (Ctrl, flechas, teclas F…) incluso con el teclado cerrado. También puedes cambiarlo con el pin de la barra."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garde la barre de touches supplémentaires (Ctrl, flèches, touches F…) visible même clavier fermé. Réglable aussi avec l'épingle sur la barre."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantiene visibile la barra dei tasti extra (Ctrl, frecce, tasti F…) anche a tastiera chiusa. Puoi cambiarlo anche con il pin sulla barra."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーボードを閉じていても追加キーバー（Ctrl、矢印、Fキーなど）を表示したままにします。バー上のピンでも切り替えられます。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantém a barra de teclas extra (Ctrl, setas, teclas F…) visível mesmo com o teclado fechado. Também pode alterná-la com o pin na barra."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Держать панель дополнительных клавиш (Ctrl, стрелки, F-клавиши…) видимой даже при закрытой клавиатуре. Переключается также булавкой на панели."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тримає панель додаткових клавіш (Ctrl, стрілки, клавіші F…) видимою навіть із закритою клавіатурою. Це також можна перемкнути шпилькою на панелі."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "即使键盘关闭，也保持额外按键栏（Ctrl、方向键、F 键…）可见。也可通过按键栏上的图钉切换。"
+          }
+        }
+      }
+    },
+    "settings_extra_keys_bar_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zusatztasten immer sichtbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always-visible extra keys"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teclas adicionales siempre visibles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touches supplémentaires toujours visibles"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasti extra sempre visibili"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加キーを常に表示"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teclas extra sempre visíveis"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнительные клавиши всегда видимы"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додаткові клавіші завжди видимі"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "始终显示额外按键"
+          }
+        }
+      }
+    },
     "settings_font_size_subtitle": {
       "extractionState": "manual",
       "localizations": {
@@ -15843,6 +15972,201 @@
           "stringUnit": {
             "state": "translated",
             "value": "锁定延迟"
+          }
+        }
+      }
+    },
+    "settings_lock_mode_biometric": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur biometrisch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biometric only"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo biométrico"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biométrie uniquement"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo biometrico"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生体認証のみ"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apenas biométrico"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только биометрия"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лише біометрія"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅生物识别"
+          }
+        }
+      }
+    },
+    "settings_lock_mode_device": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerätesperre (PIN oder Biometrie)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device lock (PIN or biometric)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloqueo del dispositivo (PIN o biometría)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verrouillage de l'appareil (PIN ou biométrie)"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocco del dispositivo (PIN o biometria)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デバイスのロック（PIN・生体認証）"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloqueio do dispositivo (PIN ou biometria)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокировка устройства (PIN или биометрия)"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокування пристрою (PIN або біометрія)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设备锁（PIN 或生物识别）"
+          }
+        }
+      }
+    },
+    "settings_lock_mode_none": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguno"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessuno"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "なし"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Немає"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无"
           }
         }
       }
@@ -20527,6 +20851,71 @@
         }
       }
     },
+    "terminal_copy_error": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehler kopieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy error"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar error"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier l'erreur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia errore"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エラーをコピー"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar erro"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать ошибку"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копіювати помилку"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制错误"
+          }
+        }
+      }
+    },
     "terminal_copy_selection": {
       "extractionState": "manual",
       "localizations": {
@@ -20722,6 +21111,71 @@
         }
       }
     },
+    "terminal_error_details": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detalles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détails"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dettagli"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詳細"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detalhes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подробности"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подробиці"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "详情"
+          }
+        }
+      }
+    },
     "terminal_paste_cd": {
       "extractionState": "manual",
       "localizations": {
@@ -20783,6 +21237,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "粘贴"
+          }
+        }
+      }
+    },
+    "terminal_pin_keys_cd": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tastenleiste sichtbar halten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep key bar visible"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantener visible la barra de teclas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder la barre de touches visible"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantieni visibile la barra dei tasti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーバーを表示したままにする"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manter a barra de teclas visível"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Держать панель клавиш видимой"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тримати панель клавіш видимою"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保持按键栏可见"
           }
         }
       }

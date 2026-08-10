@@ -13,11 +13,18 @@ struct BackupService {
 
     let hosts: HostRepository
     let groups: HostGroupRepository
+    let keys: SSHKeyRepository
     let preferences: AppPreferences
 
-    init(hosts: HostRepository, groups: HostGroupRepository, preferences: AppPreferences) {
+    init(
+        hosts: HostRepository,
+        groups: HostGroupRepository,
+        keys: SSHKeyRepository,
+        preferences: AppPreferences
+    ) {
         self.hosts = hosts
         self.groups = groups
+        self.keys = keys
         self.preferences = preferences
     }
 
@@ -32,6 +39,13 @@ struct BackupService {
     func export(now: Date = Date()) async throws -> BackupArchive {
         let allGroups = try await groups.fetchAll()
         let allHosts = try await hosts.fetchAll()
+        let allKeys = try await keys.fetchAll()
+
+        // The key's *label*, never its material: a backup says which key to look
+        // for, and the receiving installation resolves it among its own.
+        let keyLabelByID = Dictionary(
+            uniqueKeysWithValues: allKeys.compactMap { key in key.id.map { ($0, key.label) } }
+        )
 
         let groupNameByID = Dictionary(
             uniqueKeysWithValues: allGroups.compactMap { group in
@@ -57,6 +71,7 @@ struct BackupService {
                     portForwardings: host.portForwardings,
                     sftpStartDir: host.sftpStartDir,
                     group: host.groupId.flatMap { groupNameByID[$0] },
+                    keyLabel: host.keyId.flatMap { keyLabelByID[$0] },
                     color: host.color
                 )
             },
@@ -85,7 +100,8 @@ struct BackupService {
             terminalColorScheme: preferences.terminalColorScheme.rawValue,
             historySuggestions: preferences.historySuggestions,
             suggestionsBarSticky: preferences.suggestionsBarSticky,
-            doubleTapAction: preferences.doubleTapAction.rawValue
+            doubleTapAction: preferences.doubleTapAction.rawValue,
+            extraKeysBarPinned: preferences.extraKeysBarPinned
         )
     }
 
@@ -101,9 +117,21 @@ struct BackupService {
             uniquingKeysWith: { first, _ in first }
         )
 
+        // Keys are matched by label, like groups: the backup names the key it
+        // wants and this installation supplies its own. A label with no local
+        // key resolves to nothing and the host arrives without one.
+        let keyIDByLabel = Dictionary(
+            try await keys.fetchAll().compactMap { key in key.id.map { (key.label, $0) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+
         for entry in archive.hosts {
             let groupID = try await resolveGroupID(named: entry.group, cache: &groupIDByName)
-            var host = Self.host(from: entry, groupID: groupID)
+            var host = Self.host(
+                from: entry,
+                groupID: groupID,
+                keyID: entry.keyLabel.flatMap { keyIDByLabel[$0] }
+            )
 
             if let existing = existingByLabel[entry.label] {
                 host = Self.merge(imported: host, into: existing)
@@ -164,12 +192,17 @@ struct BackupService {
         return created.id
     }
 
-    private static func host(from entry: BackupArchive.HostEntry, groupID: Int64?) -> Host {
+    private static func host(
+        from entry: BackupArchive.HostEntry,
+        groupID: Int64?,
+        keyID: Int64?
+    ) -> Host {
         Host(
             label: entry.label,
             hostname: entry.hostname,
             port: entry.port,
             username: entry.username,
+            keyId: keyID,
             agentForwarding: entry.agentForwarding,
             jumpHosts: entry.jumpHosts,
             portForwardings: entry.portForwardings,
@@ -201,7 +234,11 @@ struct BackupService {
         var host = imported
         host.id = existing.id
 
-        host.keyId = existing.keyId
+        // A host that already has a key keeps it; one that has none adopts what
+        // the backup named. Overwriting would silently repoint a working host at
+        // a different key, which is the kind of change nobody notices until a
+        // connection stops authenticating.
+        host.keyId = existing.keyId ?? imported.keyId
         host.password = existing.password
         host.encryptedPassword = existing.encryptedPassword
         host.lastConnected = existing.lastConnected
@@ -238,5 +275,6 @@ struct BackupService {
         if let value = settings.doubleTapAction {
             preferences.doubleTapAction = AppPreferences.DoubleTapAction(rawValue: value) ?? .none
         }
+        if let value = settings.extraKeysBarPinned { preferences.extraKeysBarPinned = value }
     }
 }

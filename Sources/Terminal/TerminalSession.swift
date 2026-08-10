@@ -67,6 +67,10 @@ final class TerminalSession: Identifiable {
     /// Reconnecting then would undo what the user just asked for.
     @ObservationIgnored private var endedByRemote = false
 
+    /// The last size the view actually reported, as opposed to the one the
+    /// terminal object carries before it has ever been laid out.
+    @ObservationIgnored private var measuredSize: (columns: Int, rows: Int)?
+
     @ObservationIgnored private var forwarder: PortForwarder?
     @ObservationIgnored private var forwardingTask: Task<Void, Never>?
 
@@ -118,7 +122,18 @@ final class TerminalSession: Identifiable {
             return
         }
 
-        let geometry = terminalView.getTerminal()
+        // Open the PTY at the size the view really has.
+        //
+        // `connect()` runs from a `.task`, which can start before SwiftUI has
+        // laid the terminal out; the terminal object then still reports the
+        // 80x24 it was created with. A server that pads its MOTD to the terminal
+        // width sends it for the wrong width, and the greeting arrives truncated
+        // — which is the bug the Android build fixed the same way, by waiting
+        // for the first real measurement.
+        //
+        // Bounded wait: a view that never reports a size must not stop the
+        // connection from happening at all.
+        let geometry = await measuredGeometry()
         let planner = ConnectionPlanner(hosts: hosts, keys: keys)
         let params = await planner.params(
             for: host,
@@ -129,7 +144,7 @@ final class TerminalSession: Identifiable {
         do {
             let session = try await SSHSession.connect(params)
             let channel = try await session.openShell(
-                columns: geometry.cols,
+                columns: geometry.columns,
                 rows: geometry.rows
             )
 
@@ -148,6 +163,21 @@ final class TerminalSession: Identifiable {
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// Waits briefly for the view to report its size, then falls back to
+    /// whatever the terminal object says.
+    private func measuredGeometry() async -> (columns: Int, rows: Int) {
+        // Eight short waits totalling 400ms rather than one long one, so a view
+        // that lays out quickly — the usual case — is not made to wait for the
+        // whole budget. Same ceiling the Android fallback uses.
+        for _ in 0..<8 where measuredSize == nil {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        if let measuredSize { return measuredSize }
+
+        let terminal = terminalView.getTerminal()
+        return (terminal.cols, terminal.rows)
     }
 
     /// Brings up this host's `-L` rules, if it has any.
@@ -398,6 +428,7 @@ final class TerminalSession: Identifiable {
     }
 
     fileprivate func terminalDidResize(columns: Int, rows: Int) {
+        measuredSize = (columns, rows)
         resize(columns: columns, rows: rows)
     }
 

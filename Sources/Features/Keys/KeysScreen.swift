@@ -347,7 +347,7 @@ private struct KeyDetailSheet: View {
                 .disabled(didCopy)
             }
 
-            Section(String(localized: .iosKeysDetails)) {
+            Section(String(localized: .terminalErrorDetails)) {
                 LabeledContent(String(localized: .iosKeysType), value: key.parsedKeyType?.displayName ?? key.keyType)
                 if let fingerprint = key.fingerprint {
                     LabeledContent(String(localized: .iosKeysFingerprint)) {

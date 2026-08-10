@@ -41,6 +41,7 @@ struct SettingsScreen: View {
                 service: BackupService(
                     hosts: environment.hosts,
                     groups: environment.groups,
+                    keys: environment.keys,
                     preferences: environment.preferences
                 )
             )
@@ -129,6 +130,11 @@ struct SettingsScreen: View {
                     Text(.settingsSuggestionsBarStickySubtitle)
                 }
             }
+
+            Toggle(isOn: binding(\.extraKeysBarPinned)) {
+                Text(.settingsExtraKeysBarTitle)
+                Text(.settingsExtraKeysBarSubtitle)
+            }
         }
     }
 
@@ -136,15 +142,23 @@ struct SettingsScreen: View {
 
     private var securitySection: some View {
         Section {
-            Toggle(isOn: binding(\.biometricLock)) {
-                Text(.settingsBiometricLockTitle)
-                Text(BiometricLock.canAuthenticate()
-                     ? String(localized: .settingsBiometricAvailable)
-                     : String(localized: .settingsBiometricUnavailable))
+            // Three modes rather than a switch, matching Android: "none" is a
+            // real choice, and "device lock" lets someone with no biometrics
+            // enrolled — or who would rather not use them — still lock the app.
+            Picker(String(localized: .settingsAppLockTitle), selection: binding(\.lockMode)) {
+                Text(.settingsLockModeNone).tag(AppPreferences.LockMode.none)
+                Text(.settingsLockModeBiometric).tag(AppPreferences.LockMode.biometric)
+                Text(.settingsLockModeDevice).tag(AppPreferences.LockMode.device)
             }
             .disabled(!BiometricLock.canAuthenticate())
 
-            if preferences.biometricLock {
+            if !BiometricLock.canAuthenticate() {
+                Text(.settingsBiometricUnavailable)
+                    .font(.footnote)
+                    .foregroundStyle(Color.secondary)
+            }
+
+            if preferences.lockMode != .none {
                 Picker(String(localized: .settingsLockAfterTitle), selection: binding(\.lockTimeoutSeconds)) {
                     Text(.timeoutImmediately).tag(0)
                     Text(.timeout30Seconds).tag(30)

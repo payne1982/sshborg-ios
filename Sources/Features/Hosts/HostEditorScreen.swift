@@ -195,9 +195,15 @@ struct HostEditorScreen: View {
     @ViewBuilder
     private var jumpHostsSection: some View {
         Section {
-            Picker(String(localized: .hostJumpModeSimple), selection: $jumpMode) {
+            // No label: the section header already says what this chooses, and
+            // labelling it repeated a word that is also one of the options —
+            // the row read "Simple: Simple". Android has the same shape, a group
+            // of choices under the section title.
+            Picker(selection: $jumpMode) {
                 Text(.hostJumpModeSimple).tag(Host.JumpMode.simple)
                 Text(.hostJumpModeHostList).tag(Host.JumpMode.hostList)
+            } label: {
+                EmptyView()
             }
             .pickerStyle(.segmented)
 
@@ -279,11 +285,17 @@ struct HostEditorScreen: View {
 
     private var startDirectorySection: some View {
         Section {
-            Picker(String(localized: .hostSectionStartDirectory), selection: $sftpStartMode) {
+            // Unlabelled for the same reason: labelling it with the section
+            // title printed "SFTP: Starting Directory" twice, once as the header
+            // and once on the row underneath.
+            Picker(selection: $sftpStartMode) {
                 Text(.hostStartModeLast).tag(Host.SFTPStartMode.last)
                 Text(.hostStartModeFixed).tag(Host.SFTPStartMode.fixed)
                 Text(.hostStartModeHome).tag(Host.SFTPStartMode.home)
+            } label: {
+                EmptyView()
             }
+            .pickerStyle(.segmented)
 
             // Editable only for a fixed path: the other two modes are computed,
             // so an editable field would imply a choice that is not there.

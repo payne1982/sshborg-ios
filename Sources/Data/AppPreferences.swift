@@ -27,6 +27,8 @@ final class AppPreferences {
 
     private enum Key {
         static let biometricLock = "biometric_lock"
+        static let lockMode = "lock_mode"
+        static let extraKeysBarPinned = "extra_keys_bar_pinned"
         static let keychainEncryption = "keystore_encryption"
         static let confirmExit = "confirm_exit"
         static let lockTimeoutSeconds = "lock_timeout_seconds"
@@ -59,9 +61,32 @@ final class AppPreferences {
 
     // MARK: - Security
 
-    var biometricLock: Bool {
-        get { read(Key.biometricLock, keyPath: \.biometricLock) }
-        set { write(newValue, Key.biometricLock, keyPath: \.biometricLock) }
+    /// How the app asks to be unlocked.
+    ///
+    /// Replaces the old `biometric_lock` boolean and reads it when the new key
+    /// has never been written, so a user who had biometrics on keeps it after an
+    /// update rather than silently losing the lock. That fallback is the whole
+    /// reason the old key is still here.
+    ///
+    /// Deliberately **not** in the settings backup, along with keychain
+    /// encryption: both are gates tied to what this device can do, and restoring
+    /// one blindly could lock the user out of the app or claim a protection that
+    /// is not actually in place.
+    var lockMode: LockMode {
+        get {
+            access(keyPath: \.lockMode)
+            if defaults.object(forKey: Key.lockMode) == nil {
+                return defaults.bool(forKey: Key.biometricLock) ? .biometric : .none
+            }
+            return LockMode(rawValue: defaults.integer(forKey: Key.lockMode)) ?? .none
+        }
+        set { write(newValue.rawValue, Key.lockMode, keyPath: \.lockMode) }
+    }
+
+    /// Keeps the extra key row on screen when the keyboard is closed.
+    var extraKeysBarPinned: Bool {
+        get { read(Key.extraKeysBarPinned, keyPath: \.extraKeysBarPinned) }
+        set { write(newValue, Key.extraKeysBarPinned, keyPath: \.extraKeysBarPinned) }
     }
 
     /// Whether private keys and passwords are stored encrypted. Named
@@ -187,6 +212,16 @@ extension AppPreferences {
 
     /// Raw values match Android's `AppCompatDelegate` constants, because they are
     /// written verbatim into the shared JSON backup.
+    /// Matching the Android constants exactly, because the value is stored and
+    /// compared across platforms in every other preference.
+    enum LockMode: Int, CaseIterable {
+        case none = 0
+        /// Biometrics, falling back to the device passcode when none is enrolled.
+        case biometric = 1
+        /// Passcode or biometrics, whichever the user prefers.
+        case device = 2
+    }
+
     enum NightMode: Int, CaseIterable {
         case followSystem = -1
         case light = 1
