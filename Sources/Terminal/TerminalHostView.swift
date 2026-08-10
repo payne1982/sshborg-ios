@@ -20,8 +20,11 @@ struct TerminalHostView: UIViewRepresentable {
 
     func updateUIView(_ view: TerminalView, context: Context) {
         let size = CGFloat(fontSize)
-        if view.font.pointSize != size {
-            view.font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        let wanted = TerminalFont.regular(size: size)
+        // Compare the family too: the size alone would not notice the very first
+        // switch from the system font to the bundled one at the same point size.
+        if view.font.pointSize != size || view.font.familyName != wanted.familyName {
+            view.font = wanted
         }
     }
 }

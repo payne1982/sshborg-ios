@@ -119,6 +119,13 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        # JetBrains Mono Nerd Font Mono, the same file the Android build ships.
+        # Without it every Powerline/Nerd glyph in a prompt renders as a box.
+        # Registration fails silently if a name here is wrong, so
+        # TerminalFontTests asserts the font actually resolved.
+        UIAppFonts:
+          - JetBrainsMonoNerdFontMono-Regular.ttf
+          - JetBrainsMonoNerdFontMono-Bold.ttf
         # A terminal is unusable without landscape.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
