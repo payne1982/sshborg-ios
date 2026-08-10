@@ -213,48 +213,193 @@ struct TerminalScreen: View {
 }
 
 /// The strip of open tabs, shown only when there is more than one.
+/// The tab strip above the terminal.
+///
+/// Adaptive, ported from the Android rework: with sessions open on more than one
+/// host it shows **one tab per host** rather than one per session, because a
+/// dozen tabs all reading "web-01" tell you nothing about which is which. A host
+/// with a single session is a direct jump; a host with several expands a
+/// numbered picker.
+///
+/// That picker is laid out **inline, above the tabs — not a popup**. A menu or a
+/// sheet resigns first responder, so the soft keyboard closes and has to be
+/// brought back after every session switch. Keeping it in the layout is the
+/// whole reason it looks like this.
+///
+/// With one host it stays as it was: a tab per session.
 private struct SessionTabRow: View {
 
     @Bindable var manager: SessionManager
 
+    /// The host whose sessions are being picked, when its group is expanded.
+    @State private var expandedHostID: Int64?
+
+    /// Sessions grouped by host, in the order the hosts were first opened, so
+    /// the strip does not reshuffle itself as sessions come and go.
+    private var byHost: [(hostID: Int64, label: String, sessions: [TerminalSession])] {
+        var order: [Int64] = []
+        var groups: [Int64: [TerminalSession]] = [:]
+
+        for session in manager.sessions {
+            let id = session.host.id ?? -1
+            if groups[id] == nil { order.append(id) }
+            groups[id, default: []].append(session)
+        }
+
+        return order.map { id in
+            let sessions = groups[id] ?? []
+            return (id, sessions.first?.host.label ?? "", sessions)
+        }
+    }
+
+    private var isMultiHost: Bool { byHost.count > 1 }
+
     var body: some View {
+        VStack(spacing: 0) {
+            if let expanded = expandedGroup {
+                sessionPicker(for: expanded)
+                Divider()
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    if isMultiHost {
+                        ForEach(byHost, id: \.hostID) { group in
+                            hostTab(group)
+                        }
+                    } else {
+                        ForEach(manager.sessions) { session in
+                            sessionTab(session, title: session.title)
+                        }
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+            }
+        }
+        // Collapse the picker as soon as its host is no longer the point.
+        .onChange(of: manager.selectedID) { _, _ in
+            if let expandedHostID, manager.selected?.host.id != expandedHostID {
+                self.expandedHostID = nil
+            }
+        }
+    }
+
+    private var expandedGroup: (hostID: Int64, label: String, sessions: [TerminalSession])? {
+        guard let expandedHostID else { return nil }
+        return byHost.first { $0.hostID == expandedHostID }
+    }
+
+    /// One tab per host. A single session jumps straight there; several toggle
+    /// the picker instead, because guessing which one the user meant would be
+    /// wrong half the time.
+    private func hostTab(_ group: (hostID: Int64, label: String, sessions: [TerminalSession])) -> some View {
+        let containsSelection = group.sessions.contains { $0.id == manager.selected?.id }
+
+        return Button {
+            if group.sessions.count == 1 {
+                manager.selectedID = group.sessions.first?.id
+                expandedHostID = nil
+            } else {
+                expandedHostID = (expandedHostID == group.hostID) ? nil : group.hostID
+            }
+        } label: {
+            HStack(spacing: 6) {
+                statusDot(for: group.sessions)
+                Text(group.label)
+                    .lineLimit(1)
+                    .font(.footnote)
+
+                if group.sessions.count > 1 {
+                    Text(verbatim: "\(group.sessions.count)")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Color.secondary.opacity(0.25), in: .capsule)
+                    Image(systemName: expandedHostID == group.hostID ? "chevron.up" : "chevron.down")
+                        .font(.caption2)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                containsSelection ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground),
+                in: .rect(cornerRadius: 8)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func sessionTab(_ session: TerminalSession, title: String) -> some View {
+        let isSelected = session.id == manager.selected?.id
+
+        return Button {
+            manager.selectedID = session.id
+            expandedHostID = nil
+        } label: {
+            HStack(spacing: 6) {
+                statusDot(for: [session])
+                Text(title)
+                    .lineLimit(1)
+                    .font(.footnote)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground),
+                in: .rect(cornerRadius: 8)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The numbered sessions of one host, in the layout rather than over it.
+    private func sessionPicker(
+        for group: (hostID: Int64, label: String, sessions: [TerminalSession])
+    ) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                ForEach(manager.sessions) { session in
-                    let isSelected = session.id == manager.selected?.id
-
-                    Button {
-                        manager.selectedID = session.id
-                    } label: {
-                        HStack(spacing: 6) {
-                            statusDot(for: session)
-                            Text(session.title)
-                                .lineLimit(1)
-                                .font(.footnote)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground),
-                            in: .rect(cornerRadius: 8)
-                        )
-                    }
-                    .buttonStyle(.plain)
+                ForEach(Array(group.sessions.enumerated()), id: \.element.id) { index, session in
+                    sessionTab(
+                        session,
+                        title: String(localized: .sessionPickerSessionLabel)
+                            .replacingOccurrences(of: "%1$d", with: "\(index + 1)")
+                    )
                 }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
         }
+        .background(Color(.tertiarySystemBackground))
     }
 
-    private func statusDot(for session: TerminalSession) -> some View {
-        let color: Color = switch session.phase {
-        case .connected: .green
-        case .connecting: .yellow
-        case .failed, .disconnected: .red
-        case .needsPassword, .needsHostKeyApproval: .orange
+    /// One dot for a whole host: the worst state among its sessions, so a
+    /// collapsed group cannot hide a connection that has dropped.
+    private func statusDot(for sessions: [TerminalSession]) -> some View {
+        let color: Color = if sessions.contains(where: { isBad($0.phase) }) {
+            .red
+        } else if sessions.contains(where: { needsAnswer($0.phase) }) {
+            .orange
+        } else if sessions.contains(where: { $0.phase == .connecting }) {
+            .yellow
+        } else {
+            .green
         }
 
         return Circle().fill(color).frame(width: 7, height: 7)
+    }
+
+    private func isBad(_ phase: TerminalSession.Phase) -> Bool {
+        switch phase {
+        case .failed, .disconnected: true
+        default: false
+        }
+    }
+
+    private func needsAnswer(_ phase: TerminalSession.Phase) -> Bool {
+        switch phase {
+        case .needsPassword, .needsHostKeyApproval: true
+        default: false
+        }
     }
 }

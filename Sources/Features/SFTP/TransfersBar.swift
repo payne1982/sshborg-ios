@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import QuickLook
 import SwiftUI
 
 /// The strip of transfers under the file list. Hidden entirely when there is
@@ -46,16 +47,49 @@ private struct TransferRow: View {
     let transfer: TransferManager.Transfer
     let manager: TransferManager
 
+    @State private var previewURL: URL?
+
+    /// The file to open, or `nil` when there is nothing openable: an upload
+    /// points at a file the user already has, and a download that failed or was
+    /// cancelled has nothing on disk worth showing.
+    private var openableURL: URL? {
+        guard transfer.kind == .download, transfer.status == .finished,
+              let url = transfer.localURL,
+              FileManager.default.fileExists(atPath: url.path)
+        else { return nil }
+        return url
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: transfer.kind == .download ? "arrow.down.circle" : "arrow.up.circle")
                 .foregroundStyle(tint)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(transfer.name)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                // A finished download's name opens it. Sharing was already
+                // here, but sharing is what you do to send a file somewhere
+                // else; the common case is wanting to *look* at what you just
+                // fetched, and until now that took a trip through the Files app.
+                // Quick Look is the iOS equivalent of Android's "open with".
+                if let url = openableURL {
+                    Button {
+                        previewURL = url
+                    } label: {
+                        Text(transfer.name)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .underline()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityHint(Text(.sftpDownloadComplete))
+                } else {
+                    Text(transfer.name)
+                        .font(.caption)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
 
                 if transfer.isActive {
                     // A determinate bar when the size is known, an indeterminate
@@ -77,6 +111,7 @@ private struct TransferRow: View {
 
             trailingControl
         }
+        .quickLookPreview($previewURL)
     }
 
     @ViewBuilder

@@ -35,15 +35,15 @@ struct ExtraKeyRow: View {
                 key("ESC") { send([0x1B]) }
                 key("Tab") { send([0x09]) }
 
-                key("↑") { session.sendExtraKey(session.cursorKey("A")) }
-                key("↓") { session.sendExtraKey(session.cursorKey("B")) }
-                key("←") { session.sendExtraKey(session.cursorKey("D")) }
-                key("→") { session.sendExtraKey(session.cursorKey("C")) }
+                key("↑", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("A")) }
+                key("↓", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("B")) }
+                key("←", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("D")) }
+                key("→", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("C")) }
 
                 key("Home") { send(escape("[H")) }
                 key("End") { send(escape("[F")) }
-                key("PgUp") { send(escape("[5~")) }
-                key("PgDn") { send(escape("[6~")) }
+                key("PgUp", repeatsOnHold: true) { send(escape("[5~")) }
+                key("PgDn", repeatsOnHold: true) { send(escape("[6~")) }
                 key("Del") { send(escape("[3~")) }
 
                 Button {
@@ -84,15 +84,12 @@ struct ExtraKeyRow: View {
 
     // MARK: - Pieces
 
-    private func key(_ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .monospacedDigit()
-                .frame(minWidth: 34, minHeight: 30)
-        }
-        .buttonStyle(.plain)
-        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 5))
+    private func key(
+        _ label: String,
+        repeatsOnHold: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        RepeatingKey(label: label, repeatsOnHold: repeatsOnHold, action: action)
     }
 
     /// Toggles ``isPinned``. Deliberately on the bar and not only in Settings:
@@ -136,5 +133,72 @@ struct ExtraKeyRow: View {
 
     private func escape(_ tail: String) -> [UInt8] {
         [0x1B] + Array(tail.utf8)
+    }
+}
+
+/// One key of the extra row.
+///
+/// Arrows and paging repeat while held, the way the keyboard's own backspace
+/// does — holding ← to walk back through a long command is the case this exists
+/// for, and tapping it thirty times is what people did before. Every other key
+/// fires once: repeating Esc or Tab would be a bug, not a feature.
+///
+/// Android reads the platform's key-repeat timings from `ViewConfiguration`.
+/// iOS has no public equivalent, so the two constants below are chosen to match
+/// what the system keyboard feels like — long enough that a normal tap never
+/// repeats, short enough that holding is quicker than tapping.
+private struct RepeatingKey: View {
+
+    let label: String
+    let repeatsOnHold: Bool
+    let action: () -> Void
+
+    @State private var repeatTask: Task<Void, Never>?
+    @State private var isPressed = false
+
+    /// Before the first repeat, and between repeats afterwards.
+    private static let initialDelay: Duration = .milliseconds(450)
+    private static let interval: Duration = .milliseconds(60)
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .monospacedDigit()
+            .frame(minWidth: 34, minHeight: 30)
+            .background(
+                Color(isPressed ? .tertiarySystemBackground : .secondarySystemBackground),
+                in: .rect(cornerRadius: 5)
+            )
+            .contentShape(.rect)
+            .gesture(press)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(label)
+            .accessibilityAction { action() }
+    }
+
+    /// A minimum distance of zero makes this fire on touch-down rather than on
+    /// release, which is what a key should do and what makes the hold detectable
+    /// at all.
+    private var press: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { _ in
+                guard !isPressed else { return }
+                isPressed = true
+                action()
+                guard repeatsOnHold else { return }
+
+                repeatTask = Task {
+                    try? await Task.sleep(for: Self.initialDelay)
+                    while !Task.isCancelled {
+                        action()
+                        try? await Task.sleep(for: Self.interval)
+                    }
+                }
+            }
+            .onEnded { _ in
+                isPressed = false
+                repeatTask?.cancel()
+                repeatTask = nil
+            }
     }
 }
