@@ -48,9 +48,11 @@ struct HostEditorScreen: View {
     @State private var saveError: String?
     @State private var isLoaded = false
 
-    private enum AuthMode: String, CaseIterable {
-        case password = "Password"
-        case key = "SSH key"
+    /// No raw values: they were being shown on screen, untranslated. The names
+    /// the user reads come from the catalog at the picker.
+    private enum AuthMode {
+        case password
+        case key
     }
 
     private var isValid: Bool {
@@ -153,10 +155,14 @@ struct HostEditorScreen: View {
     @ViewBuilder
     private var authenticationSection: some View {
         Section(String(localized: .hostSectionAuthentication)) {
-            Picker(String(localized: .hostAuthPassword), selection: $authMode) {
-                ForEach(AuthMode.allCases, id: \.self) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
+            // No label, and the two choices named from the catalog: the raw enum
+            // values were English text on screen in every language, and labelling
+            // the picker "Password" made one of its own options its title.
+            Picker(selection: $authMode) {
+                Text(.hostAuthPassword).tag(AuthMode.password)
+                Text(.hostAuthSshKey).tag(AuthMode.key)
+            } label: {
+                EmptyView()
             }
             .pickerStyle(.segmented)
 
@@ -171,11 +177,17 @@ struct HostEditorScreen: View {
                         .foregroundStyle(.secondary)
                 } else {
                     Picker(String(localized: .hostAuthSshKey), selection: $keyId) {
-                        Text(.hostGroupNone).tag(Int64?.none)
+                        // Was `host_group_none` — "No group" — in a list of keys.
+                        // Android's own placeholder, already translated.
+                        Text(.hostKeySelectPlaceholder).tag(Int64?.none)
                         ForEach(availableKeys) { key in
                             Text(key.label).tag(Int64?.some(key.id ?? -1))
                         }
                     }
+                    // A pushed list, not the default pull-down menu: key labels
+                    // are long, and a menu crushed them into a strip that was
+                    // hard to read and harder to aim at.
+                    .pickerStyle(.navigationLink)
                 }
             }
         }
@@ -185,9 +197,10 @@ struct HostEditorScreen: View {
         Section {
             Toggle(String(localized: .hostAgentForwarding), isOn: $agentForwarding)
             Toggle(String(localized: .hostAllowLegacyCiphers), isOn: $allowLegacyCiphers)
-        } header: {
-            Text(.hostSectionAuthentication)
         } footer: {
+            // No header: these belong to the authentication block above, which
+            // is how Android groups them. Repeating "Authentication" made the
+            // form look like it asked the same thing twice.
             Text(.iosHostLegacyFooter)
         }
     }
