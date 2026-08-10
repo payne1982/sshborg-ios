@@ -67,7 +67,13 @@ struct TerminalScreen: View {
                     ) { command in
                         session.apply(suggestion: command)
                     }
-                    ExtraKeyRow(session: session)
+                    ExtraKeyRow(
+                        session: session,
+                        isPinned: Binding(
+                            get: { environment.preferences.extraKeysBarPinned },
+                            set: { environment.preferences.extraKeysBarPinned = $0 }
+                        )
+                    )
                 }
             }
         }
@@ -112,45 +118,50 @@ struct TerminalScreen: View {
     private func overlay(for session: TerminalSession) -> some View {
         switch session.phase {
         case .connecting:
-            statusCard {
-                ProgressView()
-                Text(String(localized: .iosTerminalConnecting).replacingOccurrences(of: "%1$@", with: session.host.hostname))
-            }
+            StatusOverlay(
+                kind: .working,
+                message: String(localized: .iosTerminalConnecting)
+                    .replacingOccurrences(of: "%1$@", with: session.host.hostname),
+                actions: AnyView(EmptyView())
+            )
 
         case .failed(let message):
-            statusCard {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                Text(message)
-                    .multilineTextAlignment(.center)
-                Button(String(localized: .iosActionRetry)) { Task { await session.connect() } }
-                    .buttonStyle(.borderedProminent)
-            }
+            // The headline stays short and the server's own words go in the
+            // detail: "Connection failed" is what the user needs first, and
+            // "Unable to exchange encryption keys" is what they need to paste
+            // into a search or a message to whoever runs the server.
+            StatusOverlay(
+                kind: .failure,
+                message: String(localized: .terminalConnectionFailed),
+                detail: message,
+                actions: AnyView(
+                    HStack {
+                        Button(String(localized: .iosActionRetry)) { Task { await session.connect() } }
+                            .buttonStyle(.borderedProminent)
+                        Button(String(localized: .actionClose)) { manager.close(session) }
+                    }
+                )
+            )
 
         case .disconnected(let reason):
-            statusCard {
-                Image(systemName: "bolt.horizontal.circle")
-                    .foregroundStyle(.secondary)
-                Text(reason.map { "\(String(localized: .terminalDisconnected)) — \($0)" } ?? String(localized: .terminalDisconnected))
-                HStack {
-                    Button(String(localized: .iosActionReconnect)) { Task { await session.connect() } }
-                        .buttonStyle(.borderedProminent)
-                    Button(String(localized: .actionClose)) { manager.close(session) }
-                }
-            }
+            StatusOverlay(
+                kind: .ended,
+                message: String(localized: .terminalDisconnected),
+                detail: reason,
+                actions: AnyView(
+                    HStack {
+                        Button(String(localized: .iosActionReconnect)) { Task { await session.connect() } }
+                            .buttonStyle(.borderedProminent)
+                        Button(String(localized: .actionClose)) { manager.close(session) }
+                    }
+                )
+            )
 
         case .connected, .needsPassword, .needsHostKeyApproval:
             EmptyView()
         }
     }
 
-    private func statusCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: 12, content: content)
-            .padding(24)
-            .frame(maxWidth: 320)
-            .background(.regularMaterial, in: .rect(cornerRadius: 16))
-            .shadow(radius: 8)
-    }
 
     // MARK: - Alert plumbing
     //

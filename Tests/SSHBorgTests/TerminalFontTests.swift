@@ -45,15 +45,43 @@ final class TerminalFontTests: XCTestCase {
     /// The point of the font is the glyphs the system monospace lacks. U+E0B0 is
     /// the Powerline separator every themed prompt starts with.
     func testItHasThePowerlineGlyphs() throws {
+        try assertGlyphsExist(["\u{E0B0}", "\u{E0B2}", "\u{F09B}"])
+    }
+
+    /// The bundled file is **not** stock: the Android build patched in the
+    /// media-control triangles, and this app copied that patched file rather
+    /// than one from upstream.
+    ///
+    /// Worth its own test because of how it would break — someone refreshes the
+    /// font from the Nerd Fonts release page, everything still builds, every
+    /// other glyph still renders, and only these seven quietly disappear. The
+    /// repository also carries an unpatched JetBrains Mono under `res/font/`,
+    /// so copying the wrong one is an easy mistake to make.
+    func testItKeepsTheMediaControlGlyphsAddedOnAndroid() throws {
+        try assertGlyphsExist([
+            "\u{23F4}", "\u{23F5}", "\u{23F6}", "\u{23F7}",
+            "\u{23F8}", "\u{23F9}", "\u{23FA}",
+        ])
+    }
+
+    private func assertGlyphsExist(
+        _ scalars: [UnicodeScalar],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         try XCTSkipUnless(TerminalFont.isBundledFontAvailable)
 
-        let font = TerminalFont.regular(size: 14) as CTFont
-        for scalar: UnicodeScalar in ["\u{E0B0}", "\u{E0B2}", "\u{F09B}"] {
-            var characters = Array(String(scalar).utf16)
-            var glyphs = [CGGlyph](repeating: 0, count: characters.count)
-            let mapped = CTFontGetGlyphsForCharacters(font, &characters, &glyphs, characters.count)
-            XCTAssertTrue(mapped, "U+\(String(scalar.value, radix: 16, uppercase: true)) is missing")
-            XCTAssertNotEqual(glyphs.first, 0)
+        for weight in [TerminalFont.regular(size: 14), TerminalFont.bold(size: 14)] {
+            let font = weight as CTFont
+            for scalar in scalars {
+                var characters = Array(String(scalar).utf16)
+                var glyphs = [CGGlyph](repeating: 0, count: characters.count)
+                let mapped = CTFontGetGlyphsForCharacters(font, &characters, &glyphs, characters.count)
+
+                let name = "U+\(String(scalar.value, radix: 16, uppercase: true))"
+                XCTAssertTrue(mapped, "\(name) missing from \(weight.fontName)", file: file, line: line)
+                XCTAssertNotEqual(glyphs.first, 0, "\(name) maps to .notdef in \(weight.fontName)", file: file, line: line)
+            }
         }
     }
 }

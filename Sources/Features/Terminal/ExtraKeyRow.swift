@@ -14,9 +14,19 @@ struct ExtraKeyRow: View {
 
     @Bindable var session: TerminalSession
 
+    /// Whether the row stays on screen with the keyboard closed. Bound to the
+    /// preference so the pin on the bar and the switch in Settings are the same
+    /// control seen from two places, which is how the Android build has it.
+    @Binding var isPinned: Bool
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
+                // Leading, so it keeps its place while the rest scrolls past.
+                pin
+
+                Divider().frame(height: 20)
+
                 toggle("Ctrl", isOn: $session.ctrlActive)
                 toggle("Alt", isOn: $session.altActive)
 
@@ -83,6 +93,24 @@ struct ExtraKeyRow: View {
         }
         .buttonStyle(.plain)
         .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 5))
+    }
+
+    /// Toggles ``isPinned``. Deliberately on the bar and not only in Settings:
+    /// the moment you want the keys without the keyboard is while you are
+    /// looking at the terminal, and going three screens away to find a switch
+    /// is enough friction that nobody would.
+    private var pin: some View {
+        Button {
+            isPinned.toggle()
+        } label: {
+            Image(systemName: isPinned ? "pin.fill" : "pin")
+                .font(.footnote)
+                .frame(width: 34, height: 32)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
+        .accessibilityLabel(String(localized: .terminalPinKeysCd))
+        .accessibilityAddTraits(isPinned ? [.isSelected] : [])
     }
 
     private func toggle(_ label: String, isOn: Binding<Bool>) -> some View {
