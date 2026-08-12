@@ -24,6 +24,9 @@ final class SessionManager {
     @discardableResult
     func open(host: Host, hosts: HostRepository, keys: SSHKeyRepository) -> TerminalSession {
         let session = TerminalSession(host: host, hosts: hosts, keys: keys)
+        // Typing `exit` takes the tab with it. The session notices the shell has
+        // gone but cannot remove itself from a list it does not own.
+        session.onShellExited = { [weak self] ended in self?.close(ended) }
         sessions.append(session)
         selectedID = session.id
         return session

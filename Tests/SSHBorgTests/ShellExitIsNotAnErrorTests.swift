@@ -60,4 +60,35 @@ final class ShellExitIsNotAnErrorTests: XCTestCase {
 
         session.disconnect()
     }
+
+    /// `exit` takes the tab with it, as on Android — `if (cleanExit) navBack`.
+    ///
+    /// Someone who typed `exit` has already decided the session is over, so a
+    /// panel announcing it is one more thing to dismiss. A connection that dies
+    /// on its own is a different matter and keeps its panel, which is what the
+    /// other test here covers.
+    func testExitClosesTheTab() async throws {
+        let manager = SessionManager()
+
+        var host = Host(label: "exiting", hostname: target.host, username: target.username)
+        host.port = target.port
+        host.password = target.password
+        let session = manager.open(host: try await hosts.save(host), hosts: hosts, keys: keys)
+
+        await session.connect(acceptHostKey: true)
+        guard case .connected = session.phase else {
+            return XCTFail("could not connect: \(session.phase)")
+        }
+        XCTAssertEqual(manager.sessions.count, 1)
+
+        session.send(text: "exit\n")
+
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline, !manager.sessions.isEmpty {
+            try await Task.sleep(for: .milliseconds(200))
+        }
+
+        XCTAssertTrue(manager.sessions.isEmpty, "the tab outlived the shell that was its whole point")
+        XCTAssertNil(manager.selected)
+    }
 }

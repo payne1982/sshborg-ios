@@ -67,6 +67,12 @@ final class TerminalSession: Identifiable {
     /// Reconnecting then would undo what the user just asked for.
     @ObservationIgnored private var endedByRemote = false
 
+    /// Called when the remote shell exited by itself, so the tab can go.
+    ///
+    /// A session cannot remove itself: the list belongs to ``SessionManager``,
+    /// which sets this when it opens one.
+    @ObservationIgnored var onShellExited: ((TerminalSession) -> Void)?
+
     /// The password the user typed for the connection currently being made.
     ///
     /// Held only for as long as the attempt lasts, because that attempt can take
@@ -323,6 +329,16 @@ final class TerminalSession: Identifiable {
         phase = .disconnected(
             reason: endedCleanly ? nil : String(localized: .terminalConnectionLost)
         )
+
+        // `exit` closes the tab; anything else leaves the panel up.
+        //
+        // Android splits the two the same way — `if (cleanExit) navBack else
+        // show the disconnected state` — and the asymmetry is the point: someone
+        // who typed `exit` has already decided they are done, so a panel telling
+        // them the session ended is a second thing to dismiss. A connection that
+        // died on its own is news, and the panel is where the last of the output
+        // and a Reconnect button stay reachable.
+        if endedCleanly { onShellExited?(self) }
     }
 
     // MARK: - Returning to the foreground
