@@ -393,6 +393,9 @@ extension LocalizedStringResource {
     /// Colour
     static let iosGroupColour = LocalizedStringResource("ios_group_colour")
 
+    /// Hide keyboard
+    static let iosHideKeyboard = LocalizedStringResource("ios_hide_keyboard")
+
     /// Without a colour of its own, a host takes its group's.
     static let iosHostColourFooter = LocalizedStringResource("ios_host_colour_footer")
 

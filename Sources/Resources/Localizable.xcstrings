@@ -8278,6 +8278,72 @@
         }
       }
     },
+    "ios_hide_keyboard": {
+      "comment": "iOS only — no Android counterpart. Android dismisses the keyboard with the system Back button; iOS has none, so the extra key row carries this. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide keyboard"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi tastiera"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tastatur ausblenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar teclado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer le clavier"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーボードを隠す"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar teclado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть клавиатуру"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сховати клавіатуру"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏键盘"
+          }
+        }
+      }
+    },
     "ios_host_colour_footer": {
       "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
       "extractionState": "manual",
