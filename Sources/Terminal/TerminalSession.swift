@@ -176,6 +176,18 @@ final class TerminalSession: Identifiable {
             phase = .connected
             passwordForThisAttempt = nil
 
+            // Open a session and the keyboard is there, as on Android, where the
+            // terminal takes focus on attach and `reattachIme()` raises the IME.
+            // Arriving at a shell prompt and having to tap before typing is a
+            // step nobody wants.
+            //
+            // Here rather than in the view, and so once per connection: the view
+            // is rebuilt on every SwiftUI update, and asking there would drag the
+            // keyboard back up each time — including right after the user put it
+            // away with the bar's hide key. It waits for `connected` so it cannot
+            // steal focus from the password prompt, which needs it first.
+            terminalView.becomeFirstResponder()
+
             try? await persistAfterConnect(hostKey: session.hostKey)
             await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
             startForwarding(params)
