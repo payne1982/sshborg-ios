@@ -15,6 +15,7 @@ struct TerminalScreen: View {
 
     @State private var passwordInput = ""
     @State private var keyboard = KeyboardVisibility()
+    @FocusState private var isPasswordFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -102,17 +103,6 @@ struct TerminalScreen: View {
             guard session.phase == .connected else { return }
             await session.loadHistory(preferences: environment.preferences)
         }
-        .alert("Password", isPresented: needsPasswordBinding(for: session)) {
-            SecureField(String(localized: .hostFieldPassword), text: $passwordInput)
-            Button(String(localized: .actionCancel), role: .cancel) { manager.close(session) }
-            Button(String(localized: .actionConnect)) {
-                let password = passwordInput
-                passwordInput = ""
-                Task { await session.connect(password: password) }
-            }
-        } message: {
-            Text("Enter the password for \(session.host.username)@\(session.host.hostname).")
-        }
     }
 
     @ViewBuilder
@@ -193,20 +183,80 @@ struct TerminalScreen: View {
                 )
             )
 
-        case .connected, .needsPassword:
+        case .needsPassword:
+            // In the layout, like the host key prompt — and for a reason found by
+            // measuring pixels, not by taste.
+            //
+            // As a system alert this was *invisible*. The alert was present and
+            // correctly laid out — the accessibility tree showed the panel, the
+            // title, the message, the field and both buttons at sensible
+            // coordinates — but 99.6% of the pixels inside its frame were pure
+            // black. A system alert's panel is a translucent material: over the
+            // host list it samples white and reads light grey with black text,
+            // and over a black terminal it samples black while its labels stay
+            // the light-scheme black. Black on black. All that survived on screen
+            // was the grey placeholder and the blue caret, which is exactly what
+            // got reported: "only a cursor in the middle".
+            //
+            // This is the same fault as the white-on-white fingerprint, and it
+            // has the same cure: an opaque panel with explicit label colours,
+            // which is what StatusOverlay is. Matching the colour scheme to the
+            // terminal instead would not do — the terminal's background is the
+            // user's to choose, so there is no scheme that is reliably right.
+            StatusOverlay(
+                kind: .question,
+                message: String(localized: .iosPasswordPrompt)
+                    .replacingOccurrences(
+                        of: "%1$@",
+                        with: "\(session.host.username)@\(session.host.hostname)"
+                    ),
+                actions: AnyView(
+                    VStack(alignment: .leading, spacing: 10) {
+                        SecureField(String(localized: .hostFieldPassword), text: $passwordInput)
+                            .textFieldStyle(.roundedBorder)
+                            .plainTextEntry()
+                            .submitLabel(.go)
+                            .focused($isPasswordFocused)
+                            .onSubmit { submitPassword(for: session) }
+
+                        HStack {
+                            Button(String(localized: .actionConnect)) {
+                                submitPassword(for: session)
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            Button(String(localized: .actionCancel)) { manager.close(session) }
+                        }
+                    }
+                    // The terminal holds first responder, so the field has to take
+                    // it or the user types into a shell they cannot see.
+                    //
+                    // Asked for on the next runloop turn, not inside `onAppear`:
+                    // at that point the field is in the view tree but UIKit has
+                    // not finished handing responder status around, and a focus
+                    // request that lands mid-handover is dropped — the field shows
+                    // a caret and no keyboard ever comes up.
+                    .task {
+                        await Task.yield()
+                        isPasswordFocused = true
+                    }
+                )
+            )
+
+        case .connected:
             EmptyView()
         }
     }
 
 
     // MARK: - Prompts
-    //
-    // The password prompt is still a system alert: it needs a secure text field,
-    // which an in-layout overlay would have to rebuild. The host key prompt is
-    // not — see the overlay above for why it moved.
 
-    private func needsPasswordBinding(for session: TerminalSession) -> Binding<Bool> {
-        Binding(get: { session.phase == .needsPassword }, set: { _ in })
+    /// Hands the password to the session and forgets it here.
+    private func submitPassword(for session: TerminalSession) {
+        let password = passwordInput
+        passwordInput = ""
+        isPasswordFocused = false
+        Task { await session.connect(password: password) }
     }
 
     /// The fingerprint and the reason to look at it, shown as the overlay's

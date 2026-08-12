@@ -17,6 +17,7 @@ struct ConnectionAlerts: ViewModifier {
         content
             .alert("Password", isPresented: needsPassword) {
                 SecureField("Password", text: $passwordInput)
+                    .plainTextEntry()
                 Button(String(localized: .actionCancel), role: .cancel, action: onCancel)
                 Button("Connect") {
                     let password = passwordInput
@@ -96,6 +97,7 @@ struct FileAlerts: ViewModifier {
         content
             .alert("New folder", isPresented: $isCreatingFolder) {
                 TextField("Name", text: $newFolderName)
+                    .plainTextEntry()
                 Button(String(localized: .actionCancel), role: .cancel) {}
                 Button("Create") {
                     let name = newFolderName.trimmed
@@ -105,6 +107,7 @@ struct FileAlerts: ViewModifier {
             }
             .alert("Rename", isPresented: isRenaming) {
                 TextField("Name", text: $renameInput)
+                    .plainTextEntry()
                 Button(String(localized: .actionCancel), role: .cancel) { renaming = nil }
                 Button(String(localized: .sftpMenuRename)) {
                     guard let entry = renaming else { return }

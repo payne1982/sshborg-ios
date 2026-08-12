@@ -67,6 +67,16 @@ final class TerminalSession: Identifiable {
     /// Reconnecting then would undo what the user just asked for.
     @ObservationIgnored private var endedByRemote = false
 
+    /// The password the user typed for the connection currently being made.
+    ///
+    /// Held only for as long as the attempt lasts, because that attempt can take
+    /// more than one round trip: a first connection asks for the password, then
+    /// for the host key, and the second answer must not lose the first. Dropped
+    /// the moment the shell is up, and when the session is closed — it exists to
+    /// survive a prompt, not to be a stored credential. Saving a password is a
+    /// separate, deliberate act in the host editor.
+    @ObservationIgnored private var passwordForThisAttempt: String?
+
     /// The last size the view actually reported, as opposed to the one the
     /// terminal object carries before it has ever been laid out.
     @ObservationIgnored private var measuredSize: (columns: Int, rows: Int)?
@@ -158,6 +168,7 @@ final class TerminalSession: Identifiable {
             self.sshSession = session
             self.channel = channel
             phase = .connected
+            passwordForThisAttempt = nil
 
             try? await persistAfterConnect(hostKey: session.hostKey)
             await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
@@ -230,8 +241,20 @@ final class TerminalSession: Identifiable {
     /// host's key, then its stored password. Returns `nil` when nothing is
     /// available and the user has to be asked.
     private func resolveAuth(typedPassword: String?) async throws -> SSHAuth? {
+        // Falls back to the password typed earlier in this same attempt.
+        //
+        // Connecting to a new host asks two questions in a row, and the second
+        // used to erase the answer to the first: type the password, get the host
+        // key prompt, trust the key — and `connect(acceptHostKey:)` carries no
+        // password, so the whole thing came back to the password prompt looking
+        // exactly like a rejected credential. Reported as "it asks for the
+        // password again as if I had got it wrong".
         if let typedPassword, !typedPassword.isEmpty {
-            return .password(typedPassword)
+            passwordForThisAttempt = typedPassword
+        }
+
+        if let carried = passwordForThisAttempt, !carried.isEmpty {
+            return .password(carried)
         }
 
         if let keyId = host.keyId {
@@ -402,6 +425,7 @@ final class TerminalSession: Identifiable {
 
     func disconnect() {
         closedByUser = true
+        passwordForThisAttempt = nil
         readerTask?.cancel()
         readerTask = nil
         channel?.close()

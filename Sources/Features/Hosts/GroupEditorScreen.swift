@@ -30,6 +30,7 @@ struct GroupEditorScreen: View {
         Form {
             Section {
                 TextField(String(localized: .groupDialogName), text: $name)
+                    .plainTextEntry()
             }
 
             Section(String(localized: .iosGroupColour)) {

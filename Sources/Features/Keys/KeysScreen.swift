@@ -162,6 +162,7 @@ private struct KeyGeneratorSheet: View {
         Form {
             Section {
                 TextField(String(localized: .keygenFieldLabel), text: $label)
+                    .plainTextEntry()
             } footer: {
                 Text(.iosKeysLabelFooter)
             }
@@ -250,6 +251,7 @@ private struct KeyImportSheet: View {
         Form {
             Section {
                 TextField(String(localized: .keygenFieldLabel), text: $label)
+                    .plainTextEntry()
             } footer: {
                 Text(.iosKeysCommentBlank)
             }
@@ -269,6 +271,7 @@ private struct KeyImportSheet: View {
 
             Section {
                 SecureField(String(localized: .keysImportPassphraseLabel), text: $passphrase)
+                    .plainTextEntry()
             } footer: {
                 Text(.keysImportPassphraseLabel)
             }

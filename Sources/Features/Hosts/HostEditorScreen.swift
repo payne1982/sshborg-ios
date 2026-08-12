@@ -118,13 +118,12 @@ struct HostEditorScreen: View {
     private var basicsSection: some View {
         Section {
             TextField(String(localized: .hostFieldLabel), text: $label)
+                .plainTextEntry()
             TextField(String(localized: .hostFieldHostname), text: $hostname)
                 .keyboardType(.URL)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+                .plainTextEntry()
             TextField(String(localized: .hostFieldUsername), text: $username)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+                .plainTextEntry()
             TextField(String(localized: .hostFieldPort), text: $port)
                 .keyboardType(.numberPad)
         }
@@ -169,6 +168,7 @@ struct HostEditorScreen: View {
             switch authMode {
             case .password:
                 SecureField(String(localized: .hostFieldPassword), text: $password)
+                    .plainTextEntry()
 
             case .key:
                 if availableKeys.isEmpty {
@@ -224,8 +224,7 @@ struct HostEditorScreen: View {
             case .simple:
                 TextField(String(localized: .hostJumpHostsPlaceholder), text: $jumpHostsText)
                     .keyboardType(.URL)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
+                    .plainTextEntry()
 
             case .hostList:
                 if jumpCandidates.isEmpty {
@@ -287,8 +286,7 @@ struct HostEditorScreen: View {
             )
             .lineLimit(2...6)
             .keyboardType(.URL)
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
+            .plainTextEntry()
         } header: {
             Text(.hostSectionPortForwarding)
         } footer: {
@@ -315,8 +313,7 @@ struct HostEditorScreen: View {
             TextField(String(localized: .hostFieldStartDirectory), text: sftpStartMode == .home ? .constant("~") : $sftpStartDir)
                 .disabled(sftpStartMode != .fixed)
                 .foregroundStyle(sftpStartMode == .fixed ? .primary : .secondary)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+                .plainTextEntry()
         } header: {
             Text(.hostSectionStartDirectory)
         }

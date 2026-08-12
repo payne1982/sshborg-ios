@@ -34,6 +34,12 @@ final class SFTPModel {
     @ObservationIgnored private let keys: SSHKeyRepository
     @ObservationIgnored private var session: SFTPSession?
 
+    /// The password typed for the connection currently being made. See the same
+    /// property on `TerminalSession`: one attempt can ask two questions, and
+    /// trusting the host key must not throw away the password given a moment
+    /// earlier. Dropped as soon as the browser is up, and on disconnect.
+    @ObservationIgnored private var passwordForThisAttempt: String?
+
     /// Exposed so the screen can hand it to the transfer manager. `nil` until
     /// the connection is up.
     var activeSession: SFTPSession? { session }
@@ -81,6 +87,7 @@ final class SFTPModel {
 
             path = startingPath(home: session.homePath)
             phase = .browsing
+            passwordForThisAttempt = nil
             await refresh()
         } catch SSHError.unknownHostKey(let info) {
             phase = .needsHostKeyApproval(info, isChange: false)
@@ -104,7 +111,10 @@ final class SFTPModel {
 
     private func resolveAuth(typedPassword: String?) async throws -> SSHAuth? {
         if let typedPassword, !typedPassword.isEmpty {
-            return .password(typedPassword)
+            passwordForThisAttempt = typedPassword
+        }
+        if let carried = passwordForThisAttempt, !carried.isEmpty {
+            return .password(carried)
         }
         if let keyId = host.keyId {
             guard let key = try await keys.fetch(id: keyId),
@@ -130,6 +140,7 @@ final class SFTPModel {
     }
 
     func disconnect() {
+        passwordForThisAttempt = nil
         session?.disconnect()
         session = nil
     }
