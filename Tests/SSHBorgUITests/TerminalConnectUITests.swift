@@ -16,8 +16,18 @@ final class TerminalConnectUITests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
-        let row = app.staticTexts["test-host"].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15), "the seeded host is not in the list")
+        // Skip rather than fail when the host is not there. This test looks at a
+        // live connection, so it needs a host seeded into the database by hand —
+        // which only ever happens on the machine someone is debugging on. Every
+        // other credential-dependent test in the suite skips itself; this one
+        // used to assert instead, and so reported a red failure on any machine
+        // but the one it was written on. The label is overridable because the
+        // seeded host is not called the same thing everywhere.
+        let label = ProcessInfo.processInfo.environment["SSHBORG_UITEST_HOST_LABEL"] ?? "test-host"
+        let row = app.staticTexts[label].firstMatch
+        guard row.waitForExistence(timeout: 15) else {
+            throw XCTSkip("no host labelled '\(label)' in the list — seed one to run this")
+        }
 
         let before = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         before.name = "10-before-tap"
