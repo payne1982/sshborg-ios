@@ -121,6 +121,19 @@ struct ExtraKeyRow: View {
     /// own surface scrolls the scrollback. Without this the keyboard cannot be
     /// put away at all: tapping the terminal raises it and tapping again does
     /// nothing, which is exactly how it was reported.
+    ///
+    /// **Why not make the tap toggle instead**, which is the obvious idea and was
+    /// asked for: a tap on a focused terminal already means four things in
+    /// SwiftTerm's `singleTap` — follow a link, deliver a click to a remote
+    /// program that has mouse reporting on, clear the selection, or open the
+    /// copy/paste menu when it lands near the cursor. Closing the keyboard would
+    /// collide with all four, and worst with the second: inside `vim` every click
+    /// would drop the keyboard, and getting it back means sending `vim` another
+    /// click. There is a branch where the tap does nothing today and a toggle
+    /// would fit, but recognising it from outside means reading SwiftTerm's
+    /// `selection.active` and `terminal.mouseMode` and re-deriving its
+    /// conditions — the kind of coupling that breaks quietly on the next update.
+    /// Decided 12/08/2026: a visible key beats a clever gesture here.
     private var hideKeyboard: some View {
         Button {
             session.terminalView.resignFirstResponder()
