@@ -302,14 +302,27 @@ final class TerminalSession: Identifiable {
     private func handleStreamEnded() {
         guard case .connected = phase else { return }
 
-        // A clean shell exit and a dropped link both land here; the exit status
-        // is what tells them apart.
-        let status = channel?.exitStatus
-        let reason = (status == nil || status == 0) ? nil : "exit status \(status!)"
+        // A clean shell exit and a dropped link both land here, and what tells
+        // them apart is *whether* an exit status arrived — not what it was.
+        //
+        // This used to report `exit status 1` as the reason for disconnecting,
+        // which turned an ordinary goodbye into something that read like a
+        // fault. `exit` with no argument carries the status of the last command,
+        // so any failed command before leaving produces a non-zero value; it
+        // describes the shell's last act, not the connection. Android draws the
+        // line the same way: `if (session.exitStatus != -1) cleanExit = true`,
+        // and it never shows the number.
+        //
+        // A dropped link, by contrast, has no status at all, and that is the
+        // case that deserves words — it used to be the silent one.
+        let endedCleanly = channel?.exitStatus != nil
+
         // A shell that exited on its own is finished, and reconnecting it would
         // undo what the user just did by typing `exit`.
-        endedByRemote = status != nil
-        phase = .disconnected(reason: reason)
+        endedByRemote = endedCleanly
+        phase = .disconnected(
+            reason: endedCleanly ? nil : String(localized: .terminalConnectionLost)
+        )
     }
 
     // MARK: - Returning to the foreground
