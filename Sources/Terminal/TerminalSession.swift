@@ -44,6 +44,33 @@ final class TerminalSession: Identifiable {
     var ctrlActive = false
     var altActive = false
 
+    /// Whether the soft keyboard offers suggestions and autocorrection.
+    ///
+    /// Android's "word mode", the Spellcheck key on its extra row, which swaps
+    /// the terminal's input type between raw keys and
+    /// `TYPE_CLASS_TEXT or TYPE_TEXT_FLAG_AUTO_CORRECT`. Off is the right default
+    /// for a terminal and is what SwiftTerm already does; on is for the moment
+    /// you are composing a long command and want the keyboard's help with the
+    /// prose-like parts of it.
+    ///
+    /// Only autocorrection and spell checking move. Capitalisation stays off —
+    /// Android sets no capitalisation flag either, and a shell is case-sensitive
+    /// — and so do smart quotes and dashes, which would turn `"` into `"` and
+    /// `--flag` into `–flag` and break the command outright.
+    var wordMode = false {
+        didSet {
+            guard wordMode != oldValue else { return }
+            terminalView.autocorrectionType = wordMode ? .yes : .no
+            terminalView.spellCheckingType = wordMode ? .yes : .no
+            // The traits are read when the keyboard attaches, so it has to be
+            // rebuilt for the change to show — the counterpart of Android having
+            // to call `restartInput()` for the same reason.
+            if terminalView.isFirstResponder {
+                terminalView.reloadInputViews()
+            }
+        }
+    }
+
     /// Suggestions for what is being typed, or empty when there is nothing to
     /// offer. Driven by the terminal's own contents, so completion and history
     /// recall move it too, not only keystrokes.

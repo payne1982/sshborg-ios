@@ -465,6 +465,9 @@ extension LocalizedStringResource {
     /// Clear finished
     static let iosTransfersClear = LocalizedStringResource("ios_transfers_clear")
 
+    /// Word suggestions
+    static let iosWordMode = LocalizedStringResource("ios_word_mode")
+
     /// Transfers
     static let iosTransfersTitle = LocalizedStringResource("ios_transfers_title")
 

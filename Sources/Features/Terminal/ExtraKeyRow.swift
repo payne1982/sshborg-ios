@@ -35,6 +35,7 @@ struct ExtraKeyRow: View {
 
                 toggle("Ctrl", isOn: $session.ctrlActive)
                 toggle("Alt", isOn: $session.altActive)
+                wordModeKey
 
                 Divider().frame(height: 20)
 
@@ -163,6 +164,30 @@ struct ExtraKeyRow: View {
         .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
         .accessibilityLabel(String(localized: .terminalPinKeysCd))
         .accessibilityAddTraits(isPinned ? [.isSelected] : [])
+    }
+
+    /// Android's Spellcheck key, in Android's place: after Alt, before ESC.
+    ///
+    /// It turns the soft keyboard's suggestions on for the length of a long
+    /// command and off again afterwards. The terminal is already suggestion-free
+    /// by default — SwiftTerm ships `autocorrectionType = .no` — so this is the
+    /// switch that was missing, not the behaviour.
+    private var wordModeKey: some View {
+        Button {
+            session.wordMode.toggle()
+        } label: {
+            Image(systemName: "textformat.abc.dottedunderline")
+                .font(.system(size: 14))
+                .foregroundStyle(session.wordMode ? Color.white : Color.primary)
+                .frame(minWidth: 40, minHeight: 30)
+        }
+        .buttonStyle(.plain)
+        .background(
+            session.wordMode ? Color.accentColor : Color(.secondarySystemBackground),
+            in: .rect(cornerRadius: 5)
+        )
+        .accessibilityLabel(String(localized: .iosWordMode))
+        .accessibilityAddTraits(session.wordMode ? .isSelected : [])
     }
 
     private func toggle(_ label: String, isOn: Binding<Bool>) -> some View {
