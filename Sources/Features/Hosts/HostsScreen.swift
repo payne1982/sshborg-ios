@@ -237,6 +237,14 @@ struct HostsScreen: View {
                 Button(String(localized: .hostMenuNewTerminal), systemImage: "terminal") { openNew(host) }
                 Button(String(localized: .hostMenuFiles), systemImage: "folder") { browsing = host }
                 Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
+                // Between Edit and Delete, as on Android. The copy opens in the
+                // editor straight away: nobody duplicates a host to leave it
+                // identical, so landing on the form is the next step either way.
+                Button(String(localized: .actionDuplicate), systemImage: "doc.on.doc") {
+                    Task {
+                        if let copy = await model.duplicate(host) { editing = .existing(copy) }
+                    }
+                }
                 Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) { hostToDelete = host }
             }
         }

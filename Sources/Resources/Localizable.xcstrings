@@ -979,6 +979,71 @@
         }
       }
     },
+    "action_duplicate": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplizieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicate"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dupliquer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дублировать"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дублювати"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制"
+          }
+        }
+      }
+    },
     "action_edit": {
       "extractionState": "manual",
       "localizations": {
@@ -3911,6 +3976,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "SSH 密钥"
+          }
+        }
+      }
+    },
+    "host_clone_label": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (Kopie)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (copy)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (copia)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (copie)"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (copia)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@（コピー）"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (cópia)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (копия)"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (копія)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@（副本）"
           }
         }
       }
@@ -8282,22 +8412,16 @@
       "comment": "iOS only — no Android counterpart. Android dismisses the keyboard with the system Back button; iOS has none, so the extra key row carries this. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review.",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide keyboard"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nascondi tastiera"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Tastatur ausblenden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide keyboard"
           }
         },
         "es": {
@@ -8310,6 +8434,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Masquer le clavier"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi tastiera"
           }
         },
         "ja": {
@@ -9932,22 +10062,16 @@
       "comment": "iOS only — Android's Spellcheck key on the extra row carries no content description, so there was nothing to import. Turns the soft keyboard's suggestions on for the terminal. Not reviewed by a native speaker.",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Word suggestions"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suggerimenti di parola"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Wortvorschläge"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Word suggestions"
           }
         },
         "es": {
@@ -9960,6 +10084,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Suggestions de mots"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggerimenti di parola"
           }
         },
         "ja": {
@@ -12139,6 +12269,136 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "notification_bg_timeout_text": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android hat das Zeitlimit für die App im Hintergrund erreicht, daher wurden die Sitzungen beendet. Zum erneuten Öffnen und Verbinden tippen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android reached its limit on how long the app can run in the background, so your sessions were stopped. Tap to reopen and reconnect."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android alcanzó el límite de tiempo de la app en segundo plano, por lo que las sesiones se detuvieron. Toca para volver a abrir y reconectar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android a atteint la limite de durée d'exécution de l'app en arrière-plan, donc les sessions ont été arrêtées. Touchez pour rouvrir et vous reconnecter."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android ha raggiunto il limite di tempo in background per l'app, quindi le sessioni sono state interrotte. Tocca per riaprire e riconnetterti."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリのバックグラウンド実行時間の上限に達したため、セッションを停止しました。タップして再度開き、接続し直してください。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Android atingiu o limite de tempo da app em segundo plano, por isso as sessões foram interrompidas. Toque para reabrir e ligar de novo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android достиг ограничения времени работы приложения в фоне, поэтому сессии были остановлены. Нажмите, чтобы открыть снова и переподключиться."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android досяг межі часу роботи застосунку у фоні, тому сесії було зупинено. Торкніться, щоб відкрити знову та перепідключитися."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android 已达到应用在后台的运行时间上限，因此会话已停止。点按可重新打开并连接。"
+          }
+        }
+      }
+    },
+    "notification_bg_timeout_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sitzungen beendet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessions stopped"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesiones detenidas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessions arrêtées"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessioni interrotte"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セッションを停止しました"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessões interrompidas"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сессии остановлены"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сесії зупинено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会话已停止"
           }
         }
       }

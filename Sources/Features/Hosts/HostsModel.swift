@@ -99,6 +99,30 @@ final class HostsModel {
         try? await hostRepository.delete(host)
     }
 
+    /// Copies a host into a new row and hands it back so the caller can open it
+    /// in the editor. Ported from the Android `cloneHost`.
+    ///
+    /// Everything is copied verbatim — credentials, key, jump chain, port
+    /// forwards, group, colour — because the whole point is to reuse a host's
+    /// settings and change one detail like the port or the jump host. Three
+    /// things do not survive: the id, so this is a new row; the label, which
+    /// gains "(copy)" from the catalog rather than a string built here; and the
+    /// last-connected stamp, which belongs to the original's history and not to
+    /// a host nobody has connected to yet.
+    ///
+    /// The pinned host key comes along on purpose. The copy points at the same
+    /// server, so the key that was verified for the original is the right one,
+    /// and dropping it would raise a fingerprint prompt that teaches the user to
+    /// wave prompts away.
+    func duplicate(_ host: Host) async -> Host? {
+        var copy = host
+        copy.id = nil
+        copy.label = String(localized: .hostCloneLabel)
+            .replacingOccurrences(of: "%1$@", with: host.label)
+        copy.lastConnected = nil
+        return try? await hostRepository.save(copy)
+    }
+
     /// Deleting a group keeps its hosts: the repository detaches them in the
     /// same transaction, so they reappear as ungrouped rather than vanishing.
     func delete(_ group: HostGroup) async {

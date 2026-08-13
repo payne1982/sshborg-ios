@@ -54,6 +54,9 @@ extension LocalizedStringResource {
     /// Don't show again
     static let actionDontShowAgain = LocalizedStringResource("action_dont_show_again")
 
+    /// Duplicate
+    static let actionDuplicate = LocalizedStringResource("action_duplicate")
+
     /// Edit
     static let actionEdit = LocalizedStringResource("action_edit")
 
@@ -191,6 +194,9 @@ extension LocalizedStringResource {
 
     /// SSH Key
     static let hostAuthSshKey = LocalizedStringResource("host_auth_ssh_key")
+
+    /// %1$@ (copy)
+    static let hostCloneLabel = LocalizedStringResource("host_clone_label")
 
     /// Automatic
     static let hostColorAuto = LocalizedStringResource("host_color_auto")
@@ -465,11 +471,11 @@ extension LocalizedStringResource {
     /// Clear finished
     static let iosTransfersClear = LocalizedStringResource("ios_transfers_clear")
 
-    /// Word suggestions
-    static let iosWordMode = LocalizedStringResource("ios_word_mode")
-
     /// Transfers
     static let iosTransfersTitle = LocalizedStringResource("ios_transfers_title")
+
+    /// Word suggestions
+    static let iosWordMode = LocalizedStringResource("ios_word_mode")
 
     /// Curve (bit)
     static let keygenCurveBits = LocalizedStringResource("keygen_curve_bits")
@@ -557,6 +563,12 @@ extension LocalizedStringResource {
 
     /// %d files downloading
     static let notificationBgDownloads = LocalizedStringResource("notification_bg_downloads")
+
+    /// Android reached its limit on how long the app can run in the background, so your sess…
+    static let notificationBgTimeoutText = LocalizedStringResource("notification_bg_timeout_text")
+
+    /// Sessions stopped
+    static let notificationBgTimeoutTitle = LocalizedStringResource("notification_bg_timeout_title")
 
     /// Shows active SSH/SFTP sessions
     static let notificationChannelDescription = LocalizedStringResource("notification_channel_description")
