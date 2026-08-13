@@ -191,18 +191,25 @@ struct TerminalScreen: View {
             // correctly laid out — the accessibility tree showed the panel, the
             // title, the message, the field and both buttons at sensible
             // coordinates — but 99.6% of the pixels inside its frame were pure
-            // black. A system alert's panel is a translucent material: over the
-            // host list it samples white and reads light grey with black text,
-            // and over a black terminal it samples black while its labels stay
-            // the light-scheme black. Black on black. All that survived on screen
-            // was the grey placeholder and the blue caret, which is exactly what
-            // got reported: "only a cursor in the middle".
+            // black. All that survived on screen was the grey placeholder and the
+            // blue caret, which is exactly what got reported: "only a cursor in
+            // the middle".
             //
-            // This is the same fault as the white-on-white fingerprint, and it
-            // has the same cure: an opaque panel with explicit label colours,
-            // which is what StatusOverlay is. Matching the colour scheme to the
-            // terminal instead would not do — the terminal's background is the
-            // user's to choose, so there is no scheme that is reliably right.
+            // ⚠️ The explanation offered at the time — a translucent alert panel
+            // sampling the black terminal while its labels stayed light-scheme
+            // black — was reached on the build VM alone, and the day after, the
+            // same VM was caught failing to draw a context menu's platter at all
+            // while the MacBook drew it solidly. It has no GPU and renders in
+            // software, so it is not a fair witness about translucent materials,
+            // and how much of that black was iOS and how much was the renderer
+            // was never settled.
+            //
+            // The panel stays regardless, on grounds that do not depend on it:
+            // the host key prompt right above is already an in-layout overlay,
+            // for its own reasons, and having the two prompts of one connection
+            // look alike is worth something; and an opaque background with
+            // explicit label colours cannot be wrong-footed by a terminal
+            // background the user chooses.
             StatusOverlay(
                 kind: .question,
                 message: String(localized: .iosPasswordPrompt)
