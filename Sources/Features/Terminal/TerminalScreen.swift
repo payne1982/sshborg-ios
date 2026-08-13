@@ -187,29 +187,29 @@ struct TerminalScreen: View {
             // In the layout, like the host key prompt — and for a reason found by
             // measuring pixels, not by taste.
             //
-            // As a system alert this was *invisible*. The alert was present and
-            // correctly laid out — the accessibility tree showed the panel, the
-            // title, the message, the field and both buttons at sensible
-            // coordinates — but 99.6% of the pixels inside its frame were pure
-            // black. All that survived on screen was the grey placeholder and the
-            // blue caret, which is exactly what got reported: "only a cursor in
-            // the middle".
+            // A system alert's panel is a translucent material, so it takes its
+            // colour from whatever is behind it — and behind this one is a
+            // terminal. Measured on the same alert, same build, three backdrops:
             //
-            // ⚠️ The explanation offered at the time — a translucent alert panel
-            // sampling the black terminal while its labels stayed light-scheme
-            // black — was reached on the build VM alone, and the day after, the
-            // same VM was caught failing to draw a context menu's platter at all
-            // while the MacBook drew it solidly. It has no GPU and renders in
-            // software, so it is not a fair witness about translucent materials,
-            // and how much of that black was iOS and how much was the renderer
-            // was never settled.
+            //     over the host list      panel (194,194,198)
+            //     over the black terminal panel (179,179,179), field (158,158,158)
+            //     a context menu platter  (239,239,240), for scale
             //
-            // The panel stays regardless, on grounds that do not depend on it:
-            // the host key prompt right above is already an in-layout overlay,
-            // for its own reasons, and having the two prompts of one connection
-            // look alike is worth something; and an opaque background with
-            // explicit label colours cannot be wrong-footed by a terminal
-            // background the user chooses.
+            // Grey text field on a grey panel on a grey title. It stays legible
+            // and it looks like a mistake, and the contrast is not ours to fix:
+            // the panel follows the terminal background, which the user chooses.
+            //
+            // ⚠️ It was first reported as *invisible*, and the build VM agreed —
+            // 99.6% of the pixels inside the alert's frame were pure black, with
+            // only the placeholder and the caret surviving. That extreme was the
+            // VM, which has no GPU, renders in software, and was later caught not
+            // drawing a context menu's platter at all. The mechanism was real;
+            // the severity was the renderer. Worth remembering before quoting a
+            // VM screenshot as evidence about anything translucent.
+            //
+            // Either way an opaque panel with explicit label colours cannot be
+            // wrong-footed by the terminal behind it, and it matches the host key
+            // prompt above — two prompts from one connection that look alike.
             StatusOverlay(
                 kind: .question,
                 message: String(localized: .iosPasswordPrompt)
