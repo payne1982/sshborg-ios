@@ -142,10 +142,15 @@ final class AppLock {
         // guards it. Asking "is the cover even up?" does, and says what this is
         // for besides: unlocking what is locked.
         //
-        // Without it the prompt reappeared endlessly, over a host list that was
-        // by then fully visible behind it — the lock asking to be let in to a
-        // room whose door it had already opened. Android never meets this
-        // because its callbacks arrive while its own call is still suspended.
+        // Without it one arrival raised two prompts, which the tests pin down.
+        // Android never meets this because its callbacks arrive while its own
+        // call is still suspended.
+        //
+        // ⚠️ It was found chasing a report of a Face ID panel lingering after a
+        // successful unlock, but the two were never firmly linked: a second
+        // prompt is indistinguishable from a first that has not faded, and on
+        // retesting the panel went away by itself after about a second. The
+        // re-entrancy is real and fixed; do not read the symptom into it.
         guard isLocked, !isAuthenticating else { return }
 
         if let lastAuthenticated,
