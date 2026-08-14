@@ -222,7 +222,8 @@ struct HostsScreen: View {
                 host: host,
                 tint: model.color(for: host).map { Color(argb: $0) },
                 sessionCount: environment.sessions.sessions(forHostID: host.id ?? -1).count,
-                hasFileBrowser: environment.browsers.isOpen(hostID: host.id)
+                hasFileBrowser: environment.browsers.isOpen(hostID: host.id),
+                onOpenFiles: { browsing = host }
             )
             .contentShape(.rect)
             .onTapGesture { open(host) }
@@ -316,6 +317,11 @@ private struct HostRow: View {
     /// invisible from the list.
     let hasFileBrowser: Bool
 
+    /// Tapping the folder goes back into the browser that is already open, which
+    /// is the whole use for a badge that says one is. Android wires its badges
+    /// the same way: `Modifier.clickable { onSftp() }` around the folder.
+    let onOpenFiles: () -> Void
+
     var body: some View {
         HStack(spacing: 12) {
             // Icon, then the marks stacked beside it — Android's arrangement,
@@ -341,11 +347,20 @@ private struct HostRow: View {
                     // because it can hold several browsers per host, and this
                     // holds one.
                     if hasFileBrowser {
-                        Image(systemName: "folder.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color(red: 0.976, green: 0.659, blue: 0.145))
-                            .frame(width: 15, height: 15)
-                            .accessibilityLabel(String(localized: .hostMenuFiles))
+                        Button(action: onOpenFiles) {
+                            Image(systemName: "folder.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color(red: 0.976, green: 0.659, blue: 0.145))
+                                // Bigger than it looks: a 15pt glyph is a hard
+                                // thing to hit, so the tappable area is padded
+                                // out around it, as Android pads its badge by
+                                // 4dp for the same reason.
+                                .frame(width: 15, height: 15)
+                                .padding(4)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: .hostMenuFiles))
                     }
                 }
             }
