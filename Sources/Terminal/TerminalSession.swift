@@ -347,8 +347,18 @@ final class TerminalSession: Identifiable {
     private func handleStreamEnded() {
         guard case .connected = phase else { return }
 
-        // A clean shell exit and a dropped link both land here, and what tells
-        // them apart is *whether* an exit status arrived — not what it was.
+        // A clean shell exit, a killed session and a dropped link all land here.
+        //
+        // A shell that was *killed* is not someone leaving: the session was taken
+        // away, and closing its tab makes it vanish with no trace of why —
+        // reported as "I killed the session on the server and the tab just
+        // disappeared, no red dot". SSH says which happened, `exit-signal` rather
+        // than `exit-status`, and only the signal separates the two: the status
+        // reads 0 both for a shell that returned 0 and for one that sent no
+        // status at all.
+        //
+        // Otherwise what tells a clean exit from a dropped link is *whether* an
+        // exit status arrived — not what it was.
         //
         // This used to report `exit status 1` as the reason for disconnecting,
         // which turned an ordinary goodbye into something that read like a
@@ -360,14 +370,25 @@ final class TerminalSession: Identifiable {
         //
         // A dropped link, by contrast, has no status at all, and that is the
         // case that deserves words — it used to be the silent one.
-        let endedCleanly = channel?.exitStatus != nil
+        let killedBySignal = channel?.exitSignal
+        let endedCleanly = channel?.exitStatus != nil && killedBySignal == nil
 
         // A shell that exited on its own is finished, and reconnecting it would
-        // undo what the user just did by typing `exit`.
-        endedByRemote = endedCleanly
-        phase = .disconnected(
-            reason: endedCleanly ? nil : String(localized: .terminalConnectionLost)
-        )
+        // undo what the user just did by typing `exit`. A killed one is also
+        // over — nothing is coming back on that channel — but it was not the
+        // user's doing.
+        endedByRemote = channel?.exitStatus != nil
+
+        let reason: String? = if endedCleanly {
+            nil
+        } else if let killedBySignal {
+            // The signal name is the whole story: HUP is usually the server
+            // dropping the session, KILL and TERM are usually someone else.
+            "SIG\(killedBySignal)"
+        } else {
+            String(localized: .terminalConnectionLost)
+        }
+        phase = .disconnected(reason: reason)
 
         // `exit` closes the tab; anything else leaves the panel up.
         //

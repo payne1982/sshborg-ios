@@ -91,4 +91,42 @@ final class ShellExitIsNotAnErrorTests: XCTestCase {
         XCTAssertTrue(manager.sessions.isEmpty, "the tab outlived the shell that was its whole point")
         XCTAssertNil(manager.selected)
     }
+
+    /// A killed shell is not a goodbye.
+    ///
+    /// Closing its tab makes the session vanish with nothing left saying why —
+    /// no panel, no red dot on the host, nothing to reconnect from. SSH reports
+    /// this as `exit-signal` rather than `exit-status`, and that is the only
+    /// thing separating the two cases: the status reads 0 for a shell that
+    /// returned 0 *and* for one that sent no status at all.
+    func testAKilledShellKeepsItsTabAndSaysWhat() async throws {
+        let manager = SessionManager()
+
+        var host = Host(label: "killed", hostname: target.host, username: target.username)
+        host.port = target.port
+        host.password = target.password
+        let session = manager.open(host: try await hosts.save(host), hosts: hosts, keys: keys)
+
+        await session.connect(acceptHostKey: true)
+        guard case .connected = session.phase else {
+            return XCTFail("could not connect: \(session.phase)")
+        }
+
+        // The shell kills itself, which is what the server does to a session
+        // someone ends from the outside.
+        session.send(text: "kill -9 $$\n")
+
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            if case .disconnected = session.phase { break }
+            try await Task.sleep(for: .milliseconds(200))
+        }
+
+        guard case .disconnected(let reason) = session.phase else {
+            return XCTFail("the session never noticed: \(session.phase)")
+        }
+        XCTAssertEqual(manager.sessions.count, 1, "a killed session lost its tab, and with it the red dot")
+        XCTAssertNotNil(reason, "a killed session gave no reason at all")
+        XCTAssertEqual(reason, "SIGKILL")
+    }
 }

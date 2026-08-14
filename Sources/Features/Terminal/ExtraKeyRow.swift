@@ -26,12 +26,19 @@ struct ExtraKeyRow: View {
     /// control seen from two places, which is how the Android build has it.
     @Binding var isPinned: Bool
 
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
-                hideKeyboard
-
-                Divider().frame(height: 20)
+                // iPad's own software keyboard carries a dismiss key in its
+                // bottom-right corner; iPhone's does not. Showing ours on iPad
+                // would be a second button for the same job, in a bar that is
+                // already long.
+                if !isPad {
+                    hideKeyboard
+                    Divider().frame(height: 20)
+                }
 
                 toggle("Ctrl", isOn: $session.ctrlActive)
                 toggle("Alt", isOn: $session.altActive)
@@ -118,10 +125,11 @@ struct ExtraKeyRow: View {
         }
     }
 
-    /// iOS has no Back button, and a terminal has nothing to swipe down on — its
-    /// own surface scrolls the scrollback. Without this the keyboard cannot be
-    /// put away at all: tapping the terminal raises it and tapping again does
-    /// nothing, which is exactly how it was reported.
+    /// iPhone only. Android dismisses the keyboard with the system Back button
+    /// and iPhone has no equivalent — a terminal has nothing to swipe down on
+    /// either, since its own surface scrolls the scrollback — so without this the
+    /// keyboard could be raised and never lowered. iPad needs none of it: its
+    /// software keyboard has a dismiss key of its own.
     ///
     /// **Why not make the tap toggle instead**, which is the obvious idea and was
     /// asked for: a tap on a focused terminal already means four things in
