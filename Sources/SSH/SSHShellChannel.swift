@@ -41,17 +41,6 @@ final class SSHShellChannel {
 
     private(set) var exitStatus: Int32?
 
-    /// The signal that killed the remote command, when one did — `"TERM"`,
-    /// `"KILL"`, and so on, without the `SIG` prefix, as SSH sends them.
-    ///
-    /// SSH reports the end of a command in one of two ways: `exit-status` for a
-    /// process that returned, `exit-signal` for one that was killed. They mean
-    /// opposite things to a user — the first is someone typing `exit`, the second
-    /// is their session being taken away — and `libssh2_channel_get_exit_status`
-    /// cannot tell them apart: it answers 0 both for "exited with 0" and for
-    /// "no exit status was ever sent". Without this, killing a session looked
-    /// exactly like leaving one.
-    private(set) var exitSignal: String?
 
     /// Why the output stream ended. A shell that stops is indistinguishable from
     /// one that never had anything to say, so the reason is recorded rather than
@@ -332,31 +321,6 @@ final class SSHShellChannel {
 
         if libssh2_channel_eof(channel) == 1 {
             exitStatus = libssh2_channel_get_exit_status(channel)
-
-            // libssh2 allocates the three strings with its own allocator and
-            // hands ownership over; only the signal name is wanted here, and the
-            // other two are freed rather than leaked. Passing nil for the lengths
-            // is allowed, but not for the pointers when the string is wanted.
-            var name: UnsafeMutablePointer<CChar>?
-            var nameLength = 0
-            var message: UnsafeMutablePointer<CChar>?
-            var messageLength = 0
-            var language: UnsafeMutablePointer<CChar>?
-            var languageLength = 0
-
-            libssh2_channel_get_exit_signal(
-                channel,
-                &name, &nameLength,
-                &message, &messageLength,
-                &language, &languageLength
-            )
-
-            if let name {
-                if nameLength > 0 { exitSignal = String(cString: name) }
-                free(name)
-            }
-            if let message { free(message) }
-            if let language { free(language) }
         }
 
         libssh2_channel_free(channel)

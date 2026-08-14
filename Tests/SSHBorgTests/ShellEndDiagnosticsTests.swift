@@ -52,7 +52,6 @@ final class ShellEndDiagnosticsTests: XCTestCase {
 
     private func report(_ channel: SSHShellChannel, _ what: String) {
         print("=== \(what): status=\(String(describing: channel.exitStatus)) "
-              + "signal=\(String(describing: channel.exitSignal)) "
               + "reason=\(String(describing: channel.finishReason)) ===")
     }
 
@@ -63,7 +62,7 @@ final class ShellEndDiagnosticsTests: XCTestCase {
         report(channel, "exit")
 
         XCTAssertNotNil(channel.exitStatus, "a normal exit sent no status")
-        XCTAssertNil(channel.exitSignal, "a normal exit reported a signal")
+        XCTAssertEqual(channel.finishReason, "eof")
     }
 
     func testTheShellItselfBeingKilled() async throws {
@@ -72,7 +71,12 @@ final class ShellEndDiagnosticsTests: XCTestCase {
         await drain(channel)
         report(channel, "kill shell")
 
-        XCTAssertEqual(channel.exitSignal, "KILL", "a killed shell reported no signal")
+        // Indistinguishable from `exit` at this level, which is the point: the
+        // status reads 0 either way, and libssh2 offers no "was a status even
+        // sent" to separate them. Reading `exit-signal` would, and was removed
+        // on purpose — see the note in TerminalSession.handleStreamEnded.
+        XCTAssertNotNil(channel.exitStatus)
+        XCTAssertEqual(channel.finishReason, "eof")
     }
 
     /// The case that was reported: the session killed from the server, which
