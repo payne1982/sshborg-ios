@@ -8,9 +8,10 @@ import SwiftUI
 /// then one collapsible section per group, a host's own colour overriding its
 /// group's, and a badge for open sessions.
 ///
-/// Two Android behaviours have no counterpart here. Double-back-to-exit is
-/// meaningless because iOS apps do not quit on a back gesture, and the SFTP
-/// affordance waits for phase 6 rather than shipping a dead button.
+/// Double-back-to-exit has no counterpart here: iOS apps do not quit on a back
+/// gesture. Open sessions are marked as Android marks them, with two separate
+/// badges — a count for shells, a folder for a file browser — because a host can
+/// have either without the other.
 struct HostsScreen: View {
 
     @Environment(\.appEnvironment) private var environment
@@ -220,7 +221,8 @@ struct HostsScreen: View {
             HostRow(
                 host: host,
                 tint: model.color(for: host).map { Color(argb: $0) },
-                sessionCount: environment.sessions.sessions(forHostID: host.id ?? -1).count
+                sessionCount: environment.sessions.sessions(forHostID: host.id ?? -1).count,
+                hasFileBrowser: environment.browsers.isOpen(hostID: host.id)
             )
             .contentShape(.rect)
             .onTapGesture { open(host) }
@@ -307,6 +309,13 @@ private struct HostRow: View {
     let tint: Color?
     let sessionCount: Int
 
+    /// An SFTP browser left open for this host. A separate mark from the session
+    /// count, as on Android, because they are separate things: one is shells,
+    /// the other is a file browser, and a host can have either without the
+    /// other. Losing that distinction is how an SFTP session left running became
+    /// invisible from the list.
+    let hasFileBrowser: Bool
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "desktopcomputer")
@@ -324,7 +333,18 @@ private struct HostRow: View {
                 }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(host.label)
+                HStack(spacing: 6) {
+                    Text(host.label)
+                    // Android's amber folder, without its digit: it counts
+                    // because it can hold several browsers per host, and this
+                    // holds one.
+                    if hasFileBrowser {
+                        Image(systemName: "folder.fill")
+                            .font(.caption2)
+                            .foregroundStyle(Color(red: 0.976, green: 0.659, blue: 0.145))
+                            .accessibilityLabel(String(localized: .hostMenuFiles))
+                    }
+                }
                 Text(verbatim: "\(host.username)@\(host.hostname):\(String(host.port))")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)

@@ -40,6 +40,17 @@ final class SFTPBrowsers {
         return model
     }
 
+    /// Whether a browser is open for a host, which the host list shows as a
+    /// badge of its own.
+    ///
+    /// Android draws a count there because it can hold several SFTP sessions per
+    /// host; this holds one, keyed by host, so a number would always read "1"
+    /// and say nothing the badge does not already say by existing.
+    func isOpen(hostID: Int64?) -> Bool {
+        guard let hostID else { return false }
+        return models[hostID] != nil
+    }
+
     /// Ends a browser and forgets it — the close button, not the back chevron.
     func close(_ host: Host) {
         guard let id = host.id, let model = models.removeValue(forKey: id) else { return }

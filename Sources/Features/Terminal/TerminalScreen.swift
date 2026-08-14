@@ -155,99 +155,31 @@ struct TerminalScreen: View {
             // did not notice it — or brushed it away — was left staring at that
             // black screen with nothing saying what it waited for. It cost an
             // hour of misdiagnosis during testing, which is a fair warning about
-            // what it costs a user. Android shows its dialog inside the screen
-            // for the same reason.
-            StatusOverlay(
-                // A first connection is a question, not a fault. A key that has
-                // *changed* is a warning, and keeps the alarming presentation.
-                kind: isChange ? .failure : .question,
-                message: isChange
-                    ? String(localized: .iosHostkeyChangedTitle)
-                    : String(localized: .hostkeyTitle),
-                detail: hostKeyDetail(for: session, info: info, isChange: isChange),
-                // Never behind a disclosure: the fingerprint is the thing the
-                // user is being asked to look at.
-                showsDetailOutright: true,
-                actions: AnyView(
-                    HStack {
-                        Button(String(localized: .actionTrust)) {
-                            Task { await session.connect(acceptHostKey: true) }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        // Red when a stored key has changed: that is the case
-                        // where accepting out of reflex is the expensive one.
-                        .tint(isChange ? Color.red : Color.accentColor)
-
-                        Button(String(localized: .actionReject)) { manager.close(session) }
-                    }
-                )
+            // what it costs a user.
+            //
+            // ⚠️ An earlier version of this comment claimed Android does the
+            // same for the same reason. It does not: `HostKeyDialog` there is a
+            // plain `AlertDialog`, as is its password prompt, in the terminal as
+            // well as in the file browser. This is a deliberate divergence, and
+            // the measurements behind it are in `ConnectionPrompt`.
+            ConnectionPrompt.hostKey(
+                info,
+                hostname: session.host.hostname,
+                isChange: isChange,
+                onTrust: { Task { await session.connect(acceptHostKey: true) } },
+                onReject: { manager.close(session) }
             )
 
         case .needsPassword:
-            // In the layout, like the host key prompt — and for a reason found by
-            // measuring pixels, not by taste.
-            //
-            // A system alert's panel is a translucent material, so it takes its
-            // colour from whatever is behind it — and behind this one is a
-            // terminal. Measured on the same alert, same build, three backdrops:
-            //
-            //     over the host list      panel (194,194,198)
-            //     over the black terminal panel (179,179,179), field (158,158,158)
-            //     a context menu platter  (239,239,240), for scale
-            //
-            // Grey text field on a grey panel on a grey title. It stays legible
-            // and it looks like a mistake, and the contrast is not ours to fix:
-            // the panel follows the terminal background, which the user chooses.
-            //
-            // ⚠️ It was first reported as *invisible*, and the build VM agreed —
-            // 99.6% of the pixels inside the alert's frame were pure black, with
-            // only the placeholder and the caret surviving. That extreme was the
-            // VM, which has no GPU, renders in software, and was later caught not
-            // drawing a context menu's platter at all. The mechanism was real;
-            // the severity was the renderer. Worth remembering before quoting a
-            // VM screenshot as evidence about anything translucent.
-            //
-            // Either way an opaque panel with explicit label colours cannot be
-            // wrong-footed by the terminal behind it, and it matches the host key
-            // prompt above — two prompts from one connection that look alike.
-            StatusOverlay(
-                kind: .question,
-                message: String(localized: .iosPasswordPrompt)
-                    .replacingOccurrences(
-                        of: "%1$@",
-                        with: "\(session.host.username)@\(session.host.hostname)"
-                    ),
-                actions: AnyView(
-                    VStack(alignment: .leading, spacing: 10) {
-                        SecureField(String(localized: .hostFieldPassword), text: $passwordInput)
-                            .textFieldStyle(.roundedBorder)
-                            .plainTextEntry()
-                            .submitLabel(.go)
-                            .focused($isPasswordFocused)
-                            .onSubmit { submitPassword(for: session) }
-
-                        HStack {
-                            Button(String(localized: .actionConnect)) {
-                                submitPassword(for: session)
-                            }
-                            .buttonStyle(.borderedProminent)
-
-                            Button(String(localized: .actionCancel)) { manager.close(session) }
-                        }
-                    }
-                    // The terminal holds first responder, so the field has to take
-                    // it or the user types into a shell they cannot see.
-                    //
-                    // Asked for on the next runloop turn, not inside `onAppear`:
-                    // at that point the field is in the view tree but UIKit has
-                    // not finished handing responder status around, and a focus
-                    // request that lands mid-handover is dropped — the field shows
-                    // a caret and no keyboard ever comes up.
-                    .task {
-                        await Task.yield()
-                        isPasswordFocused = true
-                    }
-                )
+            // Same panel as the host key prompt above, for the reasons and the
+            // pixel measurements recorded in `ConnectionPrompt`.
+            ConnectionPrompt.password(
+                for: session.host.username,
+                at: session.host.hostname,
+                text: $passwordInput,
+                isFocused: $isPasswordFocused,
+                onConnect: { submitPassword(for: session) },
+                onCancel: { manager.close(session) }
             )
 
         case .connected:
@@ -266,34 +198,6 @@ struct TerminalScreen: View {
         Task { await session.connect(password: password) }
     }
 
-    /// The fingerprint and the reason to look at it, shown as the overlay's
-    /// expandable detail so the headline stays one line.
-    private func hostKeyDetail(
-        for session: TerminalSession,
-        info: HostKeyInfo,
-        isChange: Bool
-    ) -> String {
-        let host = String(localized: .hostkeyTerminalHost)
-            .replacingOccurrences(of: "%1$@", with: session.host.hostname)
-        let fingerprint = """
-        \(String(localized: .hostkeyTerminalFingerprint))
-        \(info.algorithm)
-        \(info.fingerprint)
-        """
-
-        guard isChange else {
-            return "\(host)\n\(fingerprint)\n\n\(String(localized: .hostkeyTerminalTrustQuestion))"
-        }
-
-        return """
-        \(host)
-        \(fingerprint)
-
-        This does not match the key stored for this host. A rebuilt server looks \
-        like this — so does an intercepted connection. Accept only if you know \
-        the server changed.
-        """
-    }
 }
 
 private struct SessionTabRow: View {

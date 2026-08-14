@@ -2,85 +2,10 @@
 
 import SwiftUI
 
-/// The prompts the connection itself can raise: a missing password, and a host
-/// key that is unknown or has changed.
-///
-/// Kept apart from the browser's own alerts so neither chain grows long enough
-/// to defeat the type-checker.
-struct ConnectionAlerts: ViewModifier {
-
-    @Bindable var model: SFTPModel
-    @Binding var passwordInput: String
-    let onCancel: () -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .alert("Password", isPresented: needsPassword) {
-                SecureField("Password", text: $passwordInput)
-                    .plainTextEntry()
-                Button(String(localized: .actionCancel), role: .cancel, action: onCancel)
-                Button("Connect") {
-                    let password = passwordInput
-                    passwordInput = ""
-                    Task { await model.connect(password: password) }
-                }
-            } message: {
-                Text("Enter the password for \(model.host.username)@\(model.host.hostname).")
-            }
-            .alert(
-                isChange ? "Host key changed" : "Unknown host key",
-                isPresented: needsHostKey,
-                presenting: hostKeyInfo
-            ) { _ in
-                Button(String(localized: .actionCancel), role: .cancel, action: onCancel)
-                Button("Accept", role: isChange ? .destructive : nil) {
-                    Task { await model.connect(acceptHostKey: true) }
-                }
-            } message: { info in
-                Text(hostKeyMessage(info))
-            }
-    }
-
-    // SwiftUI wants Bool bindings while the truth lives in the model's phase.
-    // The setter is deliberately inert: dismissal always goes through a button,
-    // so a stray write cannot leave the connection in limbo.
-    private var needsPassword: Binding<Bool> {
-        Binding(get: { model.phase == .needsPassword }, set: { _ in })
-    }
-
-    private var needsHostKey: Binding<Bool> {
-        Binding(get: { hostKeyInfo != nil }, set: { _ in })
-    }
-
-    private var hostKeyInfo: HostKeyInfo? {
-        guard case .needsHostKeyApproval(let info, _) = model.phase else { return nil }
-        return info
-    }
-
-    private var isChange: Bool {
-        guard case .needsHostKeyApproval(_, let changed) = model.phase else { return false }
-        return changed
-    }
-
-    private func hostKeyMessage(_ info: HostKeyInfo) -> String {
-        let fingerprint = "\(info.algorithm)\n\(info.fingerprint)"
-
-        if isChange {
-            return """
-            The key presented by \(model.host.hostname) does not match the one stored for it.
-
-            \(fingerprint)
-
-            This happens when a server is rebuilt, but it is also what an intercepted connection looks like. Only accept if you know the server changed.
-            """
-        }
-        return """
-        \(model.host.hostname) has not been seen before. Check that this fingerprint matches the server.
-
-        \(fingerprint)
-        """
-    }
-}
+// The connection's own prompts — a missing password and an unknown host key —
+// used to live here as system alerts. They are now `ConnectionPrompt` panels
+// drawn in the layout, the same ones the terminal shows, so one question does
+// not look like two different things depending on which screen asked it.
 
 /// The prompts the browser raises: creating a folder, renaming, deleting, and
 /// reporting an action that failed without losing the connection.

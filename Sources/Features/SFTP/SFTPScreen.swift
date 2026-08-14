@@ -27,6 +27,7 @@ struct SFTPScreen: View {
     /// used to be cancelled by tapping the back chevron.
     private var transfers: TransferManager { environment.transfers }
     @State private var passwordInput = ""
+    @FocusState private var isPasswordFocused: Bool
     @State private var newFolderName = ""
     @State private var isCreatingFolder = false
     @State private var renaming: SFTPEntry?
@@ -137,18 +138,6 @@ struct SFTPScreen: View {
             } message: { conflict in
                 Text("\(conflict.localURL.lastPathComponent) already exists here. Keeping both saves it as \(conflict.suggestedName).")
             }
-            // Cancelling the password or host key prompt means "not this one
-            // after all", so the browser goes with the screen. Leaving it in the
-            // store would keep a half-opened connection waiting for an answer
-            // nobody is going to give.
-            .modifier(ConnectionAlerts(
-                model: model,
-                passwordInput: $passwordInput,
-                onCancel: {
-                    environment.browsers.close(host)
-                    dismiss()
-                }
-            ))
             .modifier(FileAlerts(
                 model: model,
                 isCreatingFolder: $isCreatingFolder,
@@ -185,10 +174,38 @@ struct SFTPScreen: View {
                 Divider()
                 listing(model)
 
-            case .needsPassword, .needsHostKeyApproval:
-                Spacer()
-                ProgressView()
-                Spacer()
+            // The same two panels the terminal shows, from the same builder, so
+            // one question does not look like two different things depending on
+            // which screen asked it. They used to be system alerts here.
+            case .needsPassword:
+                ConnectionPrompt.password(
+                    for: host.username,
+                    at: host.hostname,
+                    text: $passwordInput,
+                    isFocused: $isPasswordFocused,
+                    onConnect: {
+                        let password = passwordInput
+                        passwordInput = ""
+                        isPasswordFocused = false
+                        Task { await model.connect(password: password) }
+                    },
+                    onCancel: {
+                        environment.browsers.close(host)
+                        dismiss()
+                    }
+                )
+
+            case .needsHostKeyApproval(let info, let isChange):
+                ConnectionPrompt.hostKey(
+                    info,
+                    hostname: host.hostname,
+                    isChange: isChange,
+                    onTrust: { Task { await model.connect(acceptHostKey: true) } },
+                    onReject: {
+                        environment.browsers.close(host)
+                        dismiss()
+                    }
+                )
             }
         }
     }
