@@ -22,13 +22,16 @@ struct SFTPScreen: View {
     let host: Host
 
     @State private var model: SFTPModel?
+
+    /// The shared queue. A download outlives the screen that started it — it
+    /// used to be cancelled by tapping the back chevron.
+    private var transfers: TransferManager { environment.transfers }
     @State private var passwordInput = ""
     @State private var newFolderName = ""
     @State private var isCreatingFolder = false
     @State private var renaming: SFTPEntry?
     @State private var renameInput = ""
     @State private var deleting: SFTPEntry?
-    @State private var transfers = TransferManager()
     @State private var isPickingUpload = false
     @State private var uploadConflict: UploadConflict?
 
@@ -58,11 +61,23 @@ struct SFTPScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             guard model == nil else { return }
-            let model = SFTPModel(host: host, hosts: environment.hosts, keys: environment.keys)
+            // Re-attaches to a browser already open for this host rather than
+            // making a second connection to the same server.
+            let model = environment.browsers.browser(
+                for: host,
+                hosts: environment.hosts,
+                keys: environment.keys
+            )
             self.model = model
-            await model.connect()
+            // Only if it has nothing going on: coming back to a live browser
+            // should show what is already there, not reconnect underneath it.
+            if case .connecting = model.phase, model.entries.isEmpty {
+                await model.connect()
+            }
         }
-        .onDisappear { model?.disconnect() }
+        // Deliberately no `onDisappear` disconnect. Walking back out of the
+        // browser leaves the session alone, as it does for a terminal tab; the
+        // close button in the toolbar is what ends it.
     }
 
     /// Split into small pieces on purpose. Chaining the whole toolbar and all
@@ -122,7 +137,18 @@ struct SFTPScreen: View {
             } message: { conflict in
                 Text("\(conflict.localURL.lastPathComponent) already exists here. Keeping both saves it as \(conflict.suggestedName).")
             }
-            .modifier(ConnectionAlerts(model: model, passwordInput: $passwordInput, onCancel: { dismiss() }))
+            // Cancelling the password or host key prompt means "not this one
+            // after all", so the browser goes with the screen. Leaving it in the
+            // store would keep a half-opened connection waiting for an answer
+            // nobody is going to give.
+            .modifier(ConnectionAlerts(
+                model: model,
+                passwordInput: $passwordInput,
+                onCancel: {
+                    environment.browsers.close(host)
+                    dismiss()
+                }
+            ))
             .modifier(FileAlerts(
                 model: model,
                 isCreatingFolder: $isCreatingFolder,
@@ -199,6 +225,15 @@ struct SFTPScreen: View {
                     .disabled(selection.isEmpty)
                 }
             } else {
+                // The one control that ends the session, as on Android and as
+                // the terminal's own close button does. The back chevron only
+                // leaves the screen.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: .sftpDisconnectCd), systemImage: "xmark.circle") {
+                        environment.browsers.close(host)
+                        dismiss()
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button(String(localized: .sftpSelectItemsCd), systemImage: "checkmark.circle") {

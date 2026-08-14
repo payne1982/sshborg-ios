@@ -17,6 +17,15 @@ final class AppEnvironment {
     let preferences: AppPreferences
     let sessions: SessionManager
 
+    /// Open file browsers, and the transfer queue they feed.
+    ///
+    /// Both live here rather than on the SFTP screen because both have to
+    /// outlive it: a connection should survive the back chevron, and a download
+    /// certainly should — it used to be cancelled by walking away from the
+    /// screen that started it.
+    let browsers: SFTPBrowsers
+    let transfers: TransferManager
+
     init(database: AppDatabase, preferences: AppPreferences = AppPreferences()) {
         self.database = database
         self.hosts = HostRepository(database)
@@ -24,6 +33,8 @@ final class AppEnvironment {
         self.groups = HostGroupRepository(database)
         self.preferences = preferences
         self.sessions = SessionManager()
+        self.browsers = SFTPBrowsers()
+        self.transfers = TransferManager()
     }
 
     /// The real, on-disk environment.
