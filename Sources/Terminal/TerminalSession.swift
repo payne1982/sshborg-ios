@@ -223,6 +223,17 @@ final class TerminalSession: Identifiable {
             phase = .needsHostKeyApproval(info, isChange: false)
         } catch SSHError.hostKeyMismatch(let info) {
             phase = .needsHostKeyApproval(info, isChange: true)
+        } catch SSHError.authenticationFailed(let detail) {
+            // Forget it: the server has just said this password is wrong, and
+            // keeping it made Retry try the same wrong password again without
+            // asking — silently, so it looked like the button did nothing.
+            //
+            // Only on an authentication failure. A connection that broke for any
+            // other reason has said nothing about the credential, and making the
+            // user retype it after a dropped Wi-Fi packet would be its own
+            // annoyance.
+            passwordForThisAttempt = nil
+            phase = .failed(detail)
         } catch {
             phase = .failed(error.localizedDescription)
         }
@@ -386,7 +397,15 @@ final class TerminalSession: Identifiable {
             // dropping the session, KILL and TERM are usually someone else.
             "SIG\(killedBySignal)"
         } else {
-            String(localized: .terminalConnectionLost)
+            // The channel's own account of how its stream ended comes along —
+            // "read error -43" and the like. It is the detail of an overlay
+            // built for pasting somewhere, and a dropped session is precisely
+            // when someone wants something to paste. It also settles, from a
+            // screenshot, which of the several ways a session can die actually
+            // happened, which guesswork did not.
+            [String(localized: .terminalConnectionLost), channel?.finishReason]
+                .compactMap { $0 }
+                .joined(separator: " — ")
         }
         phase = .disconnected(reason: reason)
 

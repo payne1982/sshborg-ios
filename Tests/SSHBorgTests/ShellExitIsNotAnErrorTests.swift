@@ -129,4 +129,43 @@ final class ShellExitIsNotAnErrorTests: XCTestCase {
         XCTAssertNotNil(reason, "a killed session gave no reason at all")
         XCTAssertEqual(reason, "SIGKILL")
     }
+
+    /// The reported case, exactly: the *session* killed at the server rather
+    /// than the shell, which takes sshd with it.
+    ///
+    /// Nothing can arrive then — no exit-status, no exit-signal, because there
+    /// is no longer anything to send them. Measured, the channel ends with
+    /// `read error -43` and a nil status, which is the same shape as a link that
+    /// simply died, and that is how it should read.
+    func testKillingTheSessionAtTheServerKeepsTheTab() async throws {
+        let manager = SessionManager()
+
+        var host = Host(label: "cut off", hostname: target.host, username: target.username)
+        host.port = target.port
+        host.password = target.password
+        let session = manager.open(host: try await hosts.save(host), hosts: hosts, keys: keys)
+
+        await session.connect(acceptHostKey: true)
+        guard case .connected = session.phase else {
+            return XCTFail("could not connect: \(session.phase)")
+        }
+
+        session.send(text: "kill -9 $PPID\n")
+
+        let deadline = Date().addingTimeInterval(25)
+        while Date() < deadline {
+            if case .disconnected = session.phase { break }
+            try await Task.sleep(for: .milliseconds(200))
+        }
+
+        guard case .disconnected(let reason) = session.phase else {
+            return XCTFail("the session never noticed the server had gone: \(session.phase)")
+        }
+        XCTAssertEqual(manager.sessions.count, 1, "the tab vanished, taking the red dot with it")
+        XCTAssertNotNil(reason, "no word about why the session ended")
+        XCTAssertTrue(
+            reason?.contains("read error") ?? false,
+            "the channel's account of the ending was dropped: \(reason ?? "nil")"
+        )
+    }
 }
