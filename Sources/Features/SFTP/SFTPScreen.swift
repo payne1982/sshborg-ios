@@ -4,8 +4,16 @@ import SwiftUI
 
 /// Browses a host's files. Ported from the Android `SftpScreen`.
 ///
-/// Transfers are not here yet: downloading to the Files app and uploading from
-/// it arrive with phase 6c, together with the conflict handling that needs.
+/// Taps follow Android's rule: a folder opens, a file downloads, a long press
+/// opens the menu. There is no double-tap handler here and there is none there
+/// either — on Android, tapping a row twice in quick succession used to send the
+/// navigation twice and confuse the backend, so "nothing happens" is the fixed
+/// behaviour, not a missing one. The model drops taps arriving while a move is
+/// in flight, for a related but distinct reason of its own.
+///
+/// Selection mode is iOS's rather than Android's: `EditMode` and a `List`
+/// selection instead of a hand-rolled set of checkboxes, with the same two
+/// actions on the result — download and delete.
 struct SFTPScreen: View {
 
     @Environment(\.appEnvironment) private var environment
@@ -23,6 +31,13 @@ struct SFTPScreen: View {
     @State private var transfers = TransferManager()
     @State private var isPickingUpload = false
     @State private var uploadConflict: UploadConflict?
+
+    /// Names of the entries ticked in selection mode. `SFTPEntry.id` is the
+    /// name, which is unique within one directory and is all a selection has to
+    /// survive — it is cleared whenever the listing changes underneath it.
+    @State private var selection = Set<SFTPEntry.ID>()
+    @State private var editMode: EditMode = .inactive
+    @State private var bulkDeleting: [SFTPEntry] = []
 
     /// A picked file whose name already exists on the server.
     private struct UploadConflict: Identifiable {
@@ -58,6 +73,29 @@ struct SFTPScreen: View {
         phaseView(model)
             .safeAreaInset(edge: .bottom, spacing: 0) { TransfersBar(manager: transfers) }
             .toolbar { toolbar(model) }
+            .alert(
+                String(localized: .sftpDeleteSelectedCd),
+                isPresented: .init(
+                    get: { !bulkDeleting.isEmpty },
+                    set: { if !$0 { bulkDeleting = [] } }
+                )
+            ) {
+                Button(String(localized: .actionCancel), role: .cancel) { bulkDeleting = [] }
+                Button(String(localized: .actionDelete), role: .destructive) {
+                    let doomed = bulkDeleting
+                    bulkDeleting = []
+                    leaveSelection()
+                    Task { await model.delete(doomed) }
+                }
+            } message: {
+                // Named rather than counted when there are few: "Delete 2 items?"
+                // tells you less than the two names do, and the mistake this
+                // guards against is having ticked the wrong row.
+                Text(bulkDeleting.count <= 3
+                     ? bulkDeleting.map(\.name).joined(separator: ", ")
+                     : String(localized: .sftpNSelected)
+                        .replacingOccurrences(of: "%1$d", with: "\(bulkDeleting.count)"))
+            }
             .fileImporter(
                 isPresented: $isPickingUpload,
                 allowedContentTypes: [.item],
@@ -132,23 +170,76 @@ struct SFTPScreen: View {
     @ToolbarContentBuilder
     private func toolbar(_ model: SFTPModel) -> some ToolbarContent {
         if model.phase == .browsing {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button(String(localized: .sftpMkdirTitle), systemImage: "folder.badge.plus") {
-                        newFolderName = ""
-                        isCreatingFolder = true
+            if editMode.isEditing {
+                // In selection mode the bar belongs to the selection: acting on
+                // several entries at once is the whole point of being in it, and
+                // Android puts download and delete in the same place.
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(String(localized: .actionDone)) { leaveSelection() }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(
+                        String(localized: .sftpNSelected)
+                            .replacingOccurrences(of: "%1$d", with: "\(selection.count)")
+                    )
+                    .font(.headline)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: .sftpDownloadSelectedCd), systemImage: "arrow.down.circle") {
+                        guard let session = model.activeSession else { return }
+                        transfers.download(selectedEntries(model), from: model.path, using: session)
+                        leaveSelection()
                     }
-                    Button(String(localized: .iosSftpUpload), systemImage: "arrow.up.doc") {
-                        isPickingUpload = true
+                    .disabled(selection.isEmpty)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: .sftpDeleteSelectedCd), systemImage: "trash", role: .destructive) {
+                        bulkDeleting = selectedEntries(model)
                     }
-                    Button("Refresh", systemImage: "arrow.clockwise") {
-                        Task { await model.refresh() }
+                    .disabled(selection.isEmpty)
+                }
+            } else {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(String(localized: .sftpSelectItemsCd), systemImage: "checkmark.circle") {
+                            selection = []
+                            editMode = .active
+                        }
+                        Button(String(localized: .sftpMkdirTitle), systemImage: "folder.badge.plus") {
+                            newFolderName = ""
+                            isCreatingFolder = true
+                        }
+                        Button(String(localized: .iosSftpUpload), systemImage: "arrow.up.doc") {
+                            isPickingUpload = true
+                        }
+                        Button("Refresh", systemImage: "arrow.clockwise") {
+                            Task { await model.refresh() }
+                        }
+                    } label: {
+                        Label(String(localized: .iosSftpActions), systemImage: "ellipsis.circle")
                     }
-                } label: {
-                    Label(String(localized: .iosSftpActions), systemImage: "ellipsis.circle")
                 }
             }
         }
+    }
+
+    // MARK: - Selecting
+
+    /// The chosen entries, in the order they appear rather than the set's.
+    private func selectedEntries(_ model: SFTPModel) -> [SFTPEntry] {
+        model.entries.filter { selection.contains($0.id) }
+    }
+
+    private func leaveSelection() {
+        selection = []
+        editMode = .inactive
+    }
+
+    /// Starts a download and reports the one thing that can go wrong before the
+    /// transfer bar takes over: having no connection to ask.
+    private func download(_ entry: SFTPEntry, model: SFTPModel) {
+        guard let session = model.activeSession else { return }
+        transfers.download(entry, from: model.path, using: session)
     }
 
     // MARK: - Uploading
@@ -232,8 +323,10 @@ struct SFTPScreen: View {
         if model.entries.isEmpty && !model.isLoading {
             ContentUnavailableView("Empty folder", systemImage: "folder")
         } else {
-            List {
-                if model.path != "/" {
+            List(selection: $selection) {
+                // Not selectable, and it stays a plain button in edit mode:
+                // ".." is a move, not a thing to act on in bulk.
+                if model.path != "/" && !editMode.isEditing {
                     Button {
                         Task { await model.navigateUp() }
                     } label: {
@@ -244,18 +337,30 @@ struct SFTPScreen: View {
 
                 ForEach(model.entries) { entry in
                     Button {
-                        Task { await model.navigate(into: entry) }
+                        // A folder opens, a file downloads — the Android rule.
+                        // The row used to be `.disabled` for files, so tapping
+                        // one did nothing at all and the only way down was the
+                        // long-press menu.
+                        if entry.isDirectory {
+                            Task { await model.navigate(into: entry) }
+                        } else {
+                            download(entry, model: model)
+                        }
                     } label: {
-                        EntryRow(entry: entry)
+                        EntryRow(entry: entry) {
+                            // Folders need a control of their own precisely
+                            // because their tap is taken: it opens them. Files
+                            // get the same glyph without a button behind it —
+                            // an affordance saying "this comes down if you tap
+                            // it", which is what Android draws too.
+                            download(entry, model: model)
+                        }
                     }
                     .buttonStyle(.plain)
-                    .disabled(!entry.isDirectory)
+                    .tag(entry.id)
                     .contextMenu {
-                        if !entry.isDirectory {
-                            Button(String(localized: .sftpDownloadCd), systemImage: "arrow.down.circle") {
-                                guard let session = model.activeSession else { return }
-                                transfers.download(entry, from: model.path, using: session)
-                            }
+                        Button(String(localized: .sftpDownloadCd), systemImage: "arrow.down.circle") {
+                            download(entry, model: model)
                         }
                         Button(String(localized: .sftpMenuRename), systemImage: "pencil") {
                             renameInput = entry.name
@@ -268,6 +373,14 @@ struct SFTPScreen: View {
                 }
             }
             .listStyle(.plain)
+            .environment(\.editMode, $editMode)
+            // A selection is a set of names, and the names mean something
+            // different once the listing changes. Cleared on every move so a
+            // stale tick cannot download the wrong file.
+            .onChange(of: model.path) { _, _ in leaveSelection() }
+            .onChange(of: model.entries.map(\.id)) { _, _ in
+                selection = selection.intersection(model.entries.map(\.id))
+            }
             .refreshable { await model.refresh() }
             .overlay {
                 if model.isLoading && model.entries.isEmpty {
@@ -281,6 +394,11 @@ struct SFTPScreen: View {
 
 private struct EntryRow: View {
     let entry: SFTPEntry
+
+    /// Called by the folder's own download button. Files draw the same glyph
+    /// without a button behind it: their row tap already downloads, so a second
+    /// tappable thing in the same row would be two ways to do one job.
+    let onDownload: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -306,6 +424,25 @@ private struct EntryRow: View {
             }
 
             Spacer()
+
+            // A folder's tap is spoken for — it opens it — so downloading one
+            // needs a control of its own. A file's does not, and gets the glyph
+            // alone as a hint that a tap brings it down. Android draws exactly
+            // this asymmetry: `IconButton` for a directory, bare `Icon` for a
+            // file.
+            if entry.isDirectory && !entry.isSymlink {
+                Button(action: onDownload) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.body)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(String(localized: .sftpDownloadFolderCd))
+            } else if !entry.isDirectory {
+                Image(systemName: "arrow.down.circle")
+                    .font(.body)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
 
             if entry.isDirectory {
                 Image(systemName: "chevron.right")

@@ -228,14 +228,41 @@ final class SFTPModel {
     }
 
     func delete(_ entry: SFTPEntry) async {
+        await delete([entry])
+    }
+
+    /// Deletes entries, emptying folders first.
+    ///
+    /// SFTP's `rmdir` only removes an empty directory, so a folder has to be
+    /// walked and cleared from the leaves up — which is what Android's
+    /// `deleteRecursive` does, and without it deleting any non-empty folder
+    /// simply failed.
+    ///
+    /// A symlinked directory is unlinked, not descended into: following it would
+    /// delete whatever it points at, which is emphatically not what was asked.
+    func delete(_ entries: [SFTPEntry]) async {
         await perform { session in
-            let target = self.join(self.path, entry.name)
-            if entry.isDirectory {
-                try await session.removeDirectory(at: target)
-            } else {
-                try await session.removeFile(at: target)
+            for entry in entries {
+                let target = self.join(self.path, entry.name)
+                if entry.isDirectory && !entry.isSymlink {
+                    try await Self.removeTree(at: target, using: session)
+                } else {
+                    try await session.removeFile(at: target)
+                }
             }
         }
+    }
+
+    private static func removeTree(at path: String, using session: SFTPSession) async throws {
+        for entry in try await session.list(path) {
+            let child = path == "/" ? "/\(entry.name)" : "\(path)/\(entry.name)"
+            if entry.isDirectory && !entry.isSymlink {
+                try await removeTree(at: child, using: session)
+            } else {
+                try await session.removeFile(at: child)
+            }
+        }
+        try await session.removeDirectory(at: path)
     }
 
     /// Runs an action and refreshes, reporting failure without tearing the

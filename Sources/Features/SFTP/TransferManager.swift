@@ -27,7 +27,10 @@ final class TransferManager {
         let id = UUID()
         let kind: Kind
         let name: String
-        let totalBytes: UInt64?
+        /// Not known up front for a folder: its size is the sum of a tree that
+        /// has to be walked first, so it arrives a moment after the transfer
+        /// appears in the bar.
+        var totalBytes: UInt64?
         var transferred: UInt64 = 0
         var status: Status = .running
 
@@ -56,8 +59,152 @@ final class TransferManager {
 
     // MARK: - Downloading
 
+    /// Downloads a file or a whole folder, whichever the entry is.
+    ///
+    /// One transfer per entry rather than per file: a folder of two hundred
+    /// files should be one line in the bar with one progress bar, not two
+    /// hundred. Android reports the same way, as one job with a running count.
     @discardableResult
     func download(_ entry: SFTPEntry, from directory: String, using session: SFTPSession) -> Transfer.ID {
+        if entry.isDirectory && !entry.isSymlink {
+            return downloadFolder(entry, from: directory, using: session)
+        }
+        return downloadFile(entry, from: directory, using: session)
+    }
+
+    /// Downloads several entries — the selection's Download button.
+    @discardableResult
+    func download(
+        _ entries: [SFTPEntry],
+        from directory: String,
+        using session: SFTPSession
+    ) -> [Transfer.ID] {
+        entries.map { download($0, from: directory, using: session) }
+    }
+
+    /// Walks a remote folder and brings the whole tree down.
+    ///
+    /// Two passes: one to list everything and add up the bytes, so the progress
+    /// bar means something, then one to fetch. The listing pass is the reason a
+    /// big folder sits at zero for a moment before it starts moving.
+    ///
+    /// Symlinked directories are not followed — Android skips them the same way
+    /// (`entry.isDir && !entry.isLink`), and the reason is worth stating: a link
+    /// pointing at an ancestor turns the walk into an endless one.
+    ///
+    /// No conflict dialog, unlike Android. There the download lands in the
+    /// shared Downloads folder through MediaStore, where a clash overwrites
+    /// someone else's file; here it lands in the app's own Documents directory
+    /// and ``uniqueLocalURL(for:)`` renames rather than overwrites, so there is
+    /// nothing to ask about.
+    @discardableResult
+    private func downloadFolder(
+        _ entry: SFTPEntry,
+        from directory: String,
+        using session: SFTPSession
+    ) -> Transfer.ID {
+        let remoteRoot = Self.join(directory, entry.name)
+        let localRoot = Self.uniqueLocalURL(for: entry.name)
+
+        var transfer = Transfer(kind: .download, name: entry.name, totalBytes: 0)
+        transfer.localURL = localRoot
+        transfers.append(transfer)
+        let id = transfer.id
+
+        Task {
+            let registry = cancellations
+            do {
+                let files = try await Self.collectFiles(under: remoteRoot, using: session) {
+                    registry.isCancelled(id)
+                }
+                guard !files.isEmpty else {
+                    // An empty folder is still a folder: make it and call it done,
+                    // rather than reporting a failure for a download that had
+                    // nothing wrong with it.
+                    try FileManager.default.createDirectory(
+                        at: localRoot, withIntermediateDirectories: true
+                    )
+                    finish(id, status: .finished)
+                    return
+                }
+
+                let total = files.reduce(UInt64(0)) { $0 + $1.size }
+                update(id) { $0.totalBytes = total }
+
+                var completed: UInt64 = 0
+                for file in files {
+                    if registry.isCancelled(id) { throw SSHError.cancelled }
+
+                    let destination = localRoot.appending(path: file.relativePath)
+                    try FileManager.default.createDirectory(
+                        at: destination.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+
+                    let alreadyDone = completed
+                    try await session.download(
+                        from: file.remotePath,
+                        to: destination,
+                        isCancelled: { registry.isCancelled(id) },
+                        onProgress: { bytes in
+                            Task { @MainActor in
+                                self.update(id) { $0.transferred = alreadyDone + bytes }
+                            }
+                        }
+                    )
+                    completed += file.size
+                    update(id) { $0.transferred = completed }
+                }
+                finish(id, status: .finished)
+            } catch {
+                finish(id, status: Self.status(for: error))
+            }
+        }
+
+        return id
+    }
+
+    private struct RemoteFile {
+        let remotePath: String
+        /// Where it goes under the local root, folders included.
+        let relativePath: String
+        let size: UInt64
+    }
+
+    private static func collectFiles(
+        under remoteRoot: String,
+        using session: SFTPSession,
+        isCancelled: @escaping () -> Bool
+    ) async throws -> [RemoteFile] {
+        var found: [RemoteFile] = []
+        var pending: [(remote: String, relative: String)] = [(remoteRoot, "")]
+
+        while let directory = pending.popLast() {
+            if isCancelled() { throw SSHError.cancelled }
+
+            for entry in try await session.list(directory.remote) {
+                let remote = join(directory.remote, entry.name)
+                let relative = directory.relative.isEmpty
+                    ? entry.name
+                    : "\(directory.relative)/\(entry.name)"
+
+                if entry.isDirectory {
+                    if !entry.isSymlink { pending.append((remote, relative)) }
+                } else {
+                    found.append(RemoteFile(remotePath: remote, relativePath: relative, size: entry.size))
+                }
+            }
+        }
+
+        return found
+    }
+
+    private static func join(_ directory: String, _ name: String) -> String {
+        directory == "/" ? "/\(name)" : "\(directory)/\(name)"
+    }
+
+    @discardableResult
+    private func downloadFile(_ entry: SFTPEntry, from directory: String, using session: SFTPSession) -> Transfer.ID {
         let destination = Self.uniqueLocalURL(for: entry.name)
         let remotePath = directory == "/" ? "/\(entry.name)" : "\(directory)/\(entry.name)"
 

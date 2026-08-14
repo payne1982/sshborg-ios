@@ -43,33 +43,47 @@ final class SettingsScrollUITests: XCTestCase {
         XCTAssertTrue(firstRow.waitForExistence(timeout: 10), "the settings screen did not open")
         attach("02-settings-top")
 
-        // Measure whether the content moved, which is the actual question.
+        // Whether the content moved is the question, and this test has answered
+        // it wrongly three times. Each way is worth keeping, because each one
+        // reported "the screen does not scroll" while its own attached
+        // screenshot showed it scrolling.
         //
-        // The first version of this looked for the last row and asked whether it
-        // was `isHittable`. That reported a screen that does not scroll while the
-        // attached screenshot plainly showed it scrolling: the row is a
-        // `LabeledContent`, whose label is not exposed as a hittable element of
-        // its own. The test was wrong, not the app — so it now watches a control
-        // it can actually see move.
-        let topRow = app.switches.firstMatch
-        XCTAssertTrue(topRow.exists, "expected a control at the top of the form")
-        let before = topRow.frame.origin.y
+        // 1. It asked `isHittable` of the last row. That row is a
+        //    `LabeledContent`, whose label is not exposed as a hittable element,
+        //    so the answer was always no.
+        // 2. It took `app.switches.firstMatch` before scrolling and measured
+        //    *it* again after. The query is re-resolved on every read, so
+        //    afterwards it answered with whichever switch was first in the tree
+        //    *then* — a different row, at a coincidentally similar height.
+        // 3. It swiped a fixed two times. How far a swipe carries depends on the
+        //    momentum the simulator gives it: enough on one machine, just short
+        //    on another.
+        //
+        // Hence: a **named** element, one that is genuinely tappable — a
+        // `Button`, not a label — and swiping until it arrives rather than a
+        // fixed number of times. Import sits in the Backup section, far enough
+        // down to be off screen at the top.
+        let bottomRow = app.buttons["Import"].firstMatch
+        XCTAssertFalse(bottomRow.isHittable, "the form was already at the bottom before scrolling")
 
-        app.swipeUp()
-        app.swipeUp()
+        // The bound keeps a screen that genuinely cannot scroll from spinning.
+        var swipes = 0
+        while !bottomRow.isHittable && swipes < 8 {
+            app.swipeUp()
+            swipes += 1
+        }
         attach("03-settings-after-swipe")
 
-        // Scrolled far enough and the first row is gone from the tree entirely,
-        // which is as good an answer as a smaller y.
-        let moved = !topRow.exists || topRow.frame.origin.y < before - 50
-
         XCTAssertTrue(
-            moved,
+            bottomRow.isHittable,
             """
-            The settings form did not move under two swipes. First control was \
-            at y=\(before) and is now \
-            \(topRow.exists ? "at y=\(topRow.frame.origin.y)" : "gone").
+            The settings form did not move under \(swipes) swipes: the Import \
+            button in the Backup section never came on screen.
             """
+        )
+        XCTAssertFalse(
+            firstRow.isHittable,
+            "the first row is still on screen, so nothing scrolled"
         )
     }
 
