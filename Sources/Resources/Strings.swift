@@ -387,6 +387,9 @@ extension LocalizedStringResource {
     /// Stop
     static let iosActionStop = LocalizedStringResource("ios_action_stop")
 
+    /// Moving stored credentials…
+    static let iosEncryptionMigrating = LocalizedStringResource("ios_encryption_migrating")
+
     /// Could not save
     static let iosErrorSaveFailed = LocalizedStringResource("ios_error_save_failed")
 

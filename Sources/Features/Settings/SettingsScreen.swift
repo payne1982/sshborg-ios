@@ -20,6 +20,8 @@ struct SettingsScreen: View {
     @Environment(\.openURL) private var openURL
 
     @State private var model: SettingsModel?
+    @State private var isMigratingEncryption = false
+    @State private var encryptionError: String?
     @State private var isChoosingFile = false
     @State private var isConfirmingImport = false
     @State private var pendingImport: URL?
@@ -176,12 +178,72 @@ struct SettingsScreen: View {
                 }
             }
 
-            Toggle(isOn: binding(\.keychainEncryption)) {
+            // Not bound straight to the preference: flipping the flag alone
+            // left everything already saved in the clear underneath a screen
+            // saying it was encrypted. The switch has to move the data first and
+            // set the flag afterwards, which is what the migration does.
+            Toggle(
+                isOn: Binding(
+                    get: { preferences.keychainEncryption },
+                    set: { enabled in migrateEncryption(to: enabled) }
+                )
+            ) {
                 Text(.settingsEncryptTitle)
                 Text(.settingsEncryptSubtitle)
             }
+            .disabled(isMigratingEncryption)
+
+            if isMigratingEncryption {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text(.iosEncryptionMigrating)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let encryptionError {
+                Text(encryptionError)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
         } header: {
             Text(.settingsSectionSecurity)
+        }
+    }
+
+    // MARK: - Encryption
+
+    /// Moves the stored credentials, then records the setting.
+    ///
+    /// The setting is written by the migration and only on success: a switch
+    /// that flips while the data behind it did not move is the failure this
+    /// whole thing exists to prevent, and a half-done job that says "encrypted"
+    /// is worse than one that says nothing.
+    private func migrateEncryption(to enabled: Bool) {
+        guard !isMigratingEncryption else { return }
+        isMigratingEncryption = true
+        encryptionError = nil
+
+        Task {
+            do {
+                if enabled {
+                    try await EncryptionMigration.enable(
+                        hosts: environment.hosts,
+                        keys: environment.keys,
+                        preferences: preferences
+                    )
+                } else {
+                    try await EncryptionMigration.disable(
+                        hosts: environment.hosts,
+                        keys: environment.keys,
+                        preferences: preferences
+                    )
+                }
+            } catch {
+                encryptionError = error.localizedDescription
+            }
+            isMigratingEncryption = false
         }
     }
 

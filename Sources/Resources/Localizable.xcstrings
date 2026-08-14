@@ -8144,6 +8144,72 @@
         }
       }
     },
+    "ios_encryption_migrating": {
+      "comment": "iOS only — shown while the encryption switch re-writes what is already stored. Android shows a spinner with no text in the same place.",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeicherte Zugangsdaten werden verschoben…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moving stored credentials…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moviendo las credenciales guardadas…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déplacement des identifiants enregistrés…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spostamento delle credenziali salvate…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存された認証情報を移動中…"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A mover as credenciais guardadas…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенос сохранённых учётных данных…"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенесення збережених облікових даних…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在移动已保存的凭据…"
+          }
+        }
+      }
+    },
     "ios_error_save_failed": {
       "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
       "extractionState": "manual",
