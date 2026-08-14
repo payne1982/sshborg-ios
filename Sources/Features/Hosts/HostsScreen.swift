@@ -318,33 +318,40 @@ private struct HostRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // Icon, then the marks stacked beside it — Android's arrangement,
+            // a `Column` of badges next to the computer icon rather than a badge
+            // pinned to its corner. Keeping them together in one place means one
+            // glance answers "what is open on this host", and it leaves the name
+            // to be a name.
             Image(systemName: "desktopcomputer")
                 .foregroundStyle(tint ?? .primary)
                 .font(.title3)
-                .overlay(alignment: .topTrailing) {
+
+            if sessionCount > 0 || hasFileBrowser {
+                VStack(spacing: 3) {
                     if sessionCount > 0 {
                         Text(verbatim: "\(sessionCount)")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 15, height: 15)
                             .background(Color.accentColor, in: .circle)
-                            .offset(x: 7, y: -7)
+                            .accessibilityLabel(String(localized: .hostMenuNewTerminal))
                     }
-                }
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(host.label)
                     // Android's amber folder, without its digit: it counts
                     // because it can hold several browsers per host, and this
                     // holds one.
                     if hasFileBrowser {
                         Image(systemName: "folder.fill")
-                            .font(.caption2)
+                            .font(.system(size: 12))
                             .foregroundStyle(Color(red: 0.976, green: 0.659, blue: 0.145))
+                            .frame(width: 15, height: 15)
                             .accessibilityLabel(String(localized: .hostMenuFiles))
                     }
                 }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(host.label)
                 Text(verbatim: "\(host.username)@\(host.hostname):\(String(host.port))")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
