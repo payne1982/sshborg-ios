@@ -250,10 +250,54 @@ struct HostsScreen: View {
     ///
     /// One definition feeding both the long press and the button: two lists of
     /// the same actions drift, and the one nobody looks at drifts first.
+    ///
+    /// The first entries read the running sessions and change with them, as
+    /// Android's do: "Connect" becomes "Resume terminal (2)" once there are two,
+    /// and a separate "New terminal" appears only when resuming is a different
+    /// thing from connecting. With nothing open the two would be the same
+    /// action twice.
     @ViewBuilder
     private func hostActions(_ host: Host, model: HostsModel) -> some View {
-        Button(String(localized: .hostMenuNewTerminal), systemImage: "terminal") { openNew(host) }
-        Button(String(localized: .hostMenuFiles), systemImage: "folder") { browsing = host }
+        let shells = environment.sessions.sessions(forHostID: host.id ?? -1).count
+        let hasBrowser = environment.browsers.isOpen(hostID: host.id)
+
+        Button {
+            open(host)
+        } label: {
+            Label {
+                if shells > 0 {
+                    Text(String(localized: .hostMenuResumeTerminal)
+                        .replacingOccurrences(of: "%1$d", with: "\(shells)"))
+                } else {
+                    Text(.hostMenuConnect)
+                }
+            } icon: {
+                Image(systemName: "terminal")
+            }
+        }
+
+        if shells > 0 {
+            Button(String(localized: .hostMenuNewTerminal), systemImage: "plus") { openNew(host) }
+        }
+
+        Button {
+            browsing = host
+        } label: {
+            Label {
+                // The count is always one when it appears: this holds a single
+                // browser per host, keyed by its id, where Android can hold
+                // several. Hence no "New files session" either — there is
+                // nothing for a second one to be.
+                if hasBrowser {
+                    Text(String(localized: .hostMenuResumeFiles)
+                        .replacingOccurrences(of: "%1$d", with: "1"))
+                } else {
+                    Text(.hostMenuFiles)
+                }
+            } icon: {
+                Image(systemName: "folder")
+            }
+        }
         Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
         // Between Edit and Delete, as on Android. The copy opens in the editor
         // straight away: nobody duplicates a host to leave it identical, so
