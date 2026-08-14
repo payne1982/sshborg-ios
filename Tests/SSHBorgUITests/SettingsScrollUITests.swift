@@ -21,6 +21,8 @@ final class SettingsScrollUITests: XCTestCase {
         // English regardless of the machine, so the queries below can name
         // buttons in one language.
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        // No finger can answer Face ID; see AppLock.shouldLock.
+        app.launchArguments += ["-SSHBorgDisableLock"]
         app.launch()
     }
 

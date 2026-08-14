@@ -151,6 +151,12 @@ struct SettingsScreen: View {
                 Text(.settingsLockModeDevice).tag(AppPreferences.LockMode.device)
             }
             .disabled(!BiometricLock.canAuthenticate())
+            // Switching the lock off has to take effect now, not at the next
+            // launch: leaving the app locked behind a setting that says it is
+            // not would be a puzzle with no way out.
+            .onChange(of: preferences.lockMode) { _, _ in
+                environment.lock.lockModeChanged()
+            }
 
             if !BiometricLock.canAuthenticate() {
                 Text(.settingsBiometricUnavailable)

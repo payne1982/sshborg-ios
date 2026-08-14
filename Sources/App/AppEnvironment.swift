@@ -26,6 +26,11 @@ final class AppEnvironment {
     let browsers: SFTPBrowsers
     let transfers: TransferManager
 
+    /// Whether the app is showing its contents at all. The setting for this
+    /// existed and did nothing until 14/08/2026 — the picker was stored, the
+    /// timeout was stored, and nothing ever asked.
+    let lock: AppLock
+
     init(database: AppDatabase, preferences: AppPreferences = AppPreferences()) {
         self.database = database
         self.hosts = HostRepository(database)
@@ -35,6 +40,7 @@ final class AppEnvironment {
         self.sessions = SessionManager()
         self.browsers = SFTPBrowsers()
         self.transfers = TransferManager()
+        self.lock = AppLock(preferences: preferences)
     }
 
     /// The real, on-disk environment.

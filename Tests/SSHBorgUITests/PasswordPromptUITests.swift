@@ -22,6 +22,8 @@ final class PasswordPromptUITests: XCTestCase {
     func testWhatThePasswordPromptActuallyIs() throws {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        // No finger can answer Face ID; see AppLock.shouldLock.
+        app.launchArguments += ["-SSHBorgDisableLock"]
         app.launch()
 
         let label = ProcessInfo.processInfo.environment["SSHBORG_UITEST_HOST_LABEL"] ?? "test-host-password"

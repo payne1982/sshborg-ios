@@ -10058,6 +10058,72 @@
         }
       }
     },
+    "ios_unlock_with": {
+      "comment": "iOS only — Android closes the app when authentication fails, which iOS forbids, so the lock screen offers to try again. %1$@ is the mechanism the device reports: Face ID, Touch ID, Optic ID or passcode.",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit %1$@ entsperren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock with %1$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desbloquear con %1$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déverrouiller avec %1$@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sblocca con %1$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@でロック解除"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desbloquear com %1$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разблокировать с помощью %1$@"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Розблокувати за допомогою %1$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用%1$@解锁"
+          }
+        }
+      }
+    },
     "ios_word_mode": {
       "comment": "iOS only — Android's Spellcheck key on the extra row carries no content description, so there was nothing to import. Turns the soft keyboard's suggestions on for the terminal. Not reviewed by a native speaker.",
       "extractionState": "manual",

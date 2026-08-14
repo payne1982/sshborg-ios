@@ -14,6 +14,8 @@ final class TerminalConnectUITests: XCTestCase {
     func testConnectingToTheSeededHost() throws {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        // No finger can answer Face ID; see AppLock.shouldLock.
+        app.launchArguments += ["-SSHBorgDisableLock"]
         app.launch()
 
         // Skip rather than fail when the host is not there. This test looks at a

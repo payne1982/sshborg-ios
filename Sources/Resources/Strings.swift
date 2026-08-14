@@ -474,6 +474,9 @@ extension LocalizedStringResource {
     /// Transfers
     static let iosTransfersTitle = LocalizedStringResource("ios_transfers_title")
 
+    /// Unlock with %1$@
+    static let iosUnlockWith = LocalizedStringResource("ios_unlock_with")
+
     /// Word suggestions
     static let iosWordMode = LocalizedStringResource("ios_word_mode")
 

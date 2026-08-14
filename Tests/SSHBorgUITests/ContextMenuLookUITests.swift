@@ -13,6 +13,8 @@ final class ContextMenuLookUITests: XCTestCase {
     func testWhatTheHostContextMenuLooksLike() throws {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        // No finger can answer Face ID; see AppLock.shouldLock.
+        app.launchArguments += ["-SSHBorgDisableLock"]
         app.launch()
 
         let row = app.staticTexts.matching(NSPredicate(format: "label != %@", "SSHBorg")).firstMatch
