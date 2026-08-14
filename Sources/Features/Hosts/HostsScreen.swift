@@ -223,7 +223,13 @@ struct HostsScreen: View {
                 tint: model.color(for: host).map { Color(argb: $0) },
                 sessionCount: environment.sessions.sessions(forHostID: host.id ?? -1).count,
                 hasFileBrowser: environment.browsers.isOpen(hostID: host.id),
-                onOpenFiles: { browsing = host }
+                onOpenFiles: { browsing = host },
+                // The same actions the long press gives, from a control that
+                // says it is there. A context menu is native on iOS and close to
+                // invisible: nothing on a row announces that holding it does
+                // anything. Android carries both — a `MoreVert` button beside
+                // the row and a long press — opening one menu, and so does this.
+                actions: { AnyView(hostActions(host, model: model)) }
             )
             .contentShape(.rect)
             .onTapGesture { open(host) }
@@ -236,20 +242,29 @@ struct HostsScreen: View {
                 Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
                     .tint(.blue)
             }
-            .contextMenu {
-                Button(String(localized: .hostMenuNewTerminal), systemImage: "terminal") { openNew(host) }
-                Button(String(localized: .hostMenuFiles), systemImage: "folder") { browsing = host }
-                Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
-                // Between Edit and Delete, as on Android. The copy opens in the
-                // editor straight away: nobody duplicates a host to leave it
-                // identical, so landing on the form is the next step either way.
-                Button(String(localized: .actionDuplicate), systemImage: "doc.on.doc") {
-                    Task {
-                        if let copy = await model.duplicate(host) { editing = .existing(copy) }
-                    }
-                }
-                Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) { hostToDelete = host }
+            .contextMenu { hostActions(host, model: model) }
+        }
+    }
+
+    /// Everything a host can be told to do, in Android's order.
+    ///
+    /// One definition feeding both the long press and the button: two lists of
+    /// the same actions drift, and the one nobody looks at drifts first.
+    @ViewBuilder
+    private func hostActions(_ host: Host, model: HostsModel) -> some View {
+        Button(String(localized: .hostMenuNewTerminal), systemImage: "terminal") { openNew(host) }
+        Button(String(localized: .hostMenuFiles), systemImage: "folder") { browsing = host }
+        Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
+        // Between Edit and Delete, as on Android. The copy opens in the editor
+        // straight away: nobody duplicates a host to leave it identical, so
+        // landing on the form is the next step either way.
+        Button(String(localized: .actionDuplicate), systemImage: "doc.on.doc") {
+            Task {
+                if let copy = await model.duplicate(host) { editing = .existing(copy) }
             }
+        }
+        Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) {
+            hostToDelete = host
         }
     }
 
@@ -322,6 +337,9 @@ private struct HostRow: View {
     /// the same way: `Modifier.clickable { onSftp() }` around the folder.
     let onOpenFiles: () -> Void
 
+    /// The row's own menu, the same one the long press opens.
+    let actions: () -> AnyView
+
     var body: some View {
         HStack(spacing: 12) {
             // Icon, then the marks stacked beside it — Android's arrangement,
@@ -373,6 +391,16 @@ private struct HostRow: View {
             }
 
             Spacer()
+
+            Menu {
+                actions()
+            } label: {
+                Image(systemName: "ellipsis")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .contentShape(.rect)
+            }
+            .accessibilityLabel(String(localized: .hostsOptionsCd))
         }
         .padding(.vertical, 2)
     }
