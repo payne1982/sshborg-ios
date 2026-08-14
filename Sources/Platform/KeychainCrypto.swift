@@ -37,6 +37,22 @@ enum KeychainCrypto {
         var errorDescription: String? {
             switch self {
             case .keychainFailure(let status):
+                // -34018 has one common cause worth naming: the app is not
+                // signed, so it has no keychain access group and every request
+                // is refused. Its own text — "A required entitlement isn't
+                // present" — sends people looking at the device, or at their own
+                // settings, or at a feature they just switched on two screens
+                // away, none of which is the problem.
+                //
+                // Deliberately *not* "this device does not support encryption".
+                // The device is fine. A signed build never sees this, so saying
+                // otherwise would be false on the only builds a real user can
+                // install.
+                if status == errSecMissingEntitlement {
+                    return "This build of SSHBorg cannot use the device keychain, "
+                        + "so encryption is unavailable. Unsigned builds have no "
+                        + "keychain access; a signed one does."
+                }
                 let message = SecCopyErrorMessageString(status, nil) as String? ?? "unknown"
                 return "Keychain error \(status): \(message)"
             case .malformedBlob:

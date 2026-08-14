@@ -43,12 +43,22 @@ enum EncryptionMigration {
     }
 
     /// Encrypts everything still held in the clear.
+    ///
+    /// Refuses before touching anything if the cipher cannot work at all. On a
+    /// device with no usable Keychain — every unsigned build, which is every
+    /// build made here — turning the setting on used to succeed whenever there
+    /// was nothing to migrate, and then *every later save failed*: generating a
+    /// key came back "Keychain error -34018: A required entitlement isn't
+    /// present", with no hint that a switch two screens away had caused it.
+    /// Better to refuse the switch and say so.
     static func enable(
         hosts: HostRepository,
         keys: SSHKeyRepository,
         preferences: AppPreferences,
         cipher: Cipher = .keychain
     ) async throws {
+        _ = try cipher.seal("sshborg-probe")
+
         for var key in try await keys.fetchAll() where key.encryptedBlob == nil {
             guard !key.privateKeyPem.isEmpty else { continue }
             key.encryptedBlob = try cipher.seal(key.privateKeyPem)
@@ -88,7 +98,13 @@ enum EncryptionMigration {
             _ = try await hosts.save(host)
         }
 
-        try deleteKey()
+        // Deliberately not `try`. By this point every blob has been decrypted
+        // and written back, so the key protects nothing and leaving it behind
+        // costs nothing either. Letting its removal fail the whole operation
+        // would strand the user with encryption they cannot turn off — which is
+        // exactly what happens on an unsigned build, where the Keychain refuses
+        // this too.
+        try? deleteKey()
         preferences.keychainEncryption = false
     }
 }

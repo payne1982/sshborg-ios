@@ -148,6 +148,52 @@ final class EncryptionMigrationTests: XCTestCase {
         XCTAssertEqual(stored.first?.password, "hunter2")
     }
 
+    /// Turning it on where the cipher cannot work must refuse, not succeed
+    /// quietly and break every save afterwards.
+    ///
+    /// That is what happened on the simulator: with nothing yet to migrate the
+    /// switch went on happily, and the next attempt to generate a key came back
+    /// "Keychain error -34018" with nothing connecting the two.
+    func testEnablingRefusesWhenTheCipherCannotWork() async throws {
+        _ = try await makeHostWithPlaintextPassword()
+        let broken = EncryptionMigration.Cipher(
+            seal: { _ in throw KeychainCrypto.CryptoError.keychainFailure(errSecMissingEntitlement) },
+            open: { $0 }
+        )
+
+        do {
+            try await EncryptionMigration.enable(
+                hosts: hosts, keys: keys, preferences: preferences, cipher: broken
+            )
+            XCTFail("the switch went on with a cipher that cannot encrypt")
+        } catch {
+            // Expected.
+        }
+
+        XCTAssertFalse(preferences.keychainEncryption, "the setting says encrypted and nothing is")
+        let stored = try await hosts.fetchAll()
+        XCTAssertEqual(stored.first?.password, "hunter2", "the data was disturbed by a refused switch")
+    }
+
+    /// Turning it *off* must not be blocked by failing to delete the key.
+    ///
+    /// Everything is already back in the clear by then, so the key protects
+    /// nothing — and a throw here left the user with encryption they could not
+    /// switch off, on the very builds where encryption cannot work.
+    func testDisablingSucceedsEvenIfTheKeyCannotBeDeleted() async throws {
+        _ = try await makeHostWithPlaintextPassword()
+        try await enable()
+
+        try await EncryptionMigration.disable(
+            hosts: hosts, keys: keys, preferences: preferences, cipher: cipher,
+            deleteKey: { throw KeychainCrypto.CryptoError.keychainFailure(errSecMissingEntitlement) }
+        )
+
+        XCTAssertFalse(preferences.keychainEncryption, "the user was locked into encryption")
+        let stored = try await hosts.fetchAll()
+        XCTAssertEqual(stored.first?.password, "hunter2")
+    }
+
     /// A host with no password at all must not gain an encrypted empty string,
     /// which would look like a stored credential to every reader.
     func testHostsWithoutAPasswordAreLeftAlone() async throws {
