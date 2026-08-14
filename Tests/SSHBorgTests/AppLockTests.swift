@@ -13,6 +13,34 @@ import XCTest
 @MainActor
 final class AppLockTests: XCTestCase {
 
+    /// Counts the prompts and answers them without a face.
+    private final class Asker {
+        var count = 0
+        var answer: Bool
+
+        init(answer: Bool) { self.answer = answer }
+
+        func ask(_ mode: AppPreferences.LockMode) async -> Bool {
+            count += 1
+            return answer
+        }
+    }
+
+    private func makeLock(
+        mode: AppPreferences.LockMode,
+        timeout: Int = 60,
+        answer: Bool = true,
+        possible: Bool = true
+    ) -> (AppLock, Asker) {
+        let asker = Asker(answer: answer)
+        let lock = AppLock(
+            preferences: preferences(mode: mode, timeout: timeout),
+            ask: { await asker.ask($0) },
+            isAuthenticationPossible: { possible }
+        )
+        return (lock, asker)
+    }
+
     private func preferences(mode: AppPreferences.LockMode, timeout: Int = 60) -> AppPreferences {
         let defaults = UserDefaults(suiteName: "applock.\(UUID().uuidString)")!
         let preferences = AppPreferences(defaults: defaults)
@@ -68,6 +96,92 @@ final class AppLockTests: XCTestCase {
         lock.lockModeChanged()
 
         XCTAssertFalse(lock.isLocked, "the app stayed locked behind a setting that says it is not")
+    }
+
+    /// Coming back active while nothing is locked must not raise a prompt.
+    ///
+    /// This is the shape of the loop that got reported: the system's prompt
+    /// makes the app inactive while it is on screen and active again when it
+    /// leaves, and that second transition arrives after the authentication call
+    /// has already returned. Treated as a fresh arrival it asked again, over a
+    /// host list that was by then fully visible behind it.
+    func testComingBackWhileUnlockedAsksNothing() async {
+        let (lock, asker) = makeLock(mode: .biometric, timeout: 0)
+
+        // The cold launch, answered.
+        await lock.didBecomeActive()
+        XCTAssertFalse(lock.isLocked)
+        XCTAssertEqual(asker.count, 1)
+
+        // The system's prompt leaving the screen makes the app active again.
+        await lock.didBecomeActive()
+
+        XCTAssertFalse(lock.isLocked)
+        XCTAssertEqual(asker.count, 1, "it asked to be let into a room it had opened")
+    }
+
+    /// A refusal must not be answered by asking again: every dismissal makes the
+    /// app active once more, and the user would never get out of it.
+    func testARefusalIsNotFollowedByAnotherPrompt() async {
+        let (lock, asker) = makeLock(mode: .biometric, timeout: 0, answer: false)
+
+        await lock.didBecomeActive()
+        await lock.didBecomeActive()
+
+        XCTAssertTrue(lock.isLocked, "a refusal let the app through")
+        XCTAssertEqual(asker.count, 1, "the prompt came back by itself after a refusal")
+    }
+
+    /// The button on the cover, which is the way back after a refusal.
+    func testTheRetryButtonAsksAgain() async {
+        let (lock, asker) = makeLock(mode: .biometric, timeout: 0, answer: false)
+        await lock.didBecomeActive()
+        XCTAssertTrue(lock.isLocked)
+
+        asker.answer = true
+        await lock.authenticate()
+
+        XCTAssertFalse(lock.isLocked)
+        XCTAssertEqual(asker.count, 2)
+    }
+
+    /// Coming back inside the timeout lets you through without asking.
+    func testReturningInsideTheTimeoutDoesNotAsk() async {
+        let (lock, asker) = makeLock(mode: .biometric, timeout: 900)
+        await lock.didBecomeActive()
+        XCTAssertEqual(asker.count, 1)
+
+        lock.willResignActive()
+        XCTAssertTrue(lock.isLocked, "the cover did not go up on the way out")
+        await lock.didBecomeActive()
+
+        XCTAssertFalse(lock.isLocked)
+        XCTAssertEqual(asker.count, 1, "it asked again inside its own timeout")
+    }
+
+    /// And coming back after it has expired does ask.
+    func testReturningAfterTheTimeoutAsks() async {
+        let (lock, asker) = makeLock(mode: .biometric, timeout: 0)
+        await lock.didBecomeActive()
+        XCTAssertEqual(asker.count, 1)
+
+        lock.willResignActive()
+        await lock.didBecomeActive()
+
+        XCTAssertEqual(asker.count, 2, "a real absence went unchallenged")
+    }
+
+    /// With nothing on the device able to answer, the app must not lock at all:
+    /// a cover over a prompt that can only fail shuts the owner out for good.
+    func testNothingLocksWhenNothingCanUnlock() async {
+        let (lock, asker) = makeLock(mode: .biometric, possible: false)
+
+        XCTAssertFalse(lock.isLocked)
+        lock.willResignActive()
+        XCTAssertFalse(lock.isLocked)
+        await lock.didBecomeActive()
+        XCTAssertFalse(lock.isLocked)
+        XCTAssertEqual(asker.count, 0)
     }
 
     /// Switching it *on* does not lock what is already open. The user is holding
