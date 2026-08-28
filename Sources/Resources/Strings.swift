@@ -27,6 +27,9 @@ extension LocalizedStringResource {
     /// Cancel
     static let actionCancel = LocalizedStringResource("action_cancel")
 
+    /// Change
+    static let actionChange = LocalizedStringResource("action_change")
+
     /// Close
     static let actionClose = LocalizedStringResource("action_close")
 
@@ -321,6 +324,9 @@ extension LocalizedStringResource {
     /// SFTP: Starting Directory
     static let hostSectionStartDirectory = LocalizedStringResource("host_section_start_directory")
 
+    /// Show hidden files
+    static let hostSftpShowHidden = LocalizedStringResource("host_sftp_show_hidden")
+
     /// Fixed folder
     static let hostStartModeFixed = LocalizedStringResource("host_start_mode_fixed")
 
@@ -423,6 +429,9 @@ extension LocalizedStringResource {
     /// Host key changed
     static let iosHostkeyChangedTitle = LocalizedStringResource("ios_hostkey_changed_title")
 
+    /// This device appears to be jailbroken. On a jailbroken device the protection the keych…
+    static let iosJailbreakWarningBody = LocalizedStringResource("ios_jailbreak_warning_body")
+
     /// Left blank, the key's own comment is used.
     static let iosKeysCommentBlank = LocalizedStringResource("ios_keys_comment_blank")
 
@@ -449,6 +458,12 @@ extension LocalizedStringResource {
 
     /// Enter the password for %1$@.
     static let iosPasswordPrompt = LocalizedStringResource("ios_password_prompt")
+
+    /// Waiting for host key approval
+    static let iosSessionStatusNeedsHostKey = LocalizedStringResource("ios_session_status_needs_host_key")
+
+    /// Waiting for a password
+    static let iosSessionStatusNeedsPassword = LocalizedStringResource("ios_session_status_needs_password")
 
     /// Actions
     static let iosSftpActions = LocalizedStringResource("ios_sftp_actions")
@@ -563,6 +578,63 @@ extension LocalizedStringResource {
 
     /// SSH Keys
     static let keysTitle = LocalizedStringResource("keys_title")
+
+    /// Confirm
+    static let lockConfirm = LocalizedStringResource("lock_confirm")
+
+    /// Enter your current PIN or passphrase
+    static let lockConfirmCurrentTitle = LocalizedStringResource("lock_confirm_current_title")
+
+    /// Current PIN or passphrase
+    static let lockCurrent = LocalizedStringResource("lock_current")
+
+    /// Delete
+    static let lockDeleteCd = LocalizedStringResource("lock_delete_cd")
+
+    /// There's no way to recover a forgotten PIN or passphrase. If you forget it, you'll hav…
+    static let lockDisclaimerBody = LocalizedStringResource("lock_disclaimer_body")
+
+    /// I understand
+    static let lockDisclaimerContinue = LocalizedStringResource("lock_disclaimer_continue")
+
+    /// No recovery if forgotten
+    static let lockDisclaimerTitle = LocalizedStringResource("lock_disclaimer_title")
+
+    /// Enter your passphrase
+    static let lockEnterPassphrase = LocalizedStringResource("lock_enter_passphrase")
+
+    /// Enter your PIN
+    static let lockEnterPin = LocalizedStringResource("lock_enter_pin")
+
+    /// Incorrect — try again
+    static let lockIncorrect = LocalizedStringResource("lock_incorrect")
+
+    /// Passphrase
+    static let lockKindPassphrase = LocalizedStringResource("lock_kind_passphrase")
+
+    /// PIN
+    static let lockKindPin = LocalizedStringResource("lock_kind_pin")
+
+    /// Too many attempts. Try again in %1$d s
+    static let lockLockedOut = LocalizedStringResource("lock_locked_out")
+
+    /// They don't match
+    static let lockMismatch = LocalizedStringResource("lock_mismatch")
+
+    /// Show or hide
+    static let lockRevealCd = LocalizedStringResource("lock_reveal_cd")
+
+    /// Set PIN or passphrase
+    static let lockSetTitle = LocalizedStringResource("lock_set_title")
+
+    /// Unlock
+    static let lockSubmitCd = LocalizedStringResource("lock_submit_cd")
+
+    /// Unlock SSHBorg
+    static let lockTitle = LocalizedStringResource("lock_title")
+
+    /// Too short
+    static let lockTooShort = LocalizedStringResource("lock_too_short")
 
     /// %d active sessions
     static let notificationActiveSessions = LocalizedStringResource("notification_active_sessions")
@@ -684,6 +756,9 @@ extension LocalizedStringResource {
     /// No biometric or screen lock set up on this device
     static let settingsBiometricUnavailable = LocalizedStringResource("settings_biometric_unavailable")
 
+    /// Change PIN or passphrase
+    static let settingsChangeSecret = LocalizedStringResource("settings_change_secret")
+
     /// Ask for confirmation before closing the app
     static let settingsConfirmExitSubtitle = LocalizedStringResource("settings_confirm_exit_subtitle")
 
@@ -768,6 +843,9 @@ extension LocalizedStringResource {
     /// None
     static let settingsLockModeNone = LocalizedStringResource("settings_lock_mode_none")
 
+    /// PIN or passphrase
+    static let settingsLockModePin = LocalizedStringResource("settings_lock_mode_pin")
+
     /// %1$d seconds
     static let settingsLockTimeoutFallback = LocalizedStringResource("settings_lock_timeout_fallback")
 
@@ -786,8 +864,17 @@ extension LocalizedStringResource {
     /// Security
     static let settingsSectionSecurity = LocalizedStringResource("settings_section_security")
 
+    /// SFTP
+    static let settingsSectionSftp = LocalizedStringResource("settings_section_sftp")
+
     /// Terminal
     static let settingsSectionTerminal = LocalizedStringResource("settings_section_terminal")
+
+    /// In the SFTP browser, list folders before files
+    static let settingsSftpDirsFirstSubtitle = LocalizedStringResource("settings_sftp_dirs_first_subtitle")
+
+    /// Folders before files
+    static let settingsSftpDirsFirstTitle = LocalizedStringResource("settings_sftp_dirs_first_title")
 
     /// Keep the suggestion bar at a fixed height to prevent the terminal from resizing when …
     static let settingsSuggestionsBarStickySubtitle = LocalizedStringResource("settings_suggestions_bar_sticky_subtitle")
@@ -909,11 +996,17 @@ extension LocalizedStringResource {
     /// Finished: %1$@
     static let sftpFinishedAt = LocalizedStringResource("sftp_finished_at")
 
+    /// Hide hidden files
+    static let sftpHideHiddenCd = LocalizedStringResource("sftp_hide_hidden_cd")
+
     /// Delete
     static let sftpMenuDelete = LocalizedStringResource("sftp_menu_delete")
 
     /// Download in background
     static let sftpMenuDownloadInBackground = LocalizedStringResource("sftp_menu_download_in_background")
+
+    /// Open
+    static let sftpMenuOpen = LocalizedStringResource("sftp_menu_open")
 
     /// Rename
     static let sftpMenuRename = LocalizedStringResource("sftp_menu_rename")
@@ -953,6 +1046,9 @@ extension LocalizedStringResource {
 
     /// Background
     static let sftpSendToBackground = LocalizedStringResource("sftp_send_to_background")
+
+    /// Show hidden files
+    static let sftpShowHiddenCd = LocalizedStringResource("sftp_show_hidden_cd")
 
     /// Started: %1$@
     static let sftpStartedAt = LocalizedStringResource("sftp_started_at")
@@ -1034,5 +1130,11 @@ extension LocalizedStringResource {
 
     /// Immediately
     static let timeoutImmediately = LocalizedStringResource("timeout_immediately")
+
+    /// Anyone with the remote can reach your saved servers and keys. Set a PIN or passphrase…
+    static let tvLockNudgeBody = LocalizedStringResource("tv_lock_nudge_body")
+
+    /// Protect the app on your TV
+    static let tvLockNudgeTitle = LocalizedStringResource("tv_lock_nudge_title")
 
 }
