@@ -18,20 +18,33 @@ struct FileAlerts: ViewModifier {
     @Binding var renameInput: String
     @Binding var deleting: SFTPEntry?
 
+    /// Android names what is being deleted in the title, and it is the one
+    /// place the two kinds have to be told apart: the same question about a
+    /// folder is a much bigger one.
+    ///
+    /// Built here rather than inline, because a ternary of two implicit member
+    /// expressions inside `String(localized:)` leaves the overload to be guessed
+    /// from the branches, and there is more than one to guess between.
+    private var deleteTitle: String {
+        deleting?.isDirectory == true
+            ? String(localized: .sftpDeleteFolderTitle)
+            : String(localized: .sftpDeleteFileTitle)
+    }
+
     func body(content: Content) -> some View {
         content
-            .alert("New folder", isPresented: $isCreatingFolder) {
-                TextField("Name", text: $newFolderName)
+            .alert(String(localized: .sftpMkdirTitle), isPresented: $isCreatingFolder) {
+                TextField(String(localized: .sftpMkdirFolderName), text: $newFolderName)
                     .plainTextEntry()
                 Button(String(localized: .actionCancel), role: .cancel) {}
-                Button("Create") {
+                Button(String(localized: .actionCreate)) {
                     let name = newFolderName.trimmed
                     guard !name.isEmpty else { return }
                     Task { await model.createDirectory(named: name) }
                 }
             }
-            .alert("Rename", isPresented: isRenaming) {
-                TextField("Name", text: $renameInput)
+            .alert(String(localized: .sftpRenameTitle), isPresented: isRenaming) {
+                TextField(String(localized: .sftpRenameNewName), text: $renameInput)
                     .plainTextEntry()
                 Button(String(localized: .actionCancel), role: .cancel) { renaming = nil }
                 Button(String(localized: .sftpMenuRename)) {
@@ -43,7 +56,7 @@ struct FileAlerts: ViewModifier {
                     Task { await model.rename(entry, to: name) }
                 }
             }
-            .alert("Delete?", isPresented: isDeleting, presenting: deleting) { entry in
+            .alert(deleteTitle, isPresented: isDeleting, presenting: deleting) { entry in
                 Button(String(localized: .actionCancel), role: .cancel) { deleting = nil }
                 Button(String(localized: .actionDelete), role: .destructive) {
                     let target = entry
@@ -51,9 +64,14 @@ struct FileAlerts: ViewModifier {
                     Task { await model.delete(target) }
                 }
             } message: { entry in
-                Text(entry.isDirectory
-                     ? "\(entry.name) must be empty to be removed."
-                     : "\(entry.name) will be deleted on the server. This cannot be undone.")
+                // It used to say a folder had to be empty to be removed. That
+                // stopped being true when the delete grew its recursive walk,
+                // and the warning stayed — telling the user to do by hand a job
+                // the app had started doing for them.
+                Text(
+                    String(localized: .sftpDeleteMessage)
+                        .replacingOccurrences(of: "%1$@", with: entry.name)
+                )
             }
             .alert(String(localized: .errorUnknown), isPresented: hasActionError) {
                 Button(String(localized: .actionDone), role: .cancel) { model.actionError = nil }

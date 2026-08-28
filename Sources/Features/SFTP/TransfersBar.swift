@@ -130,14 +130,14 @@ private struct TransferRow: View {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
-                Button("Dismiss", systemImage: "xmark") { manager.dismiss(transfer.id) }
+                Button(String(localized: .sftpBackgroundDismissCd), systemImage: "xmark") { manager.dismiss(transfer.id) }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
             }
 
         case .failed, .cancelled:
-            Button("Dismiss", systemImage: "xmark") { manager.dismiss(transfer.id) }
+            Button(String(localized: .sftpBackgroundDismissCd), systemImage: "xmark") { manager.dismiss(transfer.id) }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)

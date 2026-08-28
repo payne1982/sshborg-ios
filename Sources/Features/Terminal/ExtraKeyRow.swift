@@ -71,7 +71,7 @@ struct ExtraKeyRow: View {
                 }
                 .buttonStyle(.plain)
                 .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 5))
-                .accessibilityLabel("Paste")
+                .accessibilityLabel(Text(.terminalPasteCd))
 
                 // Android's position: after Paste, immediately before F1.
                 pin

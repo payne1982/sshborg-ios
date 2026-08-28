@@ -481,7 +481,14 @@ private struct SessionPickerSheet: View {
                     environment.sessions.open(host: host, hosts: environment.hosts, keys: environment.keys)
                     onDismiss()
                 } label: {
-                    Label("New session", systemImage: "plus")
+                    Label(
+                        String(localized: .sessionPickerNewSession)
+                            .replacingOccurrences(
+                                of: "%1$@",
+                                with: String(localized: .sessionTypeTerminal)
+                            ),
+                        systemImage: "plus"
+                    )
                 }
             }
             .navigationTitle(host.label)
@@ -490,14 +497,19 @@ private struct SessionPickerSheet: View {
         .presentationDetents([.medium])
     }
 
+    /// Android's four session states plus the two this app can tell apart. It
+    /// asks its own question before connecting, so a session sitting on the
+    /// password prompt is not the same as one still dialling — and in a list
+    /// whose job is "which of these do I go back to", that is the difference
+    /// between one that needs you and one that does not.
     private func status(of session: TerminalSession) -> String {
         switch session.phase {
-        case .connected: "Connected"
-        case .connecting: "Connecting…"
-        case .needsPassword: "Waiting for a password"
-        case .needsHostKeyApproval: "Waiting for host key approval"
-        case .failed: "Failed"
-        case .disconnected: "Disconnected"
+        case .connected: String(localized: .sessionStatusConnected)
+        case .connecting: String(localized: .sessionStatusConnecting)
+        case .needsPassword: String(localized: .iosSessionStatusNeedsPassword)
+        case .needsHostKeyApproval: String(localized: .iosSessionStatusNeedsHostKey)
+        case .failed: String(localized: .sessionStatusError)
+        case .disconnected: String(localized: .sessionStatusDisconnected)
         }
     }
 }
