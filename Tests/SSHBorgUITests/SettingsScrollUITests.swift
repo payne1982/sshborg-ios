@@ -23,6 +23,11 @@ final class SettingsScrollUITests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         // No finger can answer Face ID; see AppLock.shouldLock.
         app.launchArguments += ["-SSHBorgDisableLock"]
+        // Plain preference overrides, not test hooks: the privacy notice sits
+        // over the app until it is accepted, and the security reminder arrives
+        // a second and a half in. Every test here is looking at what is
+        // underneath them.
+        app.launchArguments += ["-security_reminder_dismissed", "YES", "-privacy_policy_accepted", "YES"]
         app.launch()
     }
 

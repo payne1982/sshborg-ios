@@ -25,6 +25,7 @@ struct RootView: View {
             guard phase == .active else { return }
             Task { await environment.sessions.reconnectAfterForeground() }
         }
+        .startupNotices(preferences: environment.preferences, lock: environment.lock)
     }
 
     /// Opening a session from anywhere in the list pushes the terminal, and
