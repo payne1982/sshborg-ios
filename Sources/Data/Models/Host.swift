@@ -58,6 +58,10 @@ struct Host: Identifiable, Hashable, Codable, FetchableRecord, MutablePersistabl
 
     var sftpStartDir: String?
 
+    /// Shows dotfiles in the file browser. Off by default, as on Android, and
+    /// display-only: a folder download still takes everything inside it.
+    var sftpShowHidden: Bool = false
+
     /// Appends legacy/weak algorithms to the negotiation list, for old servers.
     var allowLegacyCiphers: Bool = false
 

@@ -32,6 +32,7 @@ struct SettingsScreen: View {
         Form {
             generalSection
             terminalSection
+            sftpSection
             securitySection
             backupSection
             aboutSection
@@ -136,6 +137,17 @@ struct SettingsScreen: View {
             Toggle(isOn: binding(\.extraKeysBarPinned)) {
                 Text(.settingsExtraKeysBarTitle)
                 Text(.settingsExtraKeysBarSubtitle)
+            }
+        }
+    }
+
+    // MARK: - SFTP
+
+    private var sftpSection: some View {
+        Section(String(localized: .settingsSectionSftp)) {
+            Toggle(isOn: binding(\.sftpSortDirsFirst)) {
+                Text(.settingsSftpDirsFirstTitle)
+                Text(.settingsSftpDirsFirstSubtitle)
             }
         }
     }

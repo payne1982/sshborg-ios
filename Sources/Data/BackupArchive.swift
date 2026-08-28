@@ -21,9 +21,15 @@ import Foundation
 /// much custom code to do that as writing it out plainly.
 struct BackupArchive: Equatable {
 
-    /// Version 3 added `settings`; 2 added `groups`. Older files still load —
-    /// their missing sections simply do not apply.
-    static let currentVersion = 3
+    /// What each version added, following the Android writer: 2 `groups`, 3
+    /// `settings`, 4 `keyLabel`, 5 `sftpShowHidden`. Older files still load —
+    /// their missing sections simply do not apply, and neither reader branches
+    /// on the number.
+    ///
+    /// It sat at 3 while `keyLabel` was already being written, which is the
+    /// failure mode of a version field nobody reads: nothing broke, and the
+    /// number quietly stopped describing the file.
+    static let currentVersion = 5
 
     var version: Int = currentVersion
     var exportedAt: String
@@ -46,6 +52,7 @@ struct BackupArchive: Equatable {
         var agentForwarding: Bool = false
         var jumpMode: String = Host.JumpMode.simple.rawValue
         var sftpStartMode: String = Host.SFTPStartMode.last.rawValue
+        var sftpShowHidden: Bool = false
         var allowLegacyCiphers: Bool = false
 
         var jumpHosts: String?
@@ -144,6 +151,7 @@ extension BackupArchive {
             "agentForwarding": host.agentForwarding,
             "jumpMode": host.jumpMode,
             "sftpStartMode": host.sftpStartMode,
+            "sftpShowHidden": host.sftpShowHidden,
             "allowLegacyCiphers": host.allowLegacyCiphers,
         ]
 
@@ -224,6 +232,7 @@ extension BackupArchive {
                 agentForwarding: raw["agentForwarding"] as? Bool ?? false,
                 jumpMode: raw["jumpMode"] as? String ?? Host.JumpMode.simple.rawValue,
                 sftpStartMode: raw["sftpStartMode"] as? String ?? Host.SFTPStartMode.last.rawValue,
+                sftpShowHidden: raw["sftpShowHidden"] as? Bool ?? false,
                 allowLegacyCiphers: raw["allowLegacyCiphers"] as? Bool ?? false,
                 jumpHosts: nonEmpty(raw["jumpHosts"]),
                 jumpHostIdList: nonEmpty(raw["jumpHostIdList"]),

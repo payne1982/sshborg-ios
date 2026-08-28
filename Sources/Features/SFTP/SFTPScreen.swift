@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import SwiftUI
+import UIKit
 
 /// Browses a host's files. Ported from the Android `SftpScreen`.
 ///
@@ -125,7 +126,7 @@ struct SFTPScreen: View {
                 presenting: uploadConflict
             ) { conflict in
                 Button(String(localized: .actionCancel), role: .cancel) { uploadConflict = nil }
-                Button("Keep both") {
+                Button(String(localized: .actionKeepBoth)) {
                     let pending = conflict
                     uploadConflict = nil
                     startUpload(pending.localURL, named: pending.suggestedName, model: model)
@@ -136,7 +137,11 @@ struct SFTPScreen: View {
                     startUpload(pending.localURL, named: pending.localURL.lastPathComponent, model: model)
                 }
             } message: { conflict in
-                Text("\(conflict.localURL.lastPathComponent) already exists here. Keeping both saves it as \(conflict.suggestedName).")
+                Text(
+                    String(localized: .iosSftpConflictDetail)
+                        .replacingOccurrences(of: "%1$@", with: conflict.localURL.lastPathComponent)
+                        .replacingOccurrences(of: "%2$@", with: conflict.suggestedName)
+                )
             }
             .modifier(FileAlerts(
                 model: model,
@@ -264,8 +269,25 @@ struct SFTPScreen: View {
                         Button(String(localized: .iosSftpUpload), systemImage: "arrow.up.doc") {
                             isPickingUpload = true
                         }
-                        Button("Refresh", systemImage: "arrow.clockwise") {
+                        Button(String(localized: .sftpRefreshCd), systemImage: "arrow.clockwise") {
                             Task { await model.refresh() }
+                        }
+                        Divider()
+                        // Android gives this an eye of its own in the bar, with
+                        // a red iris when dotfiles are showing. Here it joins
+                        // the actions that are already in this menu — select,
+                        // new folder, upload, refresh are all separate icons
+                        // there too — and a menu item can say which way it is
+                        // set, which a single eye glyph has to encode in colour.
+                        Toggle(isOn: .init(
+                            get: { model.showsHiddenFiles },
+                            set: { _ in Task { await model.toggleHiddenFiles() } }
+                        )) {
+                            Label {
+                                Text(hiddenFilesLabel(model))
+                            } icon: {
+                                Self.hiddenFilesEye(active: model.showsHiddenFiles)
+                            }
                         }
                     } label: {
                         Label(String(localized: .iosSftpActions), systemImage: "ellipsis.circle")
@@ -275,11 +297,35 @@ struct SFTPScreen: View {
         }
     }
 
+    /// Named for what tapping it will do, which is how Android words its two
+    /// content descriptions for the same button.
+    private func hiddenFilesLabel(_ model: SFTPModel) -> String {
+        model.showsHiddenFiles
+            ? String(localized: .sftpHideHiddenCd)
+            : String(localized: .sftpShowHiddenCd)
+    }
+
+    /// The eye, red while dotfiles are showing — Android draws a red iris over
+    /// the same glyph for the same reason.
+    ///
+    /// Tinted through `UIImage` rather than `.foregroundStyle`: a menu is a
+    /// `UIMenu` underneath, and it recolours the symbols its items carry to its
+    /// own tint. An image marked `.alwaysOriginal` is the one thing it leaves
+    /// alone. The menu item also carries a checkmark of its own, so the state is
+    /// still legible if a future iOS decides otherwise about the colour.
+    private static func hiddenFilesEye(active: Bool) -> Image {
+        guard let symbol = UIImage(systemName: "eye") else {
+            return Image(systemName: "eye")
+        }
+        guard active else { return Image(uiImage: symbol) }
+        return Image(uiImage: symbol.withTintColor(.systemRed, renderingMode: .alwaysOriginal))
+    }
+
     // MARK: - Selecting
 
     /// The chosen entries, in the order they appear rather than the set's.
     private func selectedEntries(_ model: SFTPModel) -> [SFTPEntry] {
-        model.entries.filter { selection.contains($0.id) }
+        visibleEntries(model).filter { selection.contains($0.id) }
     }
 
     private func leaveSelection() {
@@ -370,10 +416,20 @@ struct SFTPScreen: View {
         }
     }
 
+    private func visibleEntries(_ model: SFTPModel) -> [SFTPEntry] {
+        SFTPModel.visibleEntries(
+            model.entries,
+            showingHidden: model.showsHiddenFiles,
+            directoriesFirst: environment.preferences.sftpSortDirsFirst
+        )
+    }
+
     @ViewBuilder
     private func listing(_ model: SFTPModel) -> some View {
-        if model.entries.isEmpty && !model.isLoading {
-            ContentUnavailableView("Empty folder", systemImage: "folder")
+        let entries = visibleEntries(model)
+
+        if entries.isEmpty && !model.isLoading {
+            ContentUnavailableView(String(localized: .sftpEmptyDirectory), systemImage: "folder")
         } else {
             List(selection: $selection) {
                 // Not selectable, and it stays a plain button in edit mode:
@@ -387,7 +443,7 @@ struct SFTPScreen: View {
                     }
                 }
 
-                ForEach(model.entries) { entry in
+                ForEach(entries) { entry in
                     Button {
                         // A folder opens, a file downloads — the Android rule.
                         // The row used to be `.disabled` for files, so tapping

@@ -36,6 +36,7 @@ struct HostEditorScreen: View {
     @State private var portForwardingsText = ""
     @State private var sftpStartMode: Host.SFTPStartMode = .last
     @State private var sftpStartDir = ""
+    @State private var sftpShowHidden = false
     @State private var resetHostKeys = false
 
     // Loaded lists
@@ -115,17 +116,37 @@ struct HostEditorScreen: View {
 
     // MARK: - Sections
 
+    /// The four fields the keyboard's Next key walks through, in order.
+    private enum CoreField: Hashable {
+        case label, hostname, username, port
+    }
+
+    @FocusState private var focusedField: CoreField?
+
     private var basicsSection: some View {
         Section {
             TextField(String(localized: .hostFieldLabel), text: $label)
                 .plainTextEntry()
+                .focused($focusedField, equals: .label)
+                .submitLabel(.next)
+                .onSubmit { focusedField = .hostname }
             TextField(String(localized: .hostFieldHostname), text: $hostname)
                 .keyboardType(.URL)
                 .plainTextEntry()
+                .focused($focusedField, equals: .hostname)
+                .submitLabel(.next)
+                .onSubmit { focusedField = .username }
             TextField(String(localized: .hostFieldUsername), text: $username)
                 .plainTextEntry()
+                .focused($focusedField, equals: .username)
+                .submitLabel(.next)
+                .onSubmit { focusedField = .port }
+            // The chain ends here rather than at Done: the number pad has no
+            // return key to press, so a submit label on it would be a promise
+            // the keyboard cannot keep.
             TextField(String(localized: .hostFieldPort), text: $port)
                 .keyboardType(.numberPad)
+                .focused($focusedField, equals: .port)
         }
     }
 
@@ -314,6 +335,10 @@ struct HostEditorScreen: View {
                 .disabled(sftpStartMode != .fixed)
                 .foregroundStyle(sftpStartMode == .fixed ? .primary : .secondary)
                 .plainTextEntry()
+
+            // The same field the browser's own toggle writes, so the two never
+            // disagree about a host.
+            Toggle(String(localized: .hostSftpShowHidden), isOn: $sftpShowHidden)
         } header: {
             Text(.hostSectionStartDirectory)
         }
@@ -378,6 +403,7 @@ struct HostEditorScreen: View {
         portForwardingsText = host.portForwardings ?? ""
         sftpStartMode = host.parsedSFTPStartMode
         sftpStartDir = host.sftpStartDir ?? ""
+        sftpShowHidden = host.sftpShowHidden
     }
 
     // MARK: - Saving
@@ -407,6 +433,7 @@ struct HostEditorScreen: View {
         updated.jumpHostIdList = Host.formatIDList(jumpHostIds)
         updated.portForwardings = portForwardingsText.trimmed.nilIfEmpty
         updated.sftpStartMode = sftpStartMode.rawValue
+        updated.sftpShowHidden = sftpShowHidden
         updated.sftpStartDir = sftpStartMode == .fixed ? sftpStartDir.trimmed.nilIfEmpty : updated.sftpStartDir
 
         if resetHostKeys {

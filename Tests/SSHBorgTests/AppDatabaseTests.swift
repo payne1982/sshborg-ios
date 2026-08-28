@@ -23,8 +23,11 @@ final class AppDatabaseTests: XCTestCase {
         }
     }
 
-    /// The Android Room entity has these 21 columns. A mismatch means the shared
-    /// JSON backup would silently drop a field.
+    /// The Android Room entity has these 22 columns, its version 12. A mismatch
+    /// means the shared JSON backup would silently drop a field.
+    ///
+    /// It has already earned its keep: `sftpShowHidden` was added to the model,
+    /// the migration and the backup, and this is what proved the three agreed.
     func testHostColumnsMatchAndroidEntity() throws {
         try database.writer.read { db in
             let columns = try db.columns(in: "hosts").map(\.name)
@@ -35,7 +38,8 @@ final class AppDatabaseTests: XCTestCase {
                     "password", "encryptedPassword", "knownHostsEntry",
                     "agentForwarding", "lastConnected", "jumpHosts", "jumpHostKeys",
                     "portForwardings", "jumpMode", "jumpHostIdList", "sftpStartMode",
-                    "sftpStartDir", "allowLegacyCiphers", "groupId", "color",
+                    "sftpStartDir", "sftpShowHidden", "allowLegacyCiphers",
+                    "groupId", "color",
                 ]
             )
         }

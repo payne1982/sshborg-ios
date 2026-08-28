@@ -173,6 +173,34 @@ final class BackupTests: XCTestCase {
         XCTAssertEqual(original, reparsed)
     }
 
+    /// The dotfile choice is per-host and travels with the host, as it does on
+    /// Android — where the field arrived with backup format 5.
+    func testDotfileVisibilityTravelsWithTheHost() async throws {
+        _ = try await hosts.save(
+            Host(label: "nas", hostname: "nas.example", username: "u", sftpShowHidden: true)
+        )
+        _ = try await hosts.save(
+            Host(label: "gw", hostname: "gw.example", username: "u")
+        )
+
+        let exported = try await service.export()
+        let text = String(decoding: try exported.jsonData(), as: UTF8.self)
+        XCTAssertTrue(text.contains("\"sftpShowHidden\""))
+
+        let reparsed = try BackupArchive.decode(try exported.jsonData())
+        let byLabel = Dictionary(uniqueKeysWithValues: reparsed.hosts.map { ($0.label, $0) })
+        XCTAssertEqual(byLabel["nas"]?.sftpShowHidden, true)
+        XCTAssertEqual(byLabel["gw"]?.sftpShowHidden, false)
+    }
+
+    /// A file written before the field existed — every Android backup up to
+    /// format 4, and every one this app wrote before today — must still load,
+    /// with dotfiles hidden.
+    func testABackupWithoutTheFieldHidesDotfiles() throws {
+        let archive = try BackupArchive.decode(Data(androidBackup.utf8))
+        XCTAssertFalse(archive.hosts.contains { $0.sftpShowHidden })
+    }
+
     /// A null field is omitted, not written as `null`: Android's reader uses
     /// `optString`, which turns a JSON null into the string "null".
     func testUnsetFieldsAreOmittedRatherThanNull() throws {

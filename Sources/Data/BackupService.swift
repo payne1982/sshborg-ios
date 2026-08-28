@@ -65,6 +65,7 @@ struct BackupService {
                     agentForwarding: host.agentForwarding,
                     jumpMode: host.jumpMode,
                     sftpStartMode: host.sftpStartMode,
+                    sftpShowHidden: host.sftpShowHidden,
                     allowLegacyCiphers: host.allowLegacyCiphers,
                     jumpHosts: host.jumpHosts,
                     jumpHostIdList: host.jumpHostIdList,
@@ -210,6 +211,7 @@ struct BackupService {
             jumpHostIdList: entry.jumpHostIdList,
             sftpStartMode: entry.sftpStartMode,
             sftpStartDir: entry.sftpStartDir,
+            sftpShowHidden: entry.sftpShowHidden,
             allowLegacyCiphers: entry.allowLegacyCiphers,
             groupId: groupID,
             color: entry.color

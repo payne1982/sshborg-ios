@@ -38,6 +38,7 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(preferences.doubleTapAction, .none)
         XCTAssertTrue(preferences.historySuggestions)
         XCTAssertFalse(preferences.suggestionsBarSticky)
+        XCTAssertTrue(preferences.sftpSortDirsFirst)
         XCTAssertFalse(preferences.securityReminderDismissed)
         XCTAssertFalse(preferences.privacyPolicyAccepted)
     }

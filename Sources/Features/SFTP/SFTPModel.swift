@@ -19,7 +19,11 @@ final class SFTPModel {
         case failed(String)
     }
 
-    let host: Host
+    /// A copy that this browser keeps up to date, not a snapshot: the two
+    /// per-host things it can change — the last visited directory and whether
+    /// dotfiles are shown — are both written back through it. Were it a `let`,
+    /// each write would save the other one's stale value over the top.
+    private(set) var host: Host
 
     private(set) var phase: Phase = .connecting
     private(set) var path = "/"
@@ -185,11 +189,62 @@ final class SFTPModel {
     /// Persists the current directory when the host is set to reopen where it
     /// left off. Silent on failure: it is a convenience, not the user's task.
     private func rememberLastVisited() async {
-        guard host.parsedSFTPStartMode == .last, let id = host.id else { return }
-        var updated = host
-        updated.id = id
-        updated.sftpStartDir = path
-        _ = try? await hosts.save(updated)
+        guard host.parsedSFTPStartMode == .last, host.id != nil else { return }
+        host.sftpStartDir = path
+        await persistHost()
+    }
+
+    /// Whether dotfiles are listed. Off by default, per host, and kept on the
+    /// host row so the choice is still there next time — the toolbar toggle and
+    /// the host editor's switch write the same field.
+    var showsHiddenFiles: Bool { host.sftpShowHidden }
+
+    /// Flips dotfile visibility. The filtering happens where the list is drawn,
+    /// so this never refetches: the entries are all already here.
+    func toggleHiddenFiles() async {
+        host.sftpShowHidden.toggle()
+        await persistHost()
+    }
+
+    /// What the list shows: the server's entries, minus dotfiles when the host
+    /// says to hide them, in the order the settings ask for.
+    ///
+    /// Both steps are display-only, on purpose. Flipping either is then instant
+    /// and never refetches, and — the part that matters — everything else that
+    /// walks a directory still sees all of it. A folder download must bring the
+    /// dotfiles down with it; hiding them is a way of looking at a directory,
+    /// not a way of having one.
+    ///
+    /// ".." never reaches here: the screen draws it as a row of its own, so it
+    /// cannot be filtered out or sorted away from the top.
+    static func visibleEntries(
+        _ entries: [SFTPEntry],
+        showingHidden: Bool,
+        directoriesFirst: Bool
+    ) -> [SFTPEntry] {
+        let shown = showingHidden ? entries : entries.filter { !$0.name.hasPrefix(".") }
+
+        // A listing already arrives directories-first; only the other order
+        // needs doing, and it is by name alone, as on Android.
+        guard !directoriesFirst else { return shown }
+        return shown.sorted { $0.name.lowercased() < $1.name.lowercased() }
+    }
+
+    /// Writes back only the two columns this browser owns, onto whatever the row
+    /// says now. Silent on failure: these are conveniences, not the user's task.
+    ///
+    /// Re-reading first is not caution for its own sake. Connecting pins the
+    /// host key and the jump hops' keys through column-specific updates, which
+    /// this object never sees; saving our own copy wholesale would write those
+    /// back as they were before the connection — dropping a freshly pinned key
+    /// on the first directory change, and asking the user to trust the server
+    /// again next time.
+    private func persistHost() async {
+        guard let id = host.id,
+              var stored = try? await hosts.fetch(id: id) else { return }
+        stored.sftpStartDir = host.sftpStartDir
+        stored.sftpShowHidden = host.sftpShowHidden
+        _ = try? await hosts.save(stored)
     }
 
     /// True while a directory change is in flight. Not `isLoading`: that also

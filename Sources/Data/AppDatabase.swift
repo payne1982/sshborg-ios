@@ -5,10 +5,18 @@ import GRDB
 
 /// Owns the SQLite connection and the schema.
 ///
-/// The schema is the Android app's Room schema at version 11, created in one
-/// step. The eleven incremental Room migrations are deliberately not replayed:
-/// no iOS device has ever held an older version, and hosts move between
-/// platforms through the JSON backup, never by copying the database file.
+/// The schema is the Android app's Room schema, created in one step at its
+/// version 11. The eleven incremental Room migrations before that are
+/// deliberately not replayed: no iOS device has ever held an older version, and
+/// hosts move between platforms through the JSON backup, never by copying the
+/// database file.
+///
+/// Everything Android adds *after* 11 gets a migration of its own here, even
+/// though the app has not shipped yet. Folding a new column into `v1` instead
+/// would be tidier to read and would wipe every test device: GRDB's
+/// `eraseDatabaseOnSchemaChange` fires when a registered migration changes, and
+/// the hosts someone has been testing with all week are worth more than a tidy
+/// schema.
 final class AppDatabase: Sendable {
 
     let writer: any DatabaseWriter
@@ -103,6 +111,13 @@ final class AppDatabase: Sendable {
             }
 
             try db.create(index: "index_hosts_groupId", on: "hosts", columns: ["groupId"])
+        }
+
+        // Android's Room migration 11 -> 12.
+        migrator.registerMigration("v2") { db in
+            try db.alter(table: "hosts") { t in
+                t.add(column: "sftpShowHidden", .boolean).notNull().defaults(to: false)
+            }
         }
 
         return migrator

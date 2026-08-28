@@ -43,6 +43,7 @@ final class AppPreferences {
         static let doubleTapAction = "double_tap_action"
         static let historySuggestions = "history_suggestions"
         static let suggestionsBarSticky = "suggestions_bar_sticky"
+        static let sftpSortDirsFirst = "sftp_sort_dirs_first"
         static let securityReminderDismissed = "security_reminder_dismissed"
         static let privacyPolicyAccepted = "privacy_policy_accepted"
     }
@@ -57,6 +58,7 @@ final class AppPreferences {
         Key.terminalColorScheme: TerminalColorScheme.dark.rawValue,
         Key.doubleTapAction: DoubleTapAction.none.rawValue,
         Key.historySuggestions: true,
+        Key.sftpSortDirsFirst: true,
     ]
 
     // MARK: - Security
@@ -122,6 +124,13 @@ final class AppPreferences {
     var confirmExit: Bool {
         get { read(Key.confirmExit, keyPath: \.confirmExit) }
         set { write(newValue, Key.confirmExit, keyPath: \.confirmExit) }
+    }
+
+    /// Lists folders before files in the file browser. On by default, which is
+    /// the order the server listing already arrives in.
+    var sftpSortDirsFirst: Bool {
+        get { read(Key.sftpSortDirsFirst, keyPath: \.sftpSortDirsFirst) }
+        set { write(newValue, Key.sftpSortDirsFirst, keyPath: \.sftpSortDirsFirst) }
     }
 
     var invertTerminalScroll: Bool {
