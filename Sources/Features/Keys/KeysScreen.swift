@@ -12,6 +12,8 @@ struct KeysScreen: View {
     @State private var isImporting = false
     @State private var inspecting: SSHKey?
     @State private var pendingDeletion: PendingDeletion?
+    @State private var renaming: SSHKey?
+    @State private var renameInput = ""
 
     /// A delete waiting on confirmation, carrying how many hosts it affects.
     private struct PendingDeletion: Identifiable {
@@ -61,6 +63,27 @@ struct KeysScreen: View {
             NavigationStack { KeyDetailSheet(key: key) }
         }
         .alert(
+            String(localized: .keysRenameTitle),
+            isPresented: .init(
+                get: { renaming != nil },
+                set: { if !$0 { renaming = nil } }
+            ),
+            presenting: renaming
+        ) { key in
+            TextField(String(localized: .keygenFieldLabel), text: $renameInput)
+                .plainTextEntry()
+            Button(String(localized: .actionCancel), role: .cancel) { renaming = nil }
+            Button(String(localized: .actionSave)) {
+                let pending = key
+                let name = renameInput
+                renaming = nil
+                Task { try? await model?.rename(pending, to: name) }
+            }
+            // Deliberately not disabled on an empty name: an alert's buttons
+            // do not re-evaluate as the field is typed into, so a disabled Save
+            // would stay disabled. `rename` refuses a blank name instead.
+        }
+        .alert(
             String(localized: .keysDeleteTitle),
             isPresented: .init(
                 get: { pendingDeletion != nil },
@@ -76,7 +99,11 @@ struct KeysScreen: View {
             }
         } message: { pending in
             if pending.hostCount > 0 {
-                Text("\(pending.key.label) is used by \(pending.hostCount) host(s). They will be kept but fall back to password authentication. The private key cannot be recovered.")
+                Text(
+                    String(localized: .iosKeysDeleteImpact)
+                        .replacingOccurrences(of: "%1$@", with: pending.key.label)
+                        .replacingOccurrences(of: "%2$d", with: "\(pending.hostCount)")
+                )
             } else {
                 Text(.keysDeleteWarning)
             }
@@ -103,6 +130,10 @@ struct KeysScreen: View {
                         .contextMenu {
                             Button(String(localized: .keysShowPublicKeyCd), systemImage: "doc.on.doc") {
                                 UIPasteboard.general.string = key.publicKey
+                            }
+                            Button(String(localized: .keysRenameCd), systemImage: "pencil") {
+                                renameInput = key.label
+                                renaming = key
                             }
                             Button(String(localized: .keysDeleteCd), systemImage: "trash", role: .destructive) {
                                 Task {

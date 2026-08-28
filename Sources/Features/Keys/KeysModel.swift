@@ -90,6 +90,44 @@ final class KeysModel {
         try await repository.save(key)
     }
 
+    // MARK: - Renaming
+
+    /// Changes a key's name. Nothing else about the key moves: the private half
+    /// is not touched, decrypted or re-encrypted, so a rename cannot lose it.
+    ///
+    /// One thing goes with the label, which Android does not do. A generated
+    /// key's public line carries the label as its comment — the generator says
+    /// so on screen — and leaving it behind would make that sentence false the
+    /// first time anyone renames a key. It is rewritten *only* when the comment
+    /// is still exactly the old label, so a comment that came from an imported
+    /// file, usually a `user@host` worth keeping, is left alone.
+    ///
+    /// The fingerprint does not change, so a key already in an `authorized_keys`
+    /// somewhere keeps working; only what a future copy of the public line says
+    /// about itself is different.
+    func rename(_ key: SSHKey, to newLabel: String) async throws {
+        let trimmed = newLabel.trimmed
+        guard !trimmed.isEmpty, trimmed != key.label else { return }
+
+        var updated = key
+        updated.label = trimmed
+        updated.publicKey = Self.publicKey(key.publicKey, renamedFrom: key.label, to: trimmed)
+        try await repository.save(updated)
+    }
+
+    /// Rewrites the comment of an OpenSSH public line, when it is the old label.
+    ///
+    /// A public line is `type base64 [comment]`, and the comment may contain
+    /// spaces — so it is split at most twice and the remainder taken whole.
+    static func publicKey(_ line: String, renamedFrom old: String, to new: String) -> String {
+        let fields = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: false)
+        guard fields.count == 3,
+              String(fields[2]).trimmed == old.trimmed
+        else { return line }
+
+        return "\(fields[0]) \(fields[1]) \(new)"
+    }
+
     // MARK: - Removing
 
     /// How many hosts point at this key, so the confirmation can say what will
