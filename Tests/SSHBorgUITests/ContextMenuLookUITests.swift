@@ -22,8 +22,22 @@ final class ContextMenuLookUITests: XCTestCase {
         app.launchArguments += ["-security_reminder_dismissed", "YES", "-privacy_policy_accepted", "YES"]
         app.launch()
 
+        // An empty list is not an empty screen: it draws "No hosts yet." and
+        // "Tap + to add one.", and both are static text whose label is not the
+        // title. Asking for "the first label that is not SSHBorg" therefore
+        // found the placeholder, long-pressed it, and failed three assertions
+        // about a menu that was never going to open — which is what happened
+        // the moment the app's data was wiped. Rule out the empty state by
+        // name first, so the test skips where it has nothing to look at.
+        //
+        // English is safe to hardcode here: the launch arguments above pin the
+        // language, and the button labels below are matched the same way.
+        if app.staticTexts["No hosts yet."].waitForExistence(timeout: 15) {
+            throw XCTSkip("no host in the list to long-press")
+        }
+
         let row = app.staticTexts.matching(NSPredicate(format: "label != %@", "SSHBorg")).firstMatch
-        guard row.waitForExistence(timeout: 15) else {
+        guard row.waitForExistence(timeout: 5) else {
             throw XCTSkip("no host in the list to long-press")
         }
         row.press(forDuration: 1.5)
