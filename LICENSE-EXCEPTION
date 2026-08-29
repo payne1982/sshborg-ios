@@ -1,0 +1,29 @@
+ADDITIONAL PERMISSION UNDER SECTION 7 OF THE GNU GPL VERSION 3
+
+SSHBorg for iOS is licensed under the GNU General Public License, version 3 or
+(at your option) any later version, as set out in the file LICENSE.
+
+As an additional permission under section 7 of that License, the copyright
+holder grants you permission to convey the Program, or a work based on the
+Program, through an application distribution service — including but not
+limited to Apple's App Store, Google Play and F-Droid — and to accept the terms
+that such a service imposes on that distribution, even where those terms would
+otherwise conflict with sections 6 and 10 of the License.
+
+Why this exists: those services impose conditions the GNU GPL does not allow to
+be added on its own — limits on how many devices a copy may be installed on,
+and digital restrictions applied to the delivered binary. Without this
+permission, publishing SSHBorg on such a service would place the publisher in
+breach of the very licence the work is offered under. Projects have lost their
+listings over precisely this.
+
+The scope is narrow, and deliberately so. This permission covers distribution
+through such a service and nothing else. It takes away none of the rights the
+GNU General Public License gives you: you may still obtain the Corresponding
+Source, study it, change it, and redistribute your changes under the terms of
+the GNU General Public License. In particular, a copy obtained from an
+application store carries the same rights as a copy obtained from the source
+repository.
+
+As section 7 provides, you may remove this additional permission from your own
+copy of the Program, or from any part of it.

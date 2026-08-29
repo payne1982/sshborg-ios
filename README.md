@@ -111,9 +111,16 @@ required.
 GNU General Public License v3.0 or later — see [LICENSE](LICENSE), the same
 licence as the Android app.
 
-Note that the GPL and the App Store terms are in tension: the GPL forbids
-imposing further restrictions, and Apple's terms impose some. Projects have
-lost their listings over this before, though Blink Shell ships under GPLv3
-today. Before a first submission this needs a deliberate decision — most likely
-an additional permission under section 7 of the GPL explicitly allowing App
-Store distribution, which the sole copyright holder is free to grant.
+The GPL and the terms of an application store are in tension: the GPL forbids
+imposing further restrictions, and those services impose some — device limits
+and digital restrictions on the delivered binary. Projects have lost their
+listings over exactly this.
+
+[LICENSE-EXCEPTION](LICENSE-EXCEPTION) resolves it, as section 7 of the GPL
+provides for: an additional permission allowing distribution through such a
+service, and nothing more. It takes no right away from you — a copy from an
+application store carries the same rights as a copy from this repository.
+
+The permission can be granted because every dependency is permissively
+licensed — SwiftTerm and GRDB under MIT, libssh2 under BSD-3-Clause, OpenSSL
+3.x under Apache-2.0 — so the GPL-covered work has a single copyright holder.

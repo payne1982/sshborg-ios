@@ -63,7 +63,7 @@ packages:
     from: 7.11.1
   # libssh2 built from source with the OpenSSL backend and zlib.
   # Product: CSSH2. Defines HAVE_SYS_UN_H, which agent forwarding needs for the
-  # in-process UNIX socket agent (see phase 7 of PIANO.md).
+  # in-process UNIX socket agent.
   #
   # 2.0.3 vendors libssh2 1.11.1 (commit a312b43, the release commit itself),
   # which is the current upstream stable — there is no 1.12. It pulls OpenSSL
