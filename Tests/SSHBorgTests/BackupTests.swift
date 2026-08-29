@@ -78,7 +78,7 @@ final class BackupTests: XCTestCase {
           "label": "nas",
           "hostname": "nas.local",
           "port": 22,
-          "username": "payne",
+          "username": "alice",
           "agentForwarding": false,
           "jumpMode": "simple",
           "sftpStartMode": "fixed",

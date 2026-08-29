@@ -52,7 +52,7 @@ final class KeyRenameTests: XCTestCase {
     /// An imported key's comment is usually `user@host` and means something of
     /// its own. Renaming the key here must not overwrite it.
     func testACommentThatIsNotTheLabelIsLeftAlone() {
-        let line = "ssh-ed25519 AAAAB3 payne@dev-host"
+        let line = "ssh-ed25519 AAAAB3 alice@workstation"
         XCTAssertEqual(
             KeysModel.publicKey(line, renamedFrom: "work key", to: "home key"),
             line

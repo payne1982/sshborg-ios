@@ -2,9 +2,16 @@
 
 An iOS port of [SSHBorg](https://github.com/payne1982/sshborg), the ad-free, tracking-free SSH client for Android.
 
-> **Status: phase 0 — foundations.** Nothing works yet. The app currently builds
-> to a single screen that verifies the dependency stack links and runs on device.
-> See [PIANO.md](PIANO.md) for the full roadmap (in Italian).
+> **Status: feature-complete against the Android app, not yet released.**
+> Terminal, SFTP, key management, jump hosts, agent forwarding, port forwarding,
+> host groups, cross-platform backup, app lock and ten languages all work. 281
+> unit tests and 5 UI tests pass on the simulator.
+>
+> Two things have never run on physical hardware, and both are named here rather
+> than left to be discovered: **at-rest encryption through the Keychain**, which
+> an unsigned build cannot reach at all (every call returns
+> `errSecMissingEntitlement`), and the **app lock** against real biometrics.
+> Neither is a known defect — they are parts that have not yet been observed.
 
 The Android app is not a shared codebase — this is an independent native rewrite
 in Swift/SwiftUI. Roughly 7% of the Android source is directly translatable (the
@@ -55,16 +62,41 @@ xcodegen generate
 
 ```
 Sources/
-  App/          entry point, root view
-  Data/         GRDB schema, repositories, preferences      (phase 1)
-  Platform/     Keychain, biometrics, jailbreak detection   (phase 1)
-  SSH/          libssh2 wrapper, sessions, SFTP             (phases 2, 6, 7)
-  Terminal/     SwiftTerm integration                       (phase 3)
+  App/          entry point, root view, launch-time notices
+  Data/         GRDB schema, repositories, preferences
+  Platform/     Keychain, biometrics, app lock, jailbreak detection
+  SSH/          libssh2 wrapper, sessions, SFTP
+  Terminal/     SwiftTerm integration
   Features/     one directory per screen
-  Resources/    assets, privacy manifest
-Tests/
+  Resources/    assets, string catalog, privacy manifest
+Tests/          unit tests, plus UI tests that attach screenshots
 Tools/          build and porting scripts
+scripts/        source checks and the Android string importer
 ```
+
+The strings are not translated here. `scripts/import-android-strings.py` reads
+the Android app's resources and produces the iOS String Catalog, keeping the
+Android keys verbatim so a future sync is a re-run rather than a merge — the two
+apps say the same things in the same ten languages, and the wording is
+maintained in one place.
+
+## Tests
+
+```bash
+xcodebuild test -project SSHBorg.xcodeproj -scheme SSHBorg \
+  -destination "platform=iOS Simulator,name=iPhone 16" \
+  CODE_SIGNING_ALLOWED=NO
+```
+
+The SSH and SFTP integration suites skip themselves unless pointed at a real
+server, which keeps a plain checkout green:
+
+```bash
+SSHBORG_TEST_HOST=… SSHBORG_TEST_USER=… SSHBORG_TEST_PASSWORD_B64=…
+```
+
+Base64 for the password because Xcode evaluates build-setting values, and a `$`
+in a password is read as a reference to another setting.
 
 ## Export compliance
 

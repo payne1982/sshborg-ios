@@ -35,3 +35,6 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 BUILD-MAC.md
+
+# Planning and session notes — kept locally, not published
+PIANO.md
