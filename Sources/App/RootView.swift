@@ -12,14 +12,27 @@ struct RootView: View {
 
     var body: some View {
         WithPerceptionTracking {
-            // Read here rather than inside the Binding below: a Binding's
-            // getter is escaping and runs outside this tracking scope, so on
-            // iOS 16 opening a session would not have pushed the terminal.
-            let hasOpenSession = environment.sessions.selected != nil
+            // This body has to depend on the session list, or nothing
+            // re-evaluates it when a session opens and the terminal is never
+            // pushed. The Binding's getter below cannot create that dependency:
+            // a Binding getter is escaping and runs outside this scope. So the
+            // read happens here, and only for that.
+            //
+            // What it must *not* be is the value the getter returns. That was
+            // tried, on 30/08/2026, and it trapped the user in the terminal:
+            // popping calls the setter, but SwiftUI then reads the getter of the
+            // binding it already has, which was a constant frozen at the last
+            // body pass and still said "presented" — so the pop was cancelled
+            // and the terminal pushed itself straight back. Reported as "it goes
+            // back into the terminal by itself, sometimes without touching
+            // anything". The getter reads live state; this line only registers
+            // the dependency.
+            let _ = environment.sessions.selected
+
             NavigationStack {
                 HostsScreen()
                     .navigationDestination(isPresented: Binding(
-                        get: { hasOpenSession },
+                        get: { environment.sessions.selected != nil },
                         set: { isShown in
                             if !isShown { environment.sessions.selectedID = nil }
                         }

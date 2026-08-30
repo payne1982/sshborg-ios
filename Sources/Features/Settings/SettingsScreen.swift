@@ -198,14 +198,15 @@ struct SettingsScreen: View {
             // saying it was encrypted. The switch has to move the data first and
             // set the flag afterwards, which is what the migration does.
             //
-            // The getter is read where it is written here, not inside the
-            // closure: a Binding's getter is escaping and runs outside the
-            // WithPerceptionTracking scope on the body, so on iOS 16 the switch
-            // would have kept the position it had when the screen was drawn.
-            let isEncrypting = preferences.keychainEncryption
+            // The bare read registers this body's dependency on the preference;
+            // a Binding's getter is escaping and cannot do it. The getter itself
+            // still reads live state — capturing the value here instead would
+            // freeze the switch at whatever it was when the screen was drawn.
+            // See RootView for what that costs when it drives navigation.
+            let _ = preferences.keychainEncryption
             Toggle(
                 isOn: Binding(
-                    get: { isEncrypting },
+                    get: { preferences.keychainEncryption },
                     set: { enabled in migrateEncryption(to: enabled) }
                 )
             ) {

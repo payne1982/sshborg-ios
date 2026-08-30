@@ -181,6 +181,36 @@ if [ -n "$hits" ]; then
     echo "$hits"
 fi
 
+# 8. A view or scene that reads observable state without WithPerceptionTracking.
+#
+# At a 16.0 deployment target @Observable comes from Perception, and a body that
+# reads a perceptible object outside WithPerceptionTracking simply stops
+# updating. It compiles, and on a modern simulator it even works — Perception
+# delegates to real Observation from iOS 17 — so nothing catches it until the
+# phone.
+#
+# This exists because the audit that wrapped every body was written to look for
+# `struct X: View` and therefore skipped SSHBorgApp, which is `some Scene`. Its
+# `lock.isLocked` was read on every pass of the scene, untracked: a stream of
+# runtime warnings on the device, and a lock cover that could never come down.
+# The check is deliberately coarse — file-level, not body-level — because that
+# is what makes it hard to slip past.
+hits=""
+for f in $(grep -rl --include='*.swift' -E 'body: some (View|Scene)|func body\(content:' Sources/); do
+    grep -q 'WithPerceptionTracking' "$f" && continue
+    # Both spellings matter. Naming the type is the obvious one; reaching the
+    # object through AppEnvironment is the one that actually got past this
+    # check on the first attempt, because SSHBorgApp names no perceptible type
+    # at all — it reads `environment.lock.isLocked`.
+    reads=$(grep -nE '\b(AppPreferences|AppLock|SessionManager|TerminalSession|HostsModel|KeysModel|SettingsModel|SFTPModel|SFTPBrowsers|TransferManager|KeyboardVisibility)\b|\.(lock|preferences|sessions|browsers|transfers)\.[a-zA-Z_]' "$f" \
+        | grep -vE '^[0-9]+:\s*(//|///)' | head -3)
+    [ -n "$reads" ] && hits="$hits\n$f\n$reads"
+done
+if [ -n "$hits" ]; then
+    fail "view or scene reads observable state with no WithPerceptionTracking:"
+    printf '%b\n' "$hits"
+fi
+
 if [ "$status" -eq 0 ]; then
     printf '\033[32mok\033[0m — no known-pattern problems\n'
 fi
