@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import SwiftUI
+import Perception
 
 /// The row of keys a software keyboard does not have but a terminal needs.
 ///
@@ -19,7 +20,7 @@ import SwiftUI
 /// would need, so this is a gap to close, not an impossibility.
 struct ExtraKeyRow: View {
 
-    @Bindable var session: TerminalSession
+    @Perception.Bindable var session: TerminalSession
 
     /// Whether the row stays on screen with the keyboard closed. Bound to the
     /// preference so the pin on the bar and the switch in Settings are the same
@@ -29,74 +30,76 @@ struct ExtraKeyRow: View {
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 2) {
-                // iPad's own software keyboard carries a dismiss key in its
-                // bottom-right corner; iPhone's does not. Showing ours on iPad
-                // would be a second button for the same job, in a bar that is
-                // already long.
-                if !isPad {
-                    hideKeyboard
-                    Divider().frame(height: 20)
-                }
-
-                toggle("Ctrl", isOn: $session.ctrlActive)
-                toggle("Alt", isOn: $session.altActive)
-                wordModeKey
-
-                Divider().frame(height: 20)
-
-                key("ESC") { send([0x1B]) }
-                key("Tab") { send([0x09]) }
-
-                key("↑", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("A")) }
-                key("↓", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("B")) }
-                key("←", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("D")) }
-                key("→", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("C")) }
-
-                key("Home") { send(escape("[H")) }
-                key("End") { send(escape("[F")) }
-                key("PgUp", repeatsOnHold: true) { send(escape("[5~")) }
-                key("PgDn", repeatsOnHold: true) { send(escape("[6~")) }
-                key("Del") { send(escape("[3~")) }
-
-                Button {
-                    if let text = UIPasteboard.general.string {
-                        session.sendExtraKey(Data(text.utf8))
+        WithPerceptionTracking {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                    // iPad's own software keyboard carries a dismiss key in its
+                    // bottom-right corner; iPhone's does not. Showing ours on iPad
+                    // would be a second button for the same job, in a bar that is
+                    // already long.
+                    if !isPad {
+                        hideKeyboard
+                        Divider().frame(height: 20)
                     }
-                } label: {
-                    Image(systemName: "doc.on.clipboard")
-                        .font(.system(size: 14))
-                        .frame(minWidth: 34, minHeight: 30)
+
+                    toggle("Ctrl", isOn: $session.ctrlActive)
+                    toggle("Alt", isOn: $session.altActive)
+                    wordModeKey
+
+                    Divider().frame(height: 20)
+
+                    key("ESC") { send([0x1B]) }
+                    key("Tab") { send([0x09]) }
+
+                    key("↑", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("A")) }
+                    key("↓", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("B")) }
+                    key("←", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("D")) }
+                    key("→", repeatsOnHold: true) { session.sendExtraKey(session.cursorKey("C")) }
+
+                    key("Home") { send(escape("[H")) }
+                    key("End") { send(escape("[F")) }
+                    key("PgUp", repeatsOnHold: true) { send(escape("[5~")) }
+                    key("PgDn", repeatsOnHold: true) { send(escape("[6~")) }
+                    key("Del") { send(escape("[3~")) }
+
+                    Button {
+                        if let text = UIPasteboard.general.string {
+                            session.sendExtraKey(Data(text.utf8))
+                        }
+                    } label: {
+                        Image(systemName: "doc.on.clipboard")
+                            .font(.system(size: 14))
+                            .frame(minWidth: 34, minHeight: 30)
+                    }
+                    .buttonStyle(.plain)
+                    .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 5))
+                    .accessibilityLabel(Text(.terminalPasteCd))
+
+                    // Android's position: after Paste, immediately before F1.
+                    pin
+
+                    Divider().frame(height: 20)
+
+                    // F1–F4 use the SS3 form, F5 upwards the CSI form. That split is
+                    // what xterm sends and what curses applications expect.
+                    key("F1") { send(escape("OP")) }
+                    key("F2") { send(escape("OQ")) }
+                    key("F3") { send(escape("OR")) }
+                    key("F4") { send(escape("OS")) }
+                    key("F5") { send(escape("[15~")) }
+                    key("F6") { send(escape("[17~")) }
+                    key("F7") { send(escape("[18~")) }
+                    key("F8") { send(escape("[19~")) }
+                    key("F9") { send(escape("[20~")) }
+                    key("F10") { send(escape("[21~")) }
+                    key("F11") { send(escape("[23~")) }
+                    key("F12") { send(escape("[24~")) }
                 }
-                .buttonStyle(.plain)
-                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 5))
-                .accessibilityLabel(Text(.terminalPasteCd))
-
-                // Android's position: after Paste, immediately before F1.
-                pin
-
-                Divider().frame(height: 20)
-
-                // F1–F4 use the SS3 form, F5 upwards the CSI form. That split is
-                // what xterm sends and what curses applications expect.
-                key("F1") { send(escape("OP")) }
-                key("F2") { send(escape("OQ")) }
-                key("F3") { send(escape("OR")) }
-                key("F4") { send(escape("OS")) }
-                key("F5") { send(escape("[15~")) }
-                key("F6") { send(escape("[17~")) }
-                key("F7") { send(escape("[18~")) }
-                key("F8") { send(escape("[19~")) }
-                key("F9") { send(escape("[20~")) }
-                key("F10") { send(escape("[21~")) }
-                key("F11") { send(escape("[23~")) }
-                key("F12") { send(escape("[24~")) }
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
             }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 3)
+            .background(Color(.tertiarySystemBackground))
         }
-        .background(Color(.tertiarySystemBackground))
     }
 
     // MARK: - Pieces

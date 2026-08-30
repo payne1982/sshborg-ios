@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 
 /// User settings, backed by `UserDefaults`.
 ///
@@ -13,10 +13,10 @@ import Observation
 /// Properties are computed rather than stored so that `UserDefaults` stays the
 /// single source of truth; `access` and `withMutation` are what make them
 /// observable by SwiftUI.
-@Observable
+@Perceptible
 final class AppPreferences {
 
-    @ObservationIgnored private let defaults: UserDefaults
+    @PerceptionIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

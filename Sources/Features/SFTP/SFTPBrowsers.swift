@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 
 /// The open file browsers, one per host, held above the screen that shows them.
 ///
@@ -17,7 +17,7 @@ import Observation
 /// to it; only the close button ends it, which is how a terminal tab already
 /// behaves.
 @MainActor
-@Observable
+@Perceptible
 final class SFTPBrowsers {
 
     /// Keyed by host id. A host with no id has never been saved and cannot be

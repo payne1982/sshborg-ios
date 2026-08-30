@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import SwiftUI
+import Perception
 
 /// The terminal itself: tab strip, the live view, the extra key row, and the
 /// prompts the connection can raise.
@@ -11,31 +12,33 @@ import SwiftUI
 struct TerminalScreen: View {
 
     @Environment(\.appEnvironment) private var environment
-    @Bindable var manager: SessionManager
+    @Perception.Bindable var manager: SessionManager
 
     @State private var passwordInput = ""
     @State private var keyboard = KeyboardVisibility()
     @FocusState private var isPasswordFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            if let session = manager.selected {
-                terminal(for: session)
-            } else {
-                ContentUnavailableView(
-                    String(localized: .iosTerminalNoSessions),
-                    systemImage: "terminal",
-                    description: Text(.iosTerminalNoSessionsHint)
-                )
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                if let session = manager.selected {
+                    terminal(for: session)
+                } else {
+                    EmptyStateView(
+                        String(localized: .iosTerminalNoSessions),
+                        systemImage: "terminal",
+                        description: Text(.iosTerminalNoSessionsHint)
+                    )
+                }
             }
-        }
-        .navigationTitle(manager.selected?.title ?? String(localized: .terminalTitleDefault))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if let session = manager.selected {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(String(localized: .actionClose), systemImage: "xmark.circle") {
-                        manager.close(session)
+            .navigationTitle(manager.selected?.title ?? String(localized: .terminalTitleDefault))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if let session = manager.selected {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(String(localized: .actionClose), systemImage: "xmark.circle") {
+                            manager.close(session)
+                        }
                     }
                 }
             }
@@ -202,7 +205,7 @@ struct TerminalScreen: View {
 
 private struct SessionTabRow: View {
 
-    @Bindable var manager: SessionManager
+    @Perception.Bindable var manager: SessionManager
 
     /// The host whose sessions are being picked, when its group is expanded.
     @State private var expandedHostID: Int64?
@@ -228,35 +231,43 @@ private struct SessionTabRow: View {
     private var isMultiHost: Bool { byHost.count > 1 }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if let expanded = expandedGroup {
-                sessionPicker(for: expanded)
-                Divider()
-            }
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                if let expanded = expandedGroup {
+                    sessionPicker(for: expanded)
+                    Divider()
+                }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    if isMultiHost {
-                        ForEach(byHost, id: \.hostID) { group in
-                            hostTab(group)
-                        }
-                    } else {
-                        ForEach(manager.sessions) { session in
-                            sessionTab(session, title: session.title)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        if isMultiHost {
+                            ForEach(byHost, id: \.hostID) { group in
+                                hostTab(group)
+                            }
+                        } else {
+                            ForEach(manager.sessions) { session in
+                                // Escaping row builder, outside the wrapper on
+                                // the body above. Without this the tab keeps the
+                                // title the session had when the strip was built,
+                                // and the shell changes it on every `cd`.
+                                WithPerceptionTracking {
+                                    sessionTab(session, title: session.title)
+                                }
+                            }
                         }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
             }
-        }
-        // Opaque: the terminal ignores the bottom safe area and draws underneath
-        // this strip, so anything translucent here reads as terminal output.
-        .background(Color(.systemBackground))
-        // Collapse the picker as soon as its host is no longer the point.
-        .onChange(of: manager.selectedID) { _, _ in
-            if let expandedHostID, manager.selected?.host.id != expandedHostID {
-                self.expandedHostID = nil
+            // Opaque: the terminal ignores the bottom safe area and draws underneath
+            // this strip, so anything translucent here reads as terminal output.
+            .background(Color(.systemBackground))
+            // Collapse the picker as soon as its host is no longer the point.
+            .onValueChange(of: manager.selectedID) { _ in
+                if let expandedHostID, manager.selected?.host.id != expandedHostID {
+                    self.expandedHostID = nil
+                }
             }
         }
     }

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 
 /// Drives one remote file browser: its connection, where it is, and what it
 /// shows. Counterpart of the Android `SftpViewModel`.
 @MainActor
-@Observable
+@Perceptible
 final class SFTPModel {
 
     /// Mirrors ``TerminalSession/Phase``, since both screens face the same
@@ -34,15 +34,15 @@ final class SFTPModel {
     /// existing name, say. The browser stays usable and just reports it.
     var actionError: String?
 
-    @ObservationIgnored private let hosts: HostRepository
-    @ObservationIgnored private let keys: SSHKeyRepository
-    @ObservationIgnored private var session: SFTPSession?
+    @PerceptionIgnored private let hosts: HostRepository
+    @PerceptionIgnored private let keys: SSHKeyRepository
+    @PerceptionIgnored private var session: SFTPSession?
 
     /// The password typed for the connection currently being made. See the same
     /// property on `TerminalSession`: one attempt can ask two questions, and
     /// trusting the host key must not throw away the password given a moment
     /// earlier. Dropped as soon as the browser is up, and on disconnect.
-    @ObservationIgnored private var passwordForThisAttempt: String?
+    @PerceptionIgnored private var passwordForThisAttempt: String?
 
     /// Exposed so the screen can hand it to the transfer manager. `nil` until
     /// the connection is up.

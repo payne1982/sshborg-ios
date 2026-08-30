@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import SwiftUI
+import Perception
 
 /// The three things the app says to the user unprompted, ported from the
 /// sequence Android runs in `AppNavigation`: the privacy notice, a one-time
@@ -35,40 +36,42 @@ struct StartupNotices: ViewModifier {
     @State private var showsSecurityReminder = false
 
     func body(content: Content) -> some View {
-        content
-            .alert(Text(.privacyPolicyDialogTitle), isPresented: $showsPrivacyNotice) {
-                // A `Button` rather than a `Link`: an alert's actions are built
-                // from buttons, and anything else is not guaranteed to appear.
-                Button(String(localized: .actionReadPolicy)) {
-                    openURL(Self.privacyPolicyURL)
+        WithPerceptionTracking {
+            content
+                .alert(Text(.privacyPolicyDialogTitle), isPresented: $showsPrivacyNotice) {
+                    // A `Button` rather than a `Link`: an alert's actions are built
+                    // from buttons, and anything else is not guaranteed to appear.
+                    Button(String(localized: .actionReadPolicy)) {
+                        openURL(Self.privacyPolicyURL)
+                    }
+                    Button(String(localized: .actionAccept)) {
+                        preferences.privacyPolicyAccepted = true
+                    }
+                } message: {
+                    Text(.privacyPolicyDialogBody)
                 }
-                Button(String(localized: .actionAccept)) {
-                    preferences.privacyPolicyAccepted = true
+                .alert(Text(.rootWarningTitle), isPresented: $showsJailbreakWarning) {
+                    // Acknowledging is the only way out, as on Android. There is
+                    // nothing to decide: the app cannot make the device safer, it
+                    // can only make sure the user knows.
+                    Button(String(localized: .actionIUnderstand)) {
+                        preferences.jailbreakWarningAcknowledged = true
+                    }
+                } message: {
+                    // Not Android's `root_warning_body`, which names rooting and the
+                    // Android Keystore. The concern is the same, the words are not.
+                    Text(.iosJailbreakWarningBody)
                 }
-            } message: {
-                Text(.privacyPolicyDialogBody)
-            }
-            .alert(Text(.rootWarningTitle), isPresented: $showsJailbreakWarning) {
-                // Acknowledging is the only way out, as on Android. There is
-                // nothing to decide: the app cannot make the device safer, it
-                // can only make sure the user knows.
-                Button(String(localized: .actionIUnderstand)) {
-                    preferences.jailbreakWarningAcknowledged = true
+                .alert(Text(.securityReminderTitle), isPresented: $showsSecurityReminder) {
+                    Button(String(localized: .actionDontShowAgain)) {
+                        preferences.securityReminderDismissed = true
+                    }
+                    Button(String(localized: .actionRemindLater), role: .cancel) {}
+                } message: {
+                    Text(.securityReminderBody)
                 }
-            } message: {
-                // Not Android's `root_warning_body`, which names rooting and the
-                // Android Keystore. The concern is the same, the words are not.
-                Text(.iosJailbreakWarningBody)
-            }
-            .alert(Text(.securityReminderTitle), isPresented: $showsSecurityReminder) {
-                Button(String(localized: .actionDontShowAgain)) {
-                    preferences.securityReminderDismissed = true
-                }
-                Button(String(localized: .actionRemindLater), role: .cancel) {}
-            } message: {
-                Text(.securityReminderBody)
-            }
-            .task { await raiseNotices() }
+                .task { await raiseNotices() }
+        }
     }
 
     /// The same page the Android app links to.

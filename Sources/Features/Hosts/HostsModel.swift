@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 
 /// Backs the host list: keeps hosts and groups in sync with the database and
 /// arranges them into the sections the screen draws.
@@ -9,14 +9,14 @@ import Observation
 /// Counterpart of the Android `HostsViewModel`, with `ValueObservation` doing
 /// what Room's `Flow` queries did.
 @MainActor
-@Observable
+@Perceptible
 final class HostsModel {
 
     private(set) var hosts: [Host] = []
     private(set) var groups: [HostGroup] = []
 
-    @ObservationIgnored private let hostRepository: HostRepository
-    @ObservationIgnored private let groupRepository: HostGroupRepository
+    @PerceptionIgnored private let hostRepository: HostRepository
+    @PerceptionIgnored private let groupRepository: HostGroupRepository
 
     init(hosts hostRepository: HostRepository, groups groupRepository: HostGroupRepository) {
         self.hostRepository = hostRepository

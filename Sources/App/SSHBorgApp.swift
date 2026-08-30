@@ -31,7 +31,7 @@ struct SSHBorgApp: App {
                     .transition(.identity)
                 }
             }
-            .onChange(of: scenePhase) { _, phase in
+            .onValueChange(of: scenePhase) { phase in
                 switch phase {
                 case .active:
                     Task {

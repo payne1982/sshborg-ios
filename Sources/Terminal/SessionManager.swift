@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 
 /// The open terminal tabs. Counterpart of the Android `SessionManager`.
 ///
 /// Sessions live here rather than in a screen so that a connection survives
 /// navigation: leaving the terminal to browse hosts must not drop the shell.
 @MainActor
-@Observable
+@Perceptible
 final class SessionManager {
 
     private(set) var sessions: [TerminalSession] = []

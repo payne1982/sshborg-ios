@@ -149,6 +149,38 @@ PYDUP
     fi
 fi
 
+# 6. iOS 17 API at a 16.0 deployment target.
+#
+# These compile only because the simulator runs something newer; the phone the
+# app is tested on is an A11 device capped at 16.7.x, where they are absent.
+# Xcode does report them, but only after a sync and a build — several minutes
+# to be told something a grep knows.
+#
+# `@Observable` has a replacement (`@Perceptible`, from the Perception package)
+# and so do the others; see Sources/App/BackDeployment.swift and
+# Sources/App/EmptyStateView.swift.
+hits=$(grep -rn --include='*.swift' -E \
+    '@Observable|@ObservationIgnored|ContentUnavailableView|\.topBar(Leading|Trailing)|\.navigationDestination\(item:' \
+    Sources/ 2>/dev/null | grep -v 'Sources/App/EmptyStateView.swift')
+if [ -n "$hits" ]; then
+    fail "iOS 17 API, and the deployment target is 16.0:"
+    echo "$hits"
+fi
+
+# 7. `onChange` spelled directly.
+#
+# The two-parameter closure is iOS 17 and the one-parameter form is deprecated
+# there, so every call site goes through `onValueChange` in BackDeployment.swift.
+# This check also caught the shim calling itself: a bulk rewrite turned its own
+# iOS 17 branch into `onValueChange`, which compiled and would have recursed
+# until the stack ran out on every modern device.
+hits=$(grep -rn --include='*.swift' -E '\.onChange\(of:' Sources/ 2>/dev/null \
+    | grep -v 'Sources/App/BackDeployment.swift')
+if [ -n "$hits" ]; then
+    fail "onChange used directly — use onValueChange, see Sources/App/BackDeployment.swift:"
+    echo "$hits"
+fi
+
 if [ "$status" -eq 0 ]; then
     printf '\033[32mok\033[0m — no known-pattern problems\n'
 fi

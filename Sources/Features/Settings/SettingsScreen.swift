@@ -2,6 +2,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import Perception
 
 /// Ported from the Android `SettingsScreen`, with the entries that cannot mean
 /// anything on iOS left out rather than shown as decoration.
@@ -29,32 +30,34 @@ struct SettingsScreen: View {
     private var preferences: AppPreferences { environment.preferences }
 
     var body: some View {
-        Form {
-            generalSection
-            terminalSection
-            sftpSection
-            securitySection
-            backupSection
-            aboutSection
-        }
-        .navigationTitle(Text(.settingsTitle))
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            model = model ?? SettingsModel(
-                service: BackupService(
-                    hosts: environment.hosts,
-                    groups: environment.groups,
-                    keys: environment.keys,
-                    preferences: environment.preferences
+        WithPerceptionTracking {
+            Form {
+                generalSection
+                terminalSection
+                sftpSection
+                securitySection
+                backupSection
+                aboutSection
+            }
+            .navigationTitle(Text(.settingsTitle))
+            .navigationBarTitleDisplayMode(.inline)
+            .task {
+                model = model ?? SettingsModel(
+                    service: BackupService(
+                        hosts: environment.hosts,
+                        groups: environment.groups,
+                        keys: environment.keys,
+                        preferences: environment.preferences
+                    )
                 )
-            )
+            }
+            .modifier(BackupFileHandling(
+                model: model,
+                isChoosingFile: $isChoosingFile,
+                isConfirmingImport: $isConfirmingImport,
+                pendingImport: $pendingImport
+            ))
         }
-        .modifier(BackupFileHandling(
-            model: model,
-            isChoosingFile: $isChoosingFile,
-            isConfirmingImport: $isConfirmingImport,
-            pendingImport: $pendingImport
-        ))
     }
 
     // MARK: - General
@@ -168,7 +171,7 @@ struct SettingsScreen: View {
             // Switching the lock off has to take effect now, not at the next
             // launch: leaving the app locked behind a setting that says it is
             // not would be a puzzle with no way out.
-            .onChange(of: preferences.lockMode) { _, _ in
+            .onValueChange(of: preferences.lockMode) { _ in
                 environment.lock.lockModeChanged()
             }
 
@@ -194,9 +197,15 @@ struct SettingsScreen: View {
             // left everything already saved in the clear underneath a screen
             // saying it was encrypted. The switch has to move the data first and
             // set the flag afterwards, which is what the migration does.
+            //
+            // The getter is read where it is written here, not inside the
+            // closure: a Binding's getter is escaping and runs outside the
+            // WithPerceptionTracking scope on the body, so on iOS 16 the switch
+            // would have kept the position it had when the screen was drawn.
+            let isEncrypting = preferences.keychainEncryption
             Toggle(
                 isOn: Binding(
-                    get: { preferences.keychainEncryption },
+                    get: { isEncrypting },
                     set: { enabled in migrateEncryption(to: enabled) }
                 )
             ) {
@@ -353,55 +362,57 @@ private struct BackupFileHandling: ViewModifier {
     @Binding var pendingImport: URL?
 
     func body(content: Content) -> some View {
-        content
-            .fileExporter(
-                isPresented: .init(
-                    get: { model?.exportDocument != nil },
-                    set: { if !$0 { model?.finishExport(succeeded: false, message: nil) } }
-                ),
-                document: model?.exportDocument,
-                contentType: .json,
-                defaultFilename: model?.suggestedFileName
-            ) { result in
-                switch result {
-                case .success:
-                    model?.finishExport(succeeded: true, message: nil)
-                case .failure(let error):
-                    model?.finishExport(succeeded: false, message: error.localizedDescription)
+        WithPerceptionTracking {
+            content
+                .fileExporter(
+                    isPresented: .init(
+                        get: { model?.exportDocument != nil },
+                        set: { if !$0 { model?.finishExport(succeeded: false, message: nil) } }
+                    ),
+                    document: model?.exportDocument,
+                    contentType: .json,
+                    defaultFilename: model?.suggestedFileName
+                ) { result in
+                    switch result {
+                    case .success:
+                        model?.finishExport(succeeded: true, message: nil)
+                    case .failure(let error):
+                        model?.finishExport(succeeded: false, message: error.localizedDescription)
+                    }
                 }
-            }
-            .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.json, .data]) { result in
-                guard case .success(let url) = result else { return }
-                pendingImport = url
-                isConfirmingImport = true
-            }
-            // Importing merges into what is already there, so it is worth one
-            // question first: it can change every host in the list.
-            .confirmationDialog(
-                String(localized: .settingsBackupImportTitle),
-                isPresented: $isConfirmingImport,
-                titleVisibility: .visible
-            ) {
-                Button(String(localized: .settingsBackupImportAction)) {
-                    guard let url = pendingImport else { return }
-                    Task { await model?.importBackup(from: url) }
-                    pendingImport = nil
+                .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.json, .data]) { result in
+                    guard case .success(let url) = result else { return }
+                    pendingImport = url
+                    isConfirmingImport = true
                 }
-                Button(String(localized: .actionCancel), role: .cancel) { pendingImport = nil }
-            } message: {
-                Text(.settingsBackupImportSubtitle)
-            }
-            .alert(
-                alertTitle,
-                isPresented: .init(
-                    get: { model?.outcome != nil },
-                    set: { if !$0 { model?.dismissOutcome() } }
-                )
-            ) {
-                Button(String(localized: .actionDone), role: .cancel) { model?.dismissOutcome() }
-            } message: {
-                Text(alertMessage)
-            }
+                // Importing merges into what is already there, so it is worth one
+                // question first: it can change every host in the list.
+                .confirmationDialog(
+                    String(localized: .settingsBackupImportTitle),
+                    isPresented: $isConfirmingImport,
+                    titleVisibility: .visible
+                ) {
+                    Button(String(localized: .settingsBackupImportAction)) {
+                        guard let url = pendingImport else { return }
+                        Task { await model?.importBackup(from: url) }
+                        pendingImport = nil
+                    }
+                    Button(String(localized: .actionCancel), role: .cancel) { pendingImport = nil }
+                } message: {
+                    Text(.settingsBackupImportSubtitle)
+                }
+                .alert(
+                    alertTitle,
+                    isPresented: .init(
+                        get: { model?.outcome != nil },
+                        set: { if !$0 { model?.dismissOutcome() } }
+                    )
+                ) {
+                    Button(String(localized: .actionDone), role: .cancel) { model?.dismissOutcome() }
+                } message: {
+                    Text(alertMessage)
+                }
+        }
     }
 
     private var alertTitle: String {

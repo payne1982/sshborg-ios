@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import SwiftUI
+import Perception
 
 /// The host list, and the app's home screen.
 ///
@@ -21,7 +22,16 @@ struct HostsScreen: View {
     @State private var sessionPickerHost: Host?
     @State private var groupEditing: GroupEditorTarget?
     @State private var groupToDelete: HostGroup?
+    /// The host whose file browser is open, and whether it is on screen.
+    ///
+    /// Two properties rather than the one `navigationDestination(item:)` would
+    /// need, because that overload is iOS 17. The iOS 16 form is driven by a
+    /// Bool, and the host has to outlive it: clearing the host as the pop
+    /// begins would empty the destination while it is still animating out, and
+    /// flash blank. So `browsing` is only ever replaced by the next host, never
+    /// cleared.
     @State private var browsing: Host?
+    @State private var isBrowsing = false
 
     /// What the editor sheet is currently doing.
     private enum EditorTarget: Identifiable {
@@ -49,100 +59,104 @@ struct HostsScreen: View {
     }
 
     var body: some View {
-        Group {
-            if let model {
-                content(model)
-            } else {
-                ProgressView()
-            }
-        }
-        .navigationTitle(Text(.hostsTitle))
-        .navigationDestination(item: $browsing) { host in
-            SFTPScreen(host: host)
-        }
-        .toolbar {
-            // All three on the trailing side, in the Android order: keys,
-            // settings, add. The Android top bar puts them in `actions`, which
-            // is the right-hand group, and a user moving between the two builds
-            // should not have to look for them somewhere else.
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    KeysScreen()
-                } label: {
-                    Label(String(localized: .keysTitle), systemImage: "key")
+        WithPerceptionTracking {
+            Group {
+                if let model {
+                    content(model)
+                } else {
+                    ProgressView()
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    SettingsScreen()
-                } label: {
-                    Label(String(localized: .settingsTitle), systemImage: "gearshape")
+            .navigationTitle(Text(.hostsTitle))
+            .navigationDestination(isPresented: $isBrowsing) {
+                if let browsing {
+                    SFTPScreen(host: browsing)
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button(String(localized: .addHostTitle), systemImage: "desktopcomputer") { editing = .new }
-                    Button(String(localized: .groupDialogTitleNew), systemImage: "folder") { groupEditing = .new }
-                } label: {
-                    Label(String(localized: .hostsAddHostCd), systemImage: "plus")
+            .toolbar {
+                // All three on the trailing side, in the Android order: keys,
+                // settings, add. The Android top bar puts them in `actions`, which
+                // is the right-hand group, and a user moving between the two builds
+                // should not have to look for them somewhere else.
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink {
+                        KeysScreen()
+                    } label: {
+                        Label(String(localized: .keysTitle), systemImage: "key")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink {
+                        SettingsScreen()
+                    } label: {
+                        Label(String(localized: .settingsTitle), systemImage: "gearshape")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(String(localized: .addHostTitle), systemImage: "desktopcomputer") { editing = .new }
+                        Button(String(localized: .groupDialogTitleNew), systemImage: "folder") { groupEditing = .new }
+                    } label: {
+                        Label(String(localized: .hostsAddHostCd), systemImage: "plus")
+                    }
                 }
             }
-        }
-        .task {
-            let model = model ?? HostsModel(hosts: environment.hosts, groups: environment.groups)
-            self.model = model
-            await model.observe()
-        }
-        .sheet(item: $editing) { target in
-            NavigationStack {
-                switch target {
-                case .new:
-                    HostEditorScreen(host: nil)
-                case .existing(let host):
-                    HostEditorScreen(host: host)
+            .task {
+                let model = model ?? HostsModel(hosts: environment.hosts, groups: environment.groups)
+                self.model = model
+                await model.observe()
+            }
+            .sheet(item: $editing) { target in
+                NavigationStack {
+                    switch target {
+                    case .new:
+                        HostEditorScreen(host: nil)
+                    case .existing(let host):
+                        HostEditorScreen(host: host)
+                    }
                 }
             }
-        }
-        .sheet(item: $sessionPickerHost) { host in
-            SessionPickerSheet(host: host) { sessionPickerHost = nil }
-        }
-        .alert(
-            String(localized: .hostsDeleteTitle),
-            isPresented: .init(get: { hostToDelete != nil }, set: { if !$0 { hostToDelete = nil } }),
-            presenting: hostToDelete
-        ) { host in
-            Button(String(localized: .actionCancel), role: .cancel) { hostToDelete = nil }
-            Button(String(localized: .actionDelete), role: .destructive) {
-                let target = host
-                hostToDelete = nil
-                Task { await model?.delete(target) }
+            .sheet(item: $sessionPickerHost) { host in
+                SessionPickerSheet(host: host) { sessionPickerHost = nil }
             }
-        } message: { host in
-            Text(String(localized: .hostsDeleteMessage).replacingOccurrences(of: "%1$@", with: host.label))
-        }
-        .sheet(item: $groupEditing) { target in
-            NavigationStack {
-                switch target {
-                case .new:
-                    GroupEditorScreen(group: nil)
-                case .existing(let group):
-                    GroupEditorScreen(group: group)
+            .alert(
+                String(localized: .hostsDeleteTitle),
+                isPresented: .init(get: { hostToDelete != nil }, set: { if !$0 { hostToDelete = nil } }),
+                presenting: hostToDelete
+            ) { host in
+                Button(String(localized: .actionCancel), role: .cancel) { hostToDelete = nil }
+                Button(String(localized: .actionDelete), role: .destructive) {
+                    let target = host
+                    hostToDelete = nil
+                    Task { await model?.delete(target) }
+                }
+            } message: { host in
+                Text(String(localized: .hostsDeleteMessage).replacingOccurrences(of: "%1$@", with: host.label))
+            }
+            .sheet(item: $groupEditing) { target in
+                NavigationStack {
+                    switch target {
+                    case .new:
+                        GroupEditorScreen(group: nil)
+                    case .existing(let group):
+                        GroupEditorScreen(group: group)
+                    }
                 }
             }
-        }
-        .alert(
-            String(localized: .groupDeleteTitle),
-            isPresented: .init(get: { groupToDelete != nil }, set: { if !$0 { groupToDelete = nil } }),
-            presenting: groupToDelete
-        ) { group in
-            Button(String(localized: .actionCancel), role: .cancel) { groupToDelete = nil }
-            Button(String(localized: .actionDelete), role: .destructive) {
-                let target = group
-                groupToDelete = nil
-                Task { await model?.delete(target) }
+            .alert(
+                String(localized: .groupDeleteTitle),
+                isPresented: .init(get: { groupToDelete != nil }, set: { if !$0 { groupToDelete = nil } }),
+                presenting: groupToDelete
+            ) { group in
+                Button(String(localized: .actionCancel), role: .cancel) { groupToDelete = nil }
+                Button(String(localized: .actionDelete), role: .destructive) {
+                    let target = group
+                    groupToDelete = nil
+                    Task { await model?.delete(target) }
+                }
+            } message: { group in
+                Text(String(localized: .groupDeleteMessage).replacingOccurrences(of: "%1$@", with: group.name))
             }
-        } message: { group in
-            Text(String(localized: .groupDeleteMessage).replacingOccurrences(of: "%1$@", with: group.name))
         }
     }
 
@@ -179,7 +193,7 @@ struct HostsScreen: View {
             // toolbar above, and adding a second control that does the same thing
             // left the screen telling the user to do one thing while offering
             // another. Android has the one affordance; so does this.
-            ContentUnavailableView {
+            EmptyStateView {
                 Label(Self.emptyStateHeading, systemImage: "desktopcomputer")
             } description: {
                 if let detail = Self.emptyStateDetail {
@@ -223,7 +237,7 @@ struct HostsScreen: View {
                 tint: model.color(for: host).map { Color(argb: $0) },
                 sessionCount: environment.sessions.sessions(forHostID: host.id ?? -1).count,
                 hasFileBrowser: environment.browsers.isOpen(hostID: host.id),
-                onOpenFiles: { browsing = host },
+                onOpenFiles: { browsing = host; isBrowsing = true },
                 // The same actions the long press gives, from a control that
                 // says it is there. A context menu is native on iOS and close to
                 // invisible: nothing on a row announces that holding it does
@@ -282,6 +296,7 @@ struct HostsScreen: View {
 
         Button {
             browsing = host
+            isBrowsing = true
         } label: {
             Label {
                 // The count is always one when it appears: this holds a single
@@ -458,43 +473,51 @@ private struct SessionPickerSheet: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(Array(environment.sessions.sessions(forHostID: host.id ?? -1).enumerated()), id: \.element.id) { index, session in
-                    Button {
-                        environment.sessions.selectedID = session.id
-                        onDismiss()
-                    } label: {
-                        HStack {
-                            Image(systemName: "terminal")
-                            VStack(alignment: .leading) {
-                                Text(String(localized: .sessionPickerSessionLabel).replacingOccurrences(of: "%1$d", with: "\(index + 1)"))
-                                Text(status(of: session))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+        WithPerceptionTracking {
+            NavigationStack {
+                List {
+                    ForEach(Array(environment.sessions.sessions(forHostID: host.id ?? -1).enumerated()), id: \.element.id) { index, session in
+                        // A ForEach row builder is escaping: it runs outside the
+                        // body pass above, so the wrapper up there does not reach
+                        // it. `status(of:)` reads the session's phase, which is
+                        // what makes a row say "connecting" and then "connected".
+                        WithPerceptionTracking {
+                            Button {
+                                environment.sessions.selectedID = session.id
+                                onDismiss()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "terminal")
+                                    VStack(alignment: .leading) {
+                                        Text(String(localized: .sessionPickerSessionLabel).replacingOccurrences(of: "%1$d", with: "\(index + 1)"))
+                                        Text(status(of: session))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
                         }
                     }
-                }
 
-                Button {
-                    environment.sessions.open(host: host, hosts: environment.hosts, keys: environment.keys)
-                    onDismiss()
-                } label: {
-                    Label(
-                        String(localized: .sessionPickerNewSession)
-                            .replacingOccurrences(
-                                of: "%1$@",
-                                with: String(localized: .sessionTypeTerminal)
-                            ),
-                        systemImage: "plus"
-                    )
+                    Button {
+                        environment.sessions.open(host: host, hosts: environment.hosts, keys: environment.keys)
+                        onDismiss()
+                    } label: {
+                        Label(
+                            String(localized: .sessionPickerNewSession)
+                                .replacingOccurrences(
+                                    of: "%1$@",
+                                    with: String(localized: .sessionTypeTerminal)
+                                ),
+                            systemImage: "plus"
+                        )
+                    }
                 }
+                .navigationTitle(host.label)
+                .navigationBarTitleDisplayMode(.inline)
             }
-            .navigationTitle(host.label)
-            .navigationBarTitleDisplayMode(.inline)
+            .presentationDetents([.medium])
         }
-        .presentationDetents([.medium])
     }
 
     /// Android's four session states plus the two this app can tell apart. It

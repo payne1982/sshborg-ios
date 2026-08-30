@@ -2,6 +2,7 @@
 
 import SwiftUI
 import UIKit
+import Perception
 
 /// Browses a host's files. Ported from the Android `SftpScreen`.
 ///
@@ -52,34 +53,36 @@ struct SFTPScreen: View {
     }
 
     var body: some View {
-        Group {
-            if let model {
-                content(model)
-            } else {
-                ProgressView()
+        WithPerceptionTracking {
+            Group {
+                if let model {
+                    content(model)
+                } else {
+                    ProgressView()
+                }
             }
-        }
-        .navigationTitle(host.label)
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            guard model == nil else { return }
-            // Re-attaches to a browser already open for this host rather than
-            // making a second connection to the same server.
-            let model = environment.browsers.browser(
-                for: host,
-                hosts: environment.hosts,
-                keys: environment.keys
-            )
-            self.model = model
-            // Only if it has nothing going on: coming back to a live browser
-            // should show what is already there, not reconnect underneath it.
-            if case .connecting = model.phase, model.entries.isEmpty {
-                await model.connect()
+            .navigationTitle(host.label)
+            .navigationBarTitleDisplayMode(.inline)
+            .task {
+                guard model == nil else { return }
+                // Re-attaches to a browser already open for this host rather than
+                // making a second connection to the same server.
+                let model = environment.browsers.browser(
+                    for: host,
+                    hosts: environment.hosts,
+                    keys: environment.keys
+                )
+                self.model = model
+                // Only if it has nothing going on: coming back to a live browser
+                // should show what is already there, not reconnect underneath it.
+                if case .connecting = model.phase, model.entries.isEmpty {
+                    await model.connect()
+                }
             }
+            // Deliberately no `onDisappear` disconnect. Walking back out of the
+            // browser leaves the session alone, as it does for a terminal tab; the
+            // close button in the toolbar is what ends it.
         }
-        // Deliberately no `onDisappear` disconnect. Walking back out of the
-        // browser leaves the session alone, as it does for a terminal tab; the
-        // close button in the toolbar is what ends it.
     }
 
     /// Split into small pieces on purpose. Chaining the whole toolbar and all
@@ -164,7 +167,7 @@ struct SFTPScreen: View {
 
             case .failed(let message):
                 Spacer()
-                ContentUnavailableView {
+                EmptyStateView {
                     Label(String(localized: .errorConnectionFailed), systemImage: "exclamationmark.triangle")
                 } description: {
                     Text(message)
@@ -222,7 +225,7 @@ struct SFTPScreen: View {
                 // In selection mode the bar belongs to the selection: acting on
                 // several entries at once is the whole point of being in it, and
                 // Android puts download and delete in the same place.
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button(String(localized: .actionDone)) { leaveSelection() }
                 }
                 ToolbarItem(placement: .principal) {
@@ -232,7 +235,7 @@ struct SFTPScreen: View {
                     )
                     .font(.headline)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(String(localized: .sftpDownloadSelectedCd), systemImage: "arrow.down.circle") {
                         guard let session = model.activeSession else { return }
                         transfers.download(selectedEntries(model), from: model.path, using: session)
@@ -240,7 +243,7 @@ struct SFTPScreen: View {
                     }
                     .disabled(selection.isEmpty)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(String(localized: .sftpDeleteSelectedCd), systemImage: "trash", role: .destructive) {
                         bulkDeleting = selectedEntries(model)
                     }
@@ -250,13 +253,13 @@ struct SFTPScreen: View {
                 // The one control that ends the session, as on Android and as
                 // the terminal's own close button does. The back chevron only
                 // leaves the screen.
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(String(localized: .sftpDisconnectCd), systemImage: "xmark.circle") {
                         environment.browsers.close(host)
                         dismiss()
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button(String(localized: .sftpSelectItemsCd), systemImage: "checkmark.circle") {
                             selection = []
@@ -408,7 +411,7 @@ struct SFTPScreen: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
             }
-            .onChange(of: model.path) {
+            .onValueChange(of: model.path) { _ in
                 // Keep the current directory in view when descending into a
                 // deep tree, instead of leaving it off the right edge.
                 withAnimation { proxy.scrollTo(model.breadcrumb.count - 1, anchor: .trailing) }
@@ -429,7 +432,7 @@ struct SFTPScreen: View {
         let entries = visibleEntries(model)
 
         if entries.isEmpty && !model.isLoading {
-            ContentUnavailableView(String(localized: .sftpEmptyDirectory), systemImage: "folder")
+            EmptyStateView(String(localized: .sftpEmptyDirectory), systemImage: "folder")
         } else {
             List(selection: $selection) {
                 // Not selectable, and it stays a plain button in edit mode:
@@ -485,8 +488,8 @@ struct SFTPScreen: View {
             // A selection is a set of names, and the names mean something
             // different once the listing changes. Cleared on every move so a
             // stale tick cannot download the wrong file.
-            .onChange(of: model.path) { _, _ in leaveSelection() }
-            .onChange(of: model.entries.map(\.id)) { _, _ in
+            .onValueChange(of: model.path) { _ in leaveSelection() }
+            .onValueChange(of: model.entries.map(\.id)) { _ in
                 selection = selection.intersection(model.entries.map(\.id))
             }
             .refreshable { await model.refresh() }

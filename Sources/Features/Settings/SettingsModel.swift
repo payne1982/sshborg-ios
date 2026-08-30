@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 
 /// Drives the backup rows on the settings screen.
 ///
@@ -9,7 +9,7 @@ import Observation
 /// ``AppPreferences`` directly, which is already observable. Only export and
 /// import have work to report on, so only they are here.
 @MainActor
-@Observable
+@Perceptible
 final class SettingsModel {
 
     /// A finished operation, shown until the user dismisses it.
@@ -30,7 +30,7 @@ final class SettingsModel {
     /// The file offered to the exporter, written when the user asks to export.
     private(set) var exportDocument: BackupDocument?
 
-    @ObservationIgnored private let service: BackupService
+    @PerceptionIgnored private let service: BackupService
 
     init(service: BackupService) {
         self.service = service

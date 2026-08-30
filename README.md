@@ -27,9 +27,14 @@ all validated in production.
 | Terminal | [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) | Mature, MIT, commercially proven. Solves iOS IME, selection loupe and accessibility, which are the genuinely hard parts. |
 | Database | [GRDB](https://github.com/groue/GRDB.swift) | Explicit control over the schema and migrations, mirroring the Android Room schema. |
 | Secrets | Keychain + Secure Enclave | Same AES-256-GCM blob format as the Android Keystore, so backups stay interoperable. |
+| Observation | [Perception](https://github.com/pointfreeco/swift-perception) | `@Observable` is iOS 17 and the floor is 16. Back-ports Observation rather than going back to `ObservableObject`, which does not track reads through nested objects and would have failed silently. |
 | UI | SwiftUI (UIKit where needed) | |
 
-Minimum iOS 17.0, universal iPhone/iPad.
+Minimum iOS 16.0, universal iPhone/iPad. The floor is 16 rather than 17 so that
+the A11 devices — iPhone 8, 8 Plus and X, which stop at iOS 16.7.x — are not
+excluded. `@Observable` was the only API keeping it at 17; it is supplied on 16
+by [Perception](https://github.com/pointfreeco/swift-perception), which is why
+view bodies here are wrapped in `WithPerceptionTracking`.
 
 ## Building
 
@@ -62,7 +67,7 @@ xcodegen generate
 
 ```
 Sources/
-  App/          entry point, root view, launch-time notices
+  App/          entry point, root view, launch-time notices, shared views
   Data/         GRDB schema, repositories, preferences
   Platform/     Keychain, biometrics, app lock, jailbreak detection
   SSH/          libssh2 wrapper, sessions, SFTP
@@ -85,8 +90,12 @@ maintained in one place.
 ```bash
 xcodebuild test -project SSHBorg.xcodeproj -scheme SSHBorg \
   -destination "platform=iOS Simulator,name=iPhone 16" \
-  CODE_SIGNING_ALLOWED=NO
+  CODE_SIGNING_ALLOWED=NO -skipMacroValidation
 ```
+
+`-skipMacroValidation` because Perception ships a Swift macro, and Xcode refuses
+to run an unapproved macro plugin from the command line — the approval it wants
+is a click in the GUI.
 
 The SSH and SFTP integration suites skip themselves unless pointed at a real
 server, which keeps a plain checkout green:

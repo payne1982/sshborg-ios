@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 
 /// Backs the key list: streams the stored keys and performs the operations the
 /// screen offers. Counterpart of the Android `KeysViewModel`.
 @MainActor
-@Observable
+@Perceptible
 final class KeysModel {
 
     private(set) var keys: [SSHKey] = []
 
-    @ObservationIgnored private let repository: SSHKeyRepository
-    @ObservationIgnored private let preferences: AppPreferences
+    @PerceptionIgnored private let repository: SSHKeyRepository
+    @PerceptionIgnored private let preferences: AppPreferences
 
     init(repository: SSHKeyRepository, preferences: AppPreferences) {
         self.repository = repository

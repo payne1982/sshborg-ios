@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 import SwiftUI
 
 /// Whether the app is showing its contents or hiding them behind an
@@ -25,7 +25,7 @@ import SwiftUI
 /// with a button to try again, which is also kinder to someone whose face simply
 /// was not recognised.
 @MainActor
-@Observable
+@Perceptible
 final class AppLock {
 
     /// True while the contents must not be shown.
@@ -36,11 +36,11 @@ final class AppLock {
     /// It has to be tracked because that UI makes the app inactive, which would
     /// otherwise raise the cover, come back active, and ask again — the loop
     /// Android guards with its own `isAuthenticating` flag, for the same reason.
-    @ObservationIgnored private var isAuthenticating = false
+    @PerceptionIgnored private var isAuthenticating = false
 
     /// When the user last got in. `nil` means never, so a cold launch always
     /// asks however short the timeout is.
-    @ObservationIgnored private var lastAuthenticated: Date?
+    @PerceptionIgnored private var lastAuthenticated: Date?
 
     /// Whether the prompt has already been raised for the cover currently up.
     ///
@@ -48,9 +48,9 @@ final class AppLock {
     /// loop the user cannot leave, since every dismissal makes the app active
     /// once more. After one refusal the cover stays with its own button, and
     /// asking again is the user's move.
-    @ObservationIgnored private var hasAskedSinceLocking = false
+    @PerceptionIgnored private var hasAskedSinceLocking = false
 
-    @ObservationIgnored private let preferences: AppPreferences
+    @PerceptionIgnored private let preferences: AppPreferences
 
     /// How to ask, and whether asking is possible at all.
     ///
@@ -59,8 +59,8 @@ final class AppLock {
     /// can be tested. None of that involves a face, and all of it is where the
     /// mistakes have been. Adding test-only hooks to the class instead would put
     /// a way past the lock inside the lock.
-    @ObservationIgnored private let ask: (AppPreferences.LockMode) async -> Bool
-    @ObservationIgnored private let isAuthenticationPossible: () -> Bool
+    @PerceptionIgnored private let ask: (AppPreferences.LockMode) async -> Bool
+    @PerceptionIgnored private let isAuthenticationPossible: () -> Bool
 
     init(
         preferences: AppPreferences,

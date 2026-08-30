@@ -2,6 +2,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import Perception
 
 /// Manages the stored key pairs. Ported from the Android `KeysScreen`.
 struct KeysScreen: View {
@@ -23,89 +24,91 @@ struct KeysScreen: View {
     }
 
     var body: some View {
-        Group {
-            if let model {
-                content(model)
-            } else {
-                ProgressView()
-            }
-        }
-        .navigationTitle(Text(.keysTitle))
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button(String(localized: .keysGenerateCd), systemImage: "wand.and.stars") { isGenerating = true }
-                    Button(String(localized: .keysImportCd), systemImage: "square.and.arrow.down") { isImporting = true }
-                } label: {
-                    Label(String(localized: .iosActionAdd), systemImage: "plus")
+        WithPerceptionTracking {
+            Group {
+                if let model {
+                    content(model)
+                } else {
+                    ProgressView()
                 }
             }
-        }
-        .task {
-            let model = model ?? KeysModel(
-                repository: environment.keys,
-                preferences: environment.preferences
-            )
-            self.model = model
-            await model.observe()
-        }
-        .sheet(isPresented: $isGenerating) {
-            if let model {
-                NavigationStack { KeyGeneratorSheet(model: model) }
+            .navigationTitle(Text(.keysTitle))
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(String(localized: .keysGenerateCd), systemImage: "wand.and.stars") { isGenerating = true }
+                        Button(String(localized: .keysImportCd), systemImage: "square.and.arrow.down") { isImporting = true }
+                    } label: {
+                        Label(String(localized: .iosActionAdd), systemImage: "plus")
+                    }
+                }
             }
-        }
-        .sheet(isPresented: $isImporting) {
-            if let model {
-                NavigationStack { KeyImportSheet(model: model) }
-            }
-        }
-        .sheet(item: $inspecting) { key in
-            NavigationStack { KeyDetailSheet(key: key) }
-        }
-        .alert(
-            String(localized: .keysRenameTitle),
-            isPresented: .init(
-                get: { renaming != nil },
-                set: { if !$0 { renaming = nil } }
-            ),
-            presenting: renaming
-        ) { key in
-            TextField(String(localized: .keygenFieldLabel), text: $renameInput)
-                .plainTextEntry()
-            Button(String(localized: .actionCancel), role: .cancel) { renaming = nil }
-            Button(String(localized: .actionSave)) {
-                let pending = key
-                let name = renameInput
-                renaming = nil
-                Task { try? await model?.rename(pending, to: name) }
-            }
-            // Deliberately not disabled on an empty name: an alert's buttons
-            // do not re-evaluate as the field is typed into, so a disabled Save
-            // would stay disabled. `rename` refuses a blank name instead.
-        }
-        .alert(
-            String(localized: .keysDeleteTitle),
-            isPresented: .init(
-                get: { pendingDeletion != nil },
-                set: { if !$0 { pendingDeletion = nil } }
-            ),
-            presenting: pendingDeletion
-        ) { pending in
-            Button(String(localized: .actionCancel), role: .cancel) { pendingDeletion = nil }
-            Button(String(localized: .keysDeleteCd), role: .destructive) {
-                let key = pending.key
-                pendingDeletion = nil
-                Task { await model?.delete(key) }
-            }
-        } message: { pending in
-            if pending.hostCount > 0 {
-                Text(
-                    String(localized: .iosKeysDeleteImpact)
-                        .replacingOccurrences(of: "%1$@", with: pending.key.label)
-                        .replacingOccurrences(of: "%2$d", with: "\(pending.hostCount)")
+            .task {
+                let model = model ?? KeysModel(
+                    repository: environment.keys,
+                    preferences: environment.preferences
                 )
-            } else {
-                Text(.keysDeleteWarning)
+                self.model = model
+                await model.observe()
+            }
+            .sheet(isPresented: $isGenerating) {
+                if let model {
+                    NavigationStack { KeyGeneratorSheet(model: model) }
+                }
+            }
+            .sheet(isPresented: $isImporting) {
+                if let model {
+                    NavigationStack { KeyImportSheet(model: model) }
+                }
+            }
+            .sheet(item: $inspecting) { key in
+                NavigationStack { KeyDetailSheet(key: key) }
+            }
+            .alert(
+                String(localized: .keysRenameTitle),
+                isPresented: .init(
+                    get: { renaming != nil },
+                    set: { if !$0 { renaming = nil } }
+                ),
+                presenting: renaming
+            ) { key in
+                TextField(String(localized: .keygenFieldLabel), text: $renameInput)
+                    .plainTextEntry()
+                Button(String(localized: .actionCancel), role: .cancel) { renaming = nil }
+                Button(String(localized: .actionSave)) {
+                    let pending = key
+                    let name = renameInput
+                    renaming = nil
+                    Task { try? await model?.rename(pending, to: name) }
+                }
+                // Deliberately not disabled on an empty name: an alert's buttons
+                // do not re-evaluate as the field is typed into, so a disabled Save
+                // would stay disabled. `rename` refuses a blank name instead.
+            }
+            .alert(
+                String(localized: .keysDeleteTitle),
+                isPresented: .init(
+                    get: { pendingDeletion != nil },
+                    set: { if !$0 { pendingDeletion = nil } }
+                ),
+                presenting: pendingDeletion
+            ) { pending in
+                Button(String(localized: .actionCancel), role: .cancel) { pendingDeletion = nil }
+                Button(String(localized: .keysDeleteCd), role: .destructive) {
+                    let key = pending.key
+                    pendingDeletion = nil
+                    Task { await model?.delete(key) }
+                }
+            } message: { pending in
+                if pending.hostCount > 0 {
+                    Text(
+                        String(localized: .iosKeysDeleteImpact)
+                            .replacingOccurrences(of: "%1$@", with: pending.key.label)
+                            .replacingOccurrences(of: "%2$d", with: "\(pending.hostCount)")
+                    )
+                } else {
+                    Text(.keysDeleteWarning)
+                }
             }
         }
     }
@@ -113,7 +116,7 @@ struct KeysScreen: View {
     @ViewBuilder
     private func content(_ model: KeysModel) -> some View {
         if model.keys.isEmpty {
-            ContentUnavailableView {
+            EmptyStateView {
                 Label(String(localized: .keysEmpty), systemImage: "key")
             } description: {
                 Text(.iosKeysEmptyHint)
@@ -190,58 +193,60 @@ private struct KeyGeneratorSheet: View {
     @State private var error: String?
 
     var body: some View {
-        Form {
-            Section {
-                TextField(String(localized: .keygenFieldLabel), text: $label)
-                    .plainTextEntry()
-            } footer: {
-                Text(.iosKeysLabelFooter)
-            }
-
-            Section {
-                Picker(String(localized: .keygenKeyType), selection: $type) {
-                    ForEach(SSHKey.KeyType.allCases, id: \.self) { type in
-                        Text(type.displayName).tag(type)
-                    }
+        WithPerceptionTracking {
+            Form {
+                Section {
+                    TextField(String(localized: .keygenFieldLabel), text: $label)
+                        .plainTextEntry()
+                } footer: {
+                    Text(.iosKeysLabelFooter)
                 }
-                .pickerStyle(.segmented)
 
-                let sizes = SSHKeyGenerator.supportedSizes(for: type)
-                if !sizes.isEmpty {
-                    Picker(type == .ecdsa ? "Curve" : "Size", selection: $bits) {
-                        ForEach(sizes, id: \.self) { size in
-                            Text(type == .ecdsa ? "nistp\(size)" : "\(size) bits").tag(size)
+                Section {
+                    Picker(String(localized: .keygenKeyType), selection: $type) {
+                        ForEach(SSHKey.KeyType.allCases, id: \.self) { type in
+                            Text(type.displayName).tag(type)
                         }
                     }
+                    .pickerStyle(.segmented)
+
+                    let sizes = SSHKeyGenerator.supportedSizes(for: type)
+                    if !sizes.isEmpty {
+                        Picker(type == .ecdsa ? "Curve" : "Size", selection: $bits) {
+                            ForEach(sizes, id: \.self) { size in
+                                Text(type == .ecdsa ? "nistp\(size)" : "\(size) bits").tag(size)
+                            }
+                        }
+                    }
+                } header: {
+                    Text(.keygenKeyType)
+                } footer: {
+                    if type == .ed25519 {
+                        Text(.keygenFixedSize)
+                    }
                 }
-            } header: {
-                Text(.keygenKeyType)
-            } footer: {
-                if type == .ed25519 {
-                    Text(.keygenFixedSize)
+            }
+            .navigationTitle(Text(.keygenTitle))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: .actionCancel)) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: .actionGenerate)) { generate() }
+                        .disabled(label.trimmed.isEmpty || isWorking)
                 }
             }
-        }
-        .navigationTitle(Text(.keygenTitle))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(String(localized: .actionCancel)) { dismiss() }
+            .onValueChange(of: type, initial: true) { _ in
+                bits = SSHKeyGenerator.defaultSize(for: type) ?? 0
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(String(localized: .actionGenerate)) { generate() }
-                    .disabled(label.trimmed.isEmpty || isWorking)
+            .alert(String(localized: .errorUnknown), isPresented: .init(
+                get: { error != nil }, set: { if !$0 { error = nil } }
+            )) {
+                Button(String(localized: .actionDone), role: .cancel) { error = nil }
+            } message: {
+                Text(error ?? "")
             }
-        }
-        .onChange(of: type, initial: true) {
-            bits = SSHKeyGenerator.defaultSize(for: type) ?? 0
-        }
-        .alert(String(localized: .errorUnknown), isPresented: .init(
-            get: { error != nil }, set: { if !$0 { error = nil } }
-        )) {
-            Button(String(localized: .actionDone), role: .cancel) { error = nil }
-        } message: {
-            Text(error ?? "")
         }
     }
 
@@ -279,67 +284,69 @@ private struct KeyImportSheet: View {
     @State private var error: String?
 
     var body: some View {
-        Form {
-            Section {
-                TextField(String(localized: .keygenFieldLabel), text: $label)
-                    .plainTextEntry()
-            } footer: {
-                Text(.iosKeysCommentBlank)
-            }
+        WithPerceptionTracking {
+            Form {
+                Section {
+                    TextField(String(localized: .keygenFieldLabel), text: $label)
+                        .plainTextEntry()
+                } footer: {
+                    Text(.iosKeysCommentBlank)
+                }
 
-            Section {
-                Button(String(localized: .keysImportLoadFromFile), systemImage: "folder") { isChoosingFile = true }
-                TextEditor(text: $text)
-                    .font(.caption.monospaced())
-                    .frame(minHeight: 160)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-            } header: {
-                Text(.keysImportPemLabel)
-            } footer: {
-                Text(.keysImportPemLabel)
-            }
+                Section {
+                    Button(String(localized: .keysImportLoadFromFile), systemImage: "folder") { isChoosingFile = true }
+                    TextEditor(text: $text)
+                        .font(.caption.monospaced())
+                        .frame(minHeight: 160)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                } header: {
+                    Text(.keysImportPemLabel)
+                } footer: {
+                    Text(.keysImportPemLabel)
+                }
 
-            Section {
-                SecureField(String(localized: .keysImportPassphraseLabel), text: $passphrase)
-                    .plainTextEntry()
-            } footer: {
-                Text(.keysImportPassphraseLabel)
+                Section {
+                    SecureField(String(localized: .keysImportPassphraseLabel), text: $passphrase)
+                        .plainTextEntry()
+                } footer: {
+                    Text(.keysImportPassphraseLabel)
+                }
             }
-        }
-        .navigationTitle(Text(.keysImportTitle))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(String(localized: .actionCancel)) { dismiss() }
+            .navigationTitle(Text(.keysImportTitle))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: .actionCancel)) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: .keysImportAction)) { performImport() }
+                        .disabled(text.trimmed.isEmpty)
+                }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(String(localized: .keysImportAction)) { performImport() }
-                    .disabled(text.trimmed.isEmpty)
-            }
-        }
-        .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.data, .text]) { result in
-            guard case .success(let url) = result else { return }
+            .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.data, .text]) { result in
+                guard case .success(let url) = result else { return }
 
-            // A file outside the sandbox needs its access explicitly opened.
-            guard url.startAccessingSecurityScopedResource() else {
-                error = "That file could not be opened."
-                return
-            }
-            defer { url.stopAccessingSecurityScopedResource() }
+                // A file outside the sandbox needs its access explicitly opened.
+                guard url.startAccessingSecurityScopedResource() else {
+                    error = "That file could not be opened."
+                    return
+                }
+                defer { url.stopAccessingSecurityScopedResource() }
 
-            do {
-                text = try String(contentsOf: url, encoding: .utf8)
-            } catch {
-                self.error = "That file could not be read as text."
+                do {
+                    text = try String(contentsOf: url, encoding: .utf8)
+                } catch {
+                    self.error = "That file could not be read as text."
+                }
             }
-        }
-        .alert(String(localized: .keysImportErrorInvalid), isPresented: .init(
-            get: { error != nil }, set: { if !$0 { error = nil } }
-        )) {
-            Button(String(localized: .actionDone), role: .cancel) { error = nil }
-        } message: {
-            Text(error ?? "")
+            .alert(String(localized: .keysImportErrorInvalid), isPresented: .init(
+                get: { error != nil }, set: { if !$0 { error = nil } }
+            )) {
+                Button(String(localized: .actionDone), role: .cancel) { error = nil }
+            } message: {
+                Text(error ?? "")
+            }
         }
     }
 
@@ -374,9 +381,15 @@ private struct KeyDetailSheet: View {
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
 
-                Button(didCopy ? "Copied" : "Copy", systemImage: didCopy ? "checkmark" : "doc.on.doc") {
+                // Button(_:systemImage:action:) is iOS 17; the label form is not.
+                Button {
                     UIPasteboard.general.string = key.publicKey
                     withAnimation { didCopy = true }
+                } label: {
+                    Label(
+                        didCopy ? "Copied" : "Copy",
+                        systemImage: didCopy ? "checkmark" : "doc.on.doc"
+                    )
                 }
                 .disabled(didCopy)
             }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 import SwiftTerm
 import UIKit
 
@@ -12,7 +12,7 @@ import UIKit
 /// switches away and back — the same reason the Android `SessionManager` holds
 /// the `TerminalEmulator` instead of the screen.
 @MainActor
-@Observable
+@Perceptible
 final class TerminalSession: Identifiable {
 
     /// Where the connection currently is. The two `needs…` cases are questions
@@ -76,8 +76,8 @@ final class TerminalSession: Identifiable {
     /// recall move it too, not only keystrokes.
     private(set) var suggestions: [String] = []
 
-    @ObservationIgnored private var history = CommandHistory.empty
-    @ObservationIgnored private var suggestionTask: Task<Void, Never>?
+    @PerceptionIgnored private var history = CommandHistory.empty
+    @PerceptionIgnored private var suggestionTask: Task<Void, Never>?
 
     /// State of this host's port forwarding rules, empty when it has none.
     ///
@@ -88,17 +88,17 @@ final class TerminalSession: Identifiable {
 
     /// Set when the user closed the session, so returning to the foreground does
     /// not resurrect something they deliberately ended.
-    @ObservationIgnored private var closedByUser = false
+    @PerceptionIgnored private var closedByUser = false
 
     /// Set when the remote shell exited by itself — `exit`, or a killed session.
     /// Reconnecting then would undo what the user just asked for.
-    @ObservationIgnored private var endedByRemote = false
+    @PerceptionIgnored private var endedByRemote = false
 
     /// Called when the remote shell exited by itself, so the tab can go.
     ///
     /// A session cannot remove itself: the list belongs to ``SessionManager``,
     /// which sets this when it opens one.
-    @ObservationIgnored var onShellExited: ((TerminalSession) -> Void)?
+    @PerceptionIgnored var onShellExited: ((TerminalSession) -> Void)?
 
     /// The password the user typed for the connection currently being made.
     ///
@@ -108,21 +108,21 @@ final class TerminalSession: Identifiable {
     /// the moment the shell is up, and when the session is closed — it exists to
     /// survive a prompt, not to be a stored credential. Saving a password is a
     /// separate, deliberate act in the host editor.
-    @ObservationIgnored private var passwordForThisAttempt: String?
+    @PerceptionIgnored private var passwordForThisAttempt: String?
 
     /// The last size the view actually reported, as opposed to the one the
     /// terminal object carries before it has ever been laid out.
-    @ObservationIgnored private var measuredSize: (columns: Int, rows: Int)?
+    @PerceptionIgnored private var measuredSize: (columns: Int, rows: Int)?
 
-    @ObservationIgnored private var forwarder: PortForwarder?
-    @ObservationIgnored private var forwardingTask: Task<Void, Never>?
+    @PerceptionIgnored private var forwarder: PortForwarder?
+    @PerceptionIgnored private var forwardingTask: Task<Void, Never>?
 
-    @ObservationIgnored private let hosts: HostRepository
-    @ObservationIgnored private let keys: SSHKeyRepository
-    @ObservationIgnored private var sshSession: SSHSession?
-    @ObservationIgnored private var channel: SSHShellChannel?
-    @ObservationIgnored private var readerTask: Task<Void, Never>?
-    @ObservationIgnored private var bridge: TerminalDelegateBridge?
+    @PerceptionIgnored private let hosts: HostRepository
+    @PerceptionIgnored private let keys: SSHKeyRepository
+    @PerceptionIgnored private var sshSession: SSHSession?
+    @PerceptionIgnored private var channel: SSHShellChannel?
+    @PerceptionIgnored private var readerTask: Task<Void, Never>?
+    @PerceptionIgnored private var bridge: TerminalDelegateBridge?
 
     init(host: Host, hosts: HostRepository, keys: SSHKeyRepository) {
         self.host = host

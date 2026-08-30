@@ -10,8 +10,18 @@ name: SSHBorg
 
 options:
   bundleIdPrefix: com.sshborg
+  # 16.0, not 17.0: the A11 devices (iPhone 8, 8 Plus, X) stop at iOS 16.7.x,
+  # and one of them is the only physical machine this app has ever been able to
+  # run on. Four things are unverifiable on a simulator — Keychain encryption,
+  # the app lock against real biometrics, anything translucent, and jailbreak
+  # detection — so the floor is what stands between a borrowed phone and the
+  # first real test.
+  #
+  # 16 is cheap where 15 is not: NavigationStack and LocalizedStringResource
+  # (381 uses) are both iOS 16. The one API that had to go was @Observable; see
+  # the Perception package below.
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "16.0"
   createIntermediateGroups: true
   groupSortPosition: top
   generateEmptyDirectories: true
@@ -82,6 +92,36 @@ packages:
   OpenSSL:
     url: https://github.com/Lakr233/openssl-spm
     from: 3.6.0
+  # Swift's Observation framework, back-ported. @Observable is iOS 17, and it is
+  # the only thing that kept the deployment target there.
+  #
+  # The alternative was going back to ObservableObject/@Published, which is not
+  # equivalent: @Observable tracks reads through nested objects and
+  # ObservableObject does not, so the ~15 view-body reads through AppEnvironment
+  # (environment.preferences.terminalFontSize, environment.sessions.sessions,
+  # environment.lock.isLocked, and environment.browsers.isOpen(hostID:) — a
+  # method, with no property to attach @ObservedObject to) would have compiled,
+  # run, and shown stale values. Perception keeps the semantics, at the price of
+  # WithPerceptionTracking around every body. Forget it and you get a runtime
+  # warning, not silence.
+  #
+  # On iOS 17+ the macro emits real Observable conformance and
+  # WithPerceptionTracking is a passthrough, so nothing is paid on new devices.
+  #
+  # Pinned exactly, not `from:` — and the pin is about the Xcode installed here,
+  # not about the library. 2.0.12 raised its own manifest to
+  # swift-tools-version 6.4; Xcode 26.6 ships Swift 6.3.3 and will not read a
+  # 6.4 manifest at all, so the build dies at package resolution before
+  # compiling a line. `from:` would resolve straight past 2.0.11 into it.
+  #
+  # Nothing is being given up: 2.0.12 is a bump for IssueReporting 2.1 and a
+  # documentation link.
+  #
+  # The pin expires by itself. StackCheckTests.testPerceptionPinIsStillNeeded
+  # fails the moment the toolchain reaches Swift 6.4, and says what to do.
+  Perception:
+    url: https://github.com/pointfreeco/swift-perception
+    exactVersion: 2.0.11
 
 targets:
   SSHBorg:
@@ -104,6 +144,8 @@ targets:
         product: CSSH2
       - package: OpenSSL
         product: OpenSSL
+      - package: Perception
+        product: Perception
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sshborg

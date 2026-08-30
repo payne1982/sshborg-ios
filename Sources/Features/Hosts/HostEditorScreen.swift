@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import SwiftUI
+import Perception
 
 /// Creates or edits a host. Ported from the Android `AddEditHostScreen`.
 ///
@@ -66,51 +67,53 @@ struct HostEditorScreen: View {
     }
 
     var body: some View {
-        Form {
-            basicsSection
-            groupSection
-            colourSection
-            authenticationSection
-            optionsSection
-            jumpHostsSection
-            portForwardingSection
-            startDirectorySection
-            if hasStoredHostKeys { hostKeysSection }
-        }
-        .navigationTitle(host == nil ? "New host" : "Edit host")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(String(localized: .actionCancel)) { dismiss() }
+        WithPerceptionTracking {
+            Form {
+                basicsSection
+                groupSection
+                colourSection
+                authenticationSection
+                optionsSection
+                jumpHostsSection
+                portForwardingSection
+                startDirectorySection
+                if hasStoredHostKeys { hostKeysSection }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(String(localized: .actionSave)) { save() }
-                    .disabled(!isValid)
-            }
-        }
-        .task {
-            guard !isLoaded else { return }
-            isLoaded = true
-            await loadLists()
-            load()
-        }
-        .sheet(isPresented: $isCreatingGroup) {
-            NavigationStack {
-                GroupEditorScreen(group: nil) { created in
-                    // Select it straight away: creating a group from here means
-                    // the user wants this host in it.
-                    availableGroups.append(created)
-                    groupId = created.id
+            .navigationTitle(host == nil ? "New host" : "Edit host")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: .actionCancel)) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: .actionSave)) { save() }
+                        .disabled(!isValid)
                 }
             }
-        }
-        .alert(String(localized: .iosErrorSaveFailed), isPresented: .init(
-            get: { saveError != nil },
-            set: { if !$0 { saveError = nil } }
-        )) {
-            Button(String(localized: .actionDone), role: .cancel) { saveError = nil }
-        } message: {
-            Text(saveError ?? "")
+            .task {
+                guard !isLoaded else { return }
+                isLoaded = true
+                await loadLists()
+                load()
+            }
+            .sheet(isPresented: $isCreatingGroup) {
+                NavigationStack {
+                    GroupEditorScreen(group: nil) { created in
+                        // Select it straight away: creating a group from here means
+                        // the user wants this host in it.
+                        availableGroups.append(created)
+                        groupId = created.id
+                    }
+                }
+            }
+            .alert(String(localized: .iosErrorSaveFailed), isPresented: .init(
+                get: { saveError != nil },
+                set: { if !$0 { saveError = nil } }
+            )) {
+                Button(String(localized: .actionDone), role: .cancel) { saveError = nil }
+            } message: {
+                Text(saveError ?? "")
+            }
         }
     }
 

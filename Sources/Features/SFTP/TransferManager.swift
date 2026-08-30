@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
+import Perception
 
 /// The queue of file transfers and their progress. Counterpart of the Android
 /// `TransferManager`.
@@ -11,7 +11,7 @@ import Observation
 /// "On My iPhone → SSHBorg". That avoids making the user choose a destination
 /// for every single file, and the folder is reachable from outside the app.
 @MainActor
-@Observable
+@Perceptible
 final class TransferManager {
 
     struct Transfer: Identifiable {
@@ -51,7 +51,7 @@ final class TransferManager {
 
     /// IDs the user has asked to stop. Read from the transfer loops, which run
     /// off the main actor, hence the lock rather than plain state.
-    @ObservationIgnored private let cancellations = CancellationRegistry()
+    @PerceptionIgnored private let cancellations = CancellationRegistry()
 
     var hasActiveTransfers: Bool {
         transfers.contains(where: \.isActive)

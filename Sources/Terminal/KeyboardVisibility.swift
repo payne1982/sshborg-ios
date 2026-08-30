@@ -2,6 +2,7 @@
 
 import SwiftUI
 import UIKit
+import Perception
 
 /// Whether the software keyboard is on screen.
 ///
@@ -14,12 +15,12 @@ import UIKit
 /// is the supported one, and "will" rather than "did" so the row appears in the
 /// same animation as the keyboard instead of a beat behind it.
 @MainActor
-@Observable
+@Perceptible
 final class KeyboardVisibility {
 
     private(set) var isVisible = false
 
-    @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    @PerceptionIgnored private var observers: [NSObjectProtocol] = []
 
     init(center: NotificationCenter = .default) {
         observers = [

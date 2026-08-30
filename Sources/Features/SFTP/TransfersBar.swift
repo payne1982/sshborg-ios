@@ -2,42 +2,45 @@
 
 import QuickLook
 import SwiftUI
+import Perception
 
 /// The strip of transfers under the file list. Hidden entirely when there is
 /// nothing to show, so browsing is not permanently shortened by an empty bar.
 struct TransfersBar: View {
 
-    @Bindable var manager: TransferManager
+    @Perception.Bindable var manager: TransferManager
 
     var body: some View {
-        if !manager.transfers.isEmpty {
-            VStack(spacing: 0) {
-                Divider()
+        WithPerceptionTracking {
+            if !manager.transfers.isEmpty {
+                VStack(spacing: 0) {
+                    Divider()
 
-                HStack {
-                    Text(.iosTransfersTitle)
-                        .font(.caption.weight(.semibold))
-                    Spacer()
-                    if manager.transfers.contains(where: { !$0.isActive }) {
-                        Button(String(localized: .iosTransfersClear)) { manager.dismissFinished() }
-                            .font(.caption)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-
-                ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(manager.transfers) { transfer in
-                            TransferRow(transfer: transfer, manager: manager)
+                    HStack {
+                        Text(.iosTransfersTitle)
+                            .font(.caption.weight(.semibold))
+                        Spacer()
+                        if manager.transfers.contains(where: { !$0.isActive }) {
+                            Button(String(localized: .iosTransfersClear)) { manager.dismissFinished() }
+                                .font(.caption)
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.top, 8)
+
+                    ScrollView {
+                        VStack(spacing: 8) {
+                            ForEach(manager.transfers) { transfer in
+                                TransferRow(transfer: transfer, manager: manager)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    }
+                    .frame(maxHeight: 160)
                 }
-                .frame(maxHeight: 160)
+                .background(.bar)
             }
-            .background(.bar)
         }
     }
 }
@@ -61,57 +64,59 @@ private struct TransferRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: transfer.kind == .download ? "arrow.down.circle" : "arrow.up.circle")
-                .foregroundStyle(tint)
+        WithPerceptionTracking {
+            HStack(spacing: 10) {
+                Image(systemName: transfer.kind == .download ? "arrow.down.circle" : "arrow.up.circle")
+                    .foregroundStyle(tint)
 
-            VStack(alignment: .leading, spacing: 3) {
-                // A finished download's name opens it. Sharing was already
-                // here, but sharing is what you do to send a file somewhere
-                // else; the common case is wanting to *look* at what you just
-                // fetched, and until now that took a trip through the Files app.
-                // Quick Look is the iOS equivalent of Android's "open with".
-                if let url = openableURL {
-                    Button {
-                        previewURL = url
-                    } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    // A finished download's name opens it. Sharing was already
+                    // here, but sharing is what you do to send a file somewhere
+                    // else; the common case is wanting to *look* at what you just
+                    // fetched, and until now that took a trip through the Files app.
+                    // Quick Look is the iOS equivalent of Android's "open with".
+                    if let url = openableURL {
+                        Button {
+                            previewURL = url
+                        } label: {
+                            Text(transfer.name)
+                                .font(.caption)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .underline()
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                        .accessibilityHint(Text(.sftpDownloadComplete))
+                    } else {
                         Text(transfer.name)
                             .font(.caption)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                            .underline()
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                    .accessibilityHint(Text(.sftpDownloadComplete))
-                } else {
-                    Text(transfer.name)
-                        .font(.caption)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+
+                    if transfer.isActive {
+                        // A determinate bar when the size is known, an indeterminate
+                        // one when it is not — never a bar frozen at zero.
+                        if let fraction = transfer.fraction {
+                            ProgressView(value: fraction)
+                        } else {
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                        }
+                    }
+
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
 
-                if transfer.isActive {
-                    // A determinate bar when the size is known, an indeterminate
-                    // one when it is not — never a bar frozen at zero.
-                    if let fraction = transfer.fraction {
-                        ProgressView(value: fraction)
-                    } else {
-                        ProgressView()
-                            .progressViewStyle(.linear)
-                    }
-                }
+                Spacer()
 
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                trailingControl
             }
-
-            Spacer()
-
-            trailingControl
+            .quickLookPreview($previewURL)
         }
-        .quickLookPreview($previewURL)
     }
 
     @ViewBuilder

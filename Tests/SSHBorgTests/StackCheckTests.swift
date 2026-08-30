@@ -41,4 +41,21 @@ final class StackCheckTests: XCTestCase {
             "libssh2 >= 1.11.1 required, found \(outcome.detail)"
         )
     }
+
+    /// Fails once the toolchain outgrows the reason Perception is pinned, so the
+    /// pin cannot quietly become permanent.
+    ///
+    /// `project.yml` pins Perception to exactly 2.0.11. Nothing is wrong with
+    /// 2.0.12 — it is a bump for IssueReporting 2.1 and a documentation link —
+    /// but its manifest declares `swift-tools-version: 6.4`, and a 6.3 toolchain
+    /// will not read a 6.4 manifest at all: the build dies at package
+    /// resolution, before compiling a line. The pin is a fact about the Xcode
+    /// installed here, not a judgement about the library.
+    ///
+    /// So the day Xcode ships Swift 6.4, this test says so.
+    func testPerceptionPinIsStillNeeded() {
+        #if compiler(>=6.4)
+        XCTFail("Swift 6.4 is here: in project.yml replace `exactVersion: 2.0.11` with `from: 2.0.0`, then delete this test.")
+        #endif
+    }
 }
