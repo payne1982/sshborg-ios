@@ -56,8 +56,18 @@ enum ConnectionPrompt {
                 // that point the field is in the tree but UIKit has not finished
                 // handing responder status around, and a request that lands
                 // mid-handover is dropped — leaving a caret and no keyboard.
+                //
+                // Then asked again, because the yield above was measured on the
+                // simulator and the simulator is not the slow case. On an iPhone
+                // X the handover takes longer, and the report from that device
+                // was exactly the symptom this is meant to prevent: the prompt
+                // up, no keyboard. Setting it true when it is already true costs
+                // nothing, so the second ask is free wherever the first one took.
                 .task {
                     await Task.yield()
+                    isFocused.wrappedValue = true
+
+                    try? await Task.sleep(nanoseconds: 350_000_000)
                     isFocused.wrappedValue = true
                 }
             )

@@ -232,31 +232,39 @@ struct HostsScreen: View {
 
     private func rows(for hosts: [Host], model: HostsModel) -> some View {
         ForEach(hosts) { host in
-            HostRow(
-                host: host,
-                tint: model.color(for: host).map { Color(argb: $0) },
-                sessionCount: environment.sessions.sessions(forHostID: host.id ?? -1).count,
-                hasFileBrowser: environment.browsers.isOpen(hostID: host.id),
-                onOpenFiles: { browsing = host; isBrowsing = true },
-                // The same actions the long press gives, from a control that
-                // says it is there. A context menu is native on iOS and close to
-                // invisible: nothing on a row announces that holding it does
-                // anything. Android carries both — a `MoreVert` button beside
-                // the row and a long press — opening one menu, and so does this.
-                actions: { AnyView(hostActions(host, model: model)) }
-            )
-            .contentShape(.rect)
-            .onTapGesture { open(host) }
-            // Swipe reaches edit only. Deleting a host throws away its stored
-            // credentials and pinned host key, and SwiftUI promotes the first
-            // trailing action to the full-swipe gesture — so putting delete
-            // here would let a slightly long swipe destroy it with no
-            // deliberate press. Delete lives in the context menu instead.
-            .swipeActions(edge: .trailing) {
-                Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
-                    .tint(.blue)
+            // A ForEach row builder is escaping, so the wrapper on the body does
+            // not reach in here — and these two lines are the badges that say how
+            // many terminals and whether a file browser is open on this host.
+            // Untracked, they would show whatever was true when the list was
+            // built. Reported by the device as 25 warnings for
+            // SessionManager.sessions and 8 for SFTPBrowsers.models.
+            WithPerceptionTracking {
+                HostRow(
+                    host: host,
+                    tint: model.color(for: host).map { Color(argb: $0) },
+                    sessionCount: environment.sessions.sessions(forHostID: host.id ?? -1).count,
+                    hasFileBrowser: environment.browsers.isOpen(hostID: host.id),
+                    onOpenFiles: { browsing = host; isBrowsing = true },
+                    // The same actions the long press gives, from a control that
+                    // says it is there. A context menu is native on iOS and close to
+                    // invisible: nothing on a row announces that holding it does
+                    // anything. Android carries both — a `MoreVert` button beside
+                    // the row and a long press — opening one menu, and so does this.
+                    actions: { AnyView(hostActions(host, model: model)) }
+                )
+                .contentShape(.rect)
+                .onTapGesture { open(host) }
+                // Swipe reaches edit only. Deleting a host throws away its stored
+                // credentials and pinned host key, and SwiftUI promotes the first
+                // trailing action to the full-swipe gesture — so putting delete
+                // here would let a slightly long swipe destroy it with no
+                // deliberate press. Delete lives in the context menu instead.
+                .swipeActions(edge: .trailing) {
+                    Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
+                        .tint(.blue)
+                }
+                .contextMenu { hostActions(host, model: model) }
             }
-            .contextMenu { hostActions(host, model: model) }
         }
     }
 
@@ -272,58 +280,64 @@ struct HostsScreen: View {
     /// action twice.
     @ViewBuilder
     private func hostActions(_ host: Host, model: HostsModel) -> some View {
-        let shells = environment.sessions.sessions(forHostID: host.id ?? -1).count
-        let hasBrowser = environment.browsers.isOpen(hostID: host.id)
+        // Reached through `actions:` — an escaping closure — and through
+        // .contextMenu, so this is built outside the body pass and needs its own
+        // scope. The first entries change with the running sessions: "Connect"
+        // becomes "Resume terminal (2)". Untracked, they change with nothing.
+        WithPerceptionTracking {
+            let shells = environment.sessions.sessions(forHostID: host.id ?? -1).count
+            let hasBrowser = environment.browsers.isOpen(hostID: host.id)
 
-        Button {
-            open(host)
-        } label: {
-            Label {
-                if shells > 0 {
-                    Text(String(localized: .hostMenuResumeTerminal)
-                        .replacingOccurrences(of: "%1$d", with: "\(shells)"))
-                } else {
-                    Text(.hostMenuConnect)
+            Button {
+                open(host)
+            } label: {
+                Label {
+                    if shells > 0 {
+                        Text(String(localized: .hostMenuResumeTerminal)
+                            .replacingOccurrences(of: "%1$d", with: "\(shells)"))
+                    } else {
+                        Text(.hostMenuConnect)
+                    }
+                } icon: {
+                    Image(systemName: "terminal")
                 }
-            } icon: {
-                Image(systemName: "terminal")
             }
-        }
 
-        if shells > 0 {
-            Button(String(localized: .hostMenuNewTerminal), systemImage: "plus") { openNew(host) }
-        }
+            if shells > 0 {
+                Button(String(localized: .hostMenuNewTerminal), systemImage: "plus") { openNew(host) }
+            }
 
-        Button {
-            browsing = host
-            isBrowsing = true
-        } label: {
-            Label {
-                // The count is always one when it appears: this holds a single
-                // browser per host, keyed by its id, where Android can hold
-                // several. Hence no "New files session" either — there is
-                // nothing for a second one to be.
-                if hasBrowser {
-                    Text(String(localized: .hostMenuResumeFiles)
-                        .replacingOccurrences(of: "%1$d", with: "1"))
-                } else {
-                    Text(.hostMenuFiles)
+            Button {
+                browsing = host
+                isBrowsing = true
+            } label: {
+                Label {
+                    // The count is always one when it appears: this holds a single
+                    // browser per host, keyed by its id, where Android can hold
+                    // several. Hence no "New files session" either — there is
+                    // nothing for a second one to be.
+                    if hasBrowser {
+                        Text(String(localized: .hostMenuResumeFiles)
+                            .replacingOccurrences(of: "%1$d", with: "1"))
+                    } else {
+                        Text(.hostMenuFiles)
+                    }
+                } icon: {
+                    Image(systemName: "folder")
                 }
-            } icon: {
-                Image(systemName: "folder")
             }
-        }
-        Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
-        // Between Edit and Delete, as on Android. The copy opens in the editor
-        // straight away: nobody duplicates a host to leave it identical, so
-        // landing on the form is the next step either way.
-        Button(String(localized: .actionDuplicate), systemImage: "doc.on.doc") {
-            Task {
-                if let copy = await model.duplicate(host) { editing = .existing(copy) }
+            Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
+            // Between Edit and Delete, as on Android. The copy opens in the editor
+            // straight away: nobody duplicates a host to leave it identical, so
+            // landing on the form is the next step either way.
+            Button(String(localized: .actionDuplicate), systemImage: "doc.on.doc") {
+                Task {
+                    if let copy = await model.duplicate(host) { editing = .existing(copy) }
+                }
             }
-        }
-        Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) {
-            hostToDelete = host
+            Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) {
+                hostToDelete = host
+            }
         }
     }
 

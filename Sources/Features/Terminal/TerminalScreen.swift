@@ -63,6 +63,15 @@ struct TerminalScreen: View {
         // it is the hardest place to reach. The numbered picker opens upward,
         // away from the strip, so it never covers the tab that spawned it.
         .safeAreaInset(edge: .bottom, spacing: 0) {
+            // The pin's binding used to be built by hand, and its getter read
+            // the preference from inside an escaping closure — outside the
+            // tracking scope, which the device reported four times.
+            // @Perception.Bindable is what the warning itself recommends: a
+            // projected binding that carries the tracking with it. It is
+            // declared here, where it is used, because a local property wrapper
+            // is visible only in its own scope.
+            @Perception.Bindable var preferences = environment.preferences
+
             VStack(spacing: 0) {
                 // Not gated on the phase: switching away from a session that
                 // failed is exactly when the tabs are needed most.
@@ -85,10 +94,7 @@ struct TerminalScreen: View {
                     if keyboard.isVisible || environment.preferences.extraKeysBarPinned {
                         ExtraKeyRow(
                             session: session,
-                            isPinned: Binding(
-                                get: { environment.preferences.extraKeysBarPinned },
-                                set: { environment.preferences.extraKeysBarPinned = $0 }
-                            )
+                            isPinned: $preferences.extraKeysBarPinned
                         )
                     }
                 }
