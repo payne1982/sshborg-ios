@@ -77,6 +77,14 @@ struct TerminalHostView: UIViewRepresentable {
         g["cols"] = grid.cols
         g["rows"] = grid.rows
         g["fontH"] = String(format: "%.1f", terminal.font.lineHeight)
+        // In window coordinates, so it can be compared with the bar's frame
+        // directly. If the terminal's maxY runs past the bar's minY, the bar's
+        // top is underneath it and that is where the touches are going.
+        if let window = terminal.window {
+            let f = terminal.convert(terminal.bounds, to: window)
+            g["winMinY"] = Int(f.minY)
+            g["winMaxY"] = Int(f.maxY)
+        }
         KeyboardDiagnostics.logIfChanged("layout", g)
         #endif
 

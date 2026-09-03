@@ -100,6 +100,24 @@ struct ExtraKeyRow: View {
                 .padding(.vertical, 3)
             }
             .background(Color(.tertiarySystemBackground))
+            #if DEBUG
+            // Reported 04/09/2026: the top of every key is dead, and a press
+            // only lands from the label downwards. Either the touchable region
+            // sits below where the bar is drawn, or something above covers the
+            // top of it. These two frames, in the same coordinate space, say
+            // which — and by how much.
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.onAppear {
+                        let f = proxy.frame(in: .global)
+                        KeyboardDiagnostics.logIfChanged("barFrame", [
+                            "minY": Int(f.minY), "maxY": Int(f.maxY),
+                            "h": Int(f.height),
+                        ])
+                    }
+                }
+            )
+            #endif
         }
     }
 
@@ -194,11 +212,25 @@ struct ExtraKeyRow: View {
         } label: {
             Image(systemName: isPinned ? "pin.fill" : "pin")
                 .font(.footnote)
-                .frame(width: 34, height: 32)
+                .foregroundStyle(isPinned ? Color.white : Color.primary)
+                .frame(minWidth: 34, minHeight: 30)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
+        // The same filled box every other key in this bar has, and the same
+        // on/off treatment as Ctrl and Alt — which is also how Android draws
+        // this one, as a container that changes colour when pinned.
+        //
+        // It was the only control here with no background at all: a bare glyph
+        // with nothing around it, so there was no way to see where to press.
+        // Giving it a hit area the size of the frame, on 04/09/2026, fixed the
+        // touch and changed nothing anyone could perceive — reported straight
+        // back as "the pin still seems to have no square". A target you cannot
+        // see is not a target.
+        .background(
+            isPinned ? Color.accentColor : Color(.secondarySystemBackground),
+            in: .rect(cornerRadius: 5)
+        )
         .accessibilityLabel(String(localized: .terminalPinKeysCd))
         .accessibilityAddTraits(isPinned ? [.isSelected] : [])
     }
