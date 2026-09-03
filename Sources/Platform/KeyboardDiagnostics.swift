@@ -30,6 +30,58 @@ enum KeyboardDiagnostics {
         NSLog("SSHBORGDIAG %@ %@", event, detail)
     }
 
+    /// Logs only when the line would differ from the last one for this event.
+    ///
+    /// `updateUIView` runs on every SwiftUI update of the terminal, which during
+    /// output is hundreds of times a second, and `NSLog` is not free — it
+    /// formats and crosses into the system log each time. Instrumentation that
+    /// heavy risks *causing* the main-thread stalls it was added to find, which
+    /// would make every measurement here worthless. Geometry only matters when
+    /// it changes, so only changes are written.
+    private static var lastLine: [String: String] = [:]
+
+    static func logIfChanged(_ event: String, _ pairs: [String: Any]) {
+        let detail = pairs
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)=\($0.value)" }
+            .joined(separator: " ")
+        guard lastLine[event] != detail else { return }
+        lastLine[event] = detail
+        NSLog("SSHBORGDIAG %@ %@", event, detail)
+    }
+
+    /// Reports when the main thread stopped answering, and for how long.
+    ///
+    /// Added 04/09/2026 for the report that the extra key bar "works in fits and
+    /// starts": keys and arrows dead for a while, then all fine again. A
+    /// hit-testing fault does not come and go; a blocked main thread does, and
+    /// while it is blocked nothing draws either — which matches the other half
+    /// of the report, that pressed keys showed no feedback at all.
+    ///
+    /// The measurement is the loop itself. It asks to be woken every 100ms and
+    /// writes a line whenever it was woken much later than that, because the
+    /// only thing that can delay it is the main thread being busy.
+    static func startStallWatchdog() {
+        guard !isWatching else { return }
+        isWatching = true
+
+        Task { @MainActor in
+            var last = ContinuousClock.now
+            while true {
+                try? await Task.sleep(for: .milliseconds(100))
+                let now = ContinuousClock.now
+                let late = (last.duration(to: now) - .milliseconds(100))
+                if late > .milliseconds(250) {
+                    log("stall", ["blockedMs": Int(late.components.seconds * 1000
+                        + late.components.attoseconds / 1_000_000_000_000_000)])
+                }
+                last = now
+            }
+        }
+    }
+
+    private static var isWatching = false
+
     /// Who currently holds the keyboard.
     ///
     /// `resignFirstResponder()` on a view that is not the first responder does

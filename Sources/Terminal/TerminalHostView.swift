@@ -77,7 +77,7 @@ struct TerminalHostView: UIViewRepresentable {
         g["cols"] = grid.cols
         g["rows"] = grid.rows
         g["fontH"] = String(format: "%.1f", terminal.font.lineHeight)
-        KeyboardDiagnostics.log("layout", g)
+        KeyboardDiagnostics.logIfChanged("layout", g)
         #endif
 
         let size = CGFloat(fontSize)

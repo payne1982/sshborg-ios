@@ -130,10 +130,6 @@ struct TerminalScreen: View {
                     }
                 }
             }
-            // Opaque, and carried past the home indicator. This is what keeps a
-            // dark edge at the bottom of the screen now that the terminal stops
-            // above these bars rather than running underneath them.
-            .background(Color(.systemBackground).ignoresSafeArea(edges: .bottom))
         }
         .task(id: session.id) {
             // Only drive the first connection; a reconnect is user-initiated.

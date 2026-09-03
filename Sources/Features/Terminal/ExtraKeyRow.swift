@@ -70,6 +70,7 @@ struct ExtraKeyRow: View {
                         Image(systemName: "doc.on.clipboard")
                             .font(.system(size: 14))
                             .frame(minWidth: 34, minHeight: 30)
+                            .contentShape(.rect)
                     }
                     .buttonStyle(.plain)
                     .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 5))
@@ -176,6 +177,7 @@ struct ExtraKeyRow: View {
             Image(systemName: "keyboard.chevron.compact.down")
                 .font(.system(size: 14))
                 .frame(minWidth: 34, minHeight: 30)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 5))
@@ -193,6 +195,7 @@ struct ExtraKeyRow: View {
             Image(systemName: isPinned ? "pin.fill" : "pin")
                 .font(.footnote)
                 .frame(width: 34, height: 32)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
@@ -214,6 +217,7 @@ struct ExtraKeyRow: View {
                 .font(.system(size: 14))
                 .foregroundStyle(session.wordMode ? Color.white : Color.primary)
                 .frame(minWidth: 40, minHeight: 30)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .background(
@@ -232,6 +236,7 @@ struct ExtraKeyRow: View {
                 .font(.system(size: 12, weight: isOn.wrappedValue ? .bold : .medium, design: .rounded))
                 .foregroundStyle(isOn.wrappedValue ? Color.white : Color.primary)
                 .frame(minWidth: 40, minHeight: 30)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .background(
@@ -250,6 +255,22 @@ struct ExtraKeyRow: View {
     }
 }
 
+/// Why every key in this bar carries `.contentShape(.rect)`.
+///
+/// A `Text` or an `Image` inside a larger `.frame()` stays tappable only where
+/// it actually draws: the transparent padding around it receives nothing. So a
+/// key looks 34 points wide and answers on the few points its glyph covers.
+///
+/// `KeyFace` had the shape from the start, which is why the letter, arrow and
+/// function keys always worked. The pin, the hide-keyboard key, paste, Ctrl,
+/// Alt and word mode did not, and were tappable only on the symbol itself.
+///
+/// Found by him on 04/09/2026, after a long evening of my looking elsewhere:
+/// "the pin is only clicked when you click exactly inside the drawing pin,
+/// which is about a tenth of my finger". The device had been saying so all
+/// along — ten presses of the pin, none recorded — and I had read that as a
+/// gesture being stolen by the enclosing scroll view.
+///
 /// The look of a key, shared by the plain and the repeating kind.
 private struct KeyFace: View {
 
