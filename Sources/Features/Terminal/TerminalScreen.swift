@@ -49,7 +49,28 @@ struct TerminalScreen: View {
     private func terminal(for session: TerminalSession) -> some View {
         ZStack {
             TerminalHostView(session: session, fontSize: environment.preferences.terminalFontSize)
-                .ignoresSafeArea(.container, edges: .bottom)
+                // No `ignoresSafeArea(.container, edges: .bottom)` here, though
+                // there was from the first terminal commit until 03/09/2026.
+                //
+                // `safeAreaInset` below puts the bars into the container's
+                // bottom safe area, and ignoring that safe area made the
+                // terminal draw *underneath* them. Measured on the device: with
+                // the keyboard up the window is 812, the bars 88, the keyboard
+                // 291 and the terminal 433 — which is 812 exactly, leaving the
+                // bars no room of their own. So the last rows were covered, and
+                // the count grew with the number of bars: two under the extra
+                // key row, three once the suggestion bar joined it. The cursor
+                // row was among them.
+                //
+                // It cost touches too. SwiftTerm's own gesture recognisers were
+                // live across that overlap, competing with the buttons drawn on
+                // top of it.
+                //
+                // What it was there for — the terminal's black reaching the
+                // bottom edge instead of stopping above the home indicator — is
+                // now done by the bars' own background, which is where it
+                // belongs.
+                //
                 // Deliberately *not* keyed on the session id: the view swaps the
                 // terminal itself and carries the keyboard focus across. Keying
                 // it here would make each switch a teardown, and the keyboard
@@ -109,6 +130,10 @@ struct TerminalScreen: View {
                     }
                 }
             }
+            // Opaque, and carried past the home indicator. This is what keeps a
+            // dark edge at the bottom of the screen now that the terminal stops
+            // above these bars rather than running underneath them.
+            .background(Color(.systemBackground).ignoresSafeArea(edges: .bottom))
         }
         .task(id: session.id) {
             // Only drive the first connection; a reconnect is user-initiated.
