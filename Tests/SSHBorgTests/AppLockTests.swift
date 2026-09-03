@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import XCTest
+import UIKit
 
 @testable import SSHBorg
 
@@ -36,7 +37,8 @@ final class AppLockTests: XCTestCase {
         let lock = AppLock(
             preferences: preferences(mode: mode, timeout: timeout),
             ask: { await asker.ask($0) },
-            isAuthenticationPossible: { possible }
+            isAuthenticationPossible: { possible },
+            center: NotificationCenter()
         )
         return (lock, asker)
     }
@@ -50,7 +52,7 @@ final class AppLockTests: XCTestCase {
     }
 
     func testWithoutALockTheAppStartsOpen() {
-        let lock = AppLock(preferences: preferences(mode: .none))
+        let lock = AppLock(preferences: preferences(mode: .none), center: NotificationCenter())
         XCTAssertFalse(lock.isLocked)
     }
 
@@ -58,21 +60,73 @@ final class AppLockTests: XCTestCase {
     /// authentication for it to be measured against.
     func testWithALockTheAppStartsLocked() {
         for mode in [AppPreferences.LockMode.biometric, .device] {
-            let lock = AppLock(preferences: preferences(mode: mode, timeout: 1800))
+            let lock = AppLock(preferences: preferences(mode: mode, timeout: 1800), center: NotificationCenter())
             XCTAssertTrue(lock.isLocked, "mode \(mode) started unlocked")
         }
+    }
+
+    /// UIKit's own notification raises the cover, not just the scene phase.
+    ///
+    /// Reported from the device on 03/09/2026: leaving the app sometimes showed
+    /// the host list for a moment first. SwiftUI's `scenePhase` needs a render
+    /// pass that is not guaranteed to land before iOS photographs the app, so
+    /// the lock listens for `willResignActiveNotification` too — delivered
+    /// synchronously during the transition.
+    func testTheSystemNotificationAloneRaisesTheCover() {
+        let center = NotificationCenter()
+        let lock = AppLock(
+            preferences: preferences(mode: .biometric),
+            ask: { _ in true },
+            isAuthenticationPossible: { true },
+            center: center
+        )
+        // Simulate a cold start that got as far as unlocking.
+        lock.willResignActive()
+        XCTAssertTrue(lock.isLocked)
+
+        center.post(name: UIApplication.willResignActiveNotification, object: nil)
+        XCTAssertTrue(lock.isLocked, "the notification did not raise the cover")
+    }
+
+    /// Both paths lead to the same flag, so arriving twice must be harmless.
+    func testBothPathsTogetherAreIdempotent() {
+        let center = NotificationCenter()
+        let lock = AppLock(
+            preferences: preferences(mode: .biometric),
+            ask: { _ in true },
+            isAuthenticationPossible: { true },
+            center: center
+        )
+        center.post(name: UIApplication.willResignActiveNotification, object: nil)
+        lock.willResignActive()
+        center.post(name: UIApplication.willResignActiveNotification, object: nil)
+        XCTAssertTrue(lock.isLocked)
+    }
+
+    /// With no lock configured, the notification must not raise anything —
+    /// a cover nobody asked for is a wall with no door behind it.
+    func testTheNotificationCoversNothingWithoutALock() {
+        let center = NotificationCenter()
+        let lock = AppLock(
+            preferences: preferences(mode: .none),
+            ask: { _ in true },
+            isAuthenticationPossible: { true },
+            center: center
+        )
+        center.post(name: UIApplication.willResignActiveNotification, object: nil)
+        XCTAssertFalse(lock.isLocked)
     }
 
     /// The cover has to be up before the app leaves the screen, or the app
     /// switcher photographs the host list.
     func testLeavingCoversTheApp() {
-        let lock = AppLock(preferences: preferences(mode: .biometric))
+        let lock = AppLock(preferences: preferences(mode: .biometric), center: NotificationCenter())
         lock.willResignActive()
         XCTAssertTrue(lock.isLocked)
     }
 
     func testWithoutALockLeavingCoversNothing() {
-        let lock = AppLock(preferences: preferences(mode: .none))
+        let lock = AppLock(preferences: preferences(mode: .none), center: NotificationCenter())
         lock.willResignActive()
         XCTAssertFalse(lock.isLocked)
     }
@@ -81,7 +135,7 @@ final class AppLockTests: XCTestCase {
     /// cover was left in — otherwise turning the lock off leaves the app stuck
     /// behind a gate that no longer exists.
     func testComingBackWithoutALockOpens() async {
-        let lock = AppLock(preferences: preferences(mode: .none))
+        let lock = AppLock(preferences: preferences(mode: .none), center: NotificationCenter())
         lock.willResignActive()
         await lock.didBecomeActive()
         XCTAssertFalse(lock.isLocked)
@@ -89,7 +143,7 @@ final class AppLockTests: XCTestCase {
 
     func testSwitchingTheLockOffUnlocksImmediately() {
         let preferences = preferences(mode: .biometric)
-        let lock = AppLock(preferences: preferences)
+        let lock = AppLock(preferences: preferences, center: NotificationCenter())
         XCTAssertTrue(lock.isLocked)
 
         preferences.lockMode = .none
@@ -189,7 +243,7 @@ final class AppLockTests: XCTestCase {
     /// for the next time they come back.
     func testSwitchingTheLockOnDoesNotLockTheAppUnderneath() {
         let preferences = preferences(mode: .none)
-        let lock = AppLock(preferences: preferences)
+        let lock = AppLock(preferences: preferences, center: NotificationCenter())
         XCTAssertFalse(lock.isLocked)
 
         preferences.lockMode = .biometric

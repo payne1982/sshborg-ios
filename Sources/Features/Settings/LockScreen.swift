@@ -20,6 +20,27 @@ struct LockScreen: View {
     let isAsking: Bool
     let onRetry: () -> Void
 
+    /// Forces the way out to appear even if nothing ever says the asking is
+    /// over.
+    ///
+    /// `isAsking` is set before the system prompt and cleared after it, so if
+    /// that call never returns it is never cleared — and this view would sit
+    /// there opaque, with no text and no button, indistinguishable from a hung
+    /// app and with no way past it. A cover that cannot be dismissed is worse
+    /// than no cover: it locks the owner out of their own hosts.
+    ///
+    /// Raised as a concern from the Android app on 03/09/2026, where covers
+    /// were reported staying up by mistake. The rule taken from it: never show
+    /// a wall without a guaranteed way through, and do not make that guarantee
+    /// depend on the thing that might be stuck.
+    @State private var hasWaitedForPrompt = false
+
+    /// The system prompt takes about a second to appear and answer. Three is
+    /// long enough not to race it and short enough not to feel hung.
+    private static let promptGracePeriod = Duration.seconds(3)
+
+    private var showsControls: Bool { !isAsking || hasWaitedForPrompt }
+
     var body: some View {
         ZStack {
             // Opaque, not a material: the whole point is that nothing behind it
@@ -36,7 +57,7 @@ struct LockScreen: View {
                 Text(.appName)
                     .font(.headline)
 
-                if !isAsking {
+                if showsControls {
                     Text(.biometricPromptSubtitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -53,6 +74,10 @@ struct LockScreen: View {
                 }
             }
             .padding(32)
+        }
+        .task {
+            try? await Task.sleep(for: Self.promptGracePeriod)
+            hasWaitedForPrompt = true
         }
     }
 }

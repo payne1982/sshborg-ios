@@ -3,6 +3,7 @@
 import Foundation
 import Perception
 import SwiftUI
+import UIKit
 
 /// Whether the app is showing its contents or hiding them behind an
 /// authentication gate. Counterpart of what Android's `MainActivity` does in
@@ -52,6 +53,9 @@ final class AppLock {
 
     @PerceptionIgnored private let preferences: AppPreferences
 
+    /// Kept only so it can be removed; never read.
+    @PerceptionIgnored private var resignObserver: NSObjectProtocol?
+
     /// How to ask, and whether asking is possible at all.
     ///
     /// Injected rather than called directly so the sequencing here — what
@@ -70,7 +74,8 @@ final class AppLock {
                 mode: mode
             )
         },
-        isAuthenticationPossible: @escaping () -> Bool = BiometricLock.canAuthenticate
+        isAuthenticationPossible: @escaping () -> Bool = BiometricLock.canAuthenticate,
+        center: NotificationCenter = .default
     ) {
         self.preferences = preferences
         self.ask = ask
@@ -78,6 +83,39 @@ final class AppLock {
         // Locked from the very first frame when the lock is on, rather than
         // showing the host list and covering it a moment later.
         self.isLocked = Self.shouldLock(preferences, isAuthenticationPossible)
+
+        // The cover is also raised straight from UIKit, and not only from the
+        // scene phase the app watches.
+        //
+        // Reported from the device on 03/09/2026: leaving the app sometimes
+        // showed the host list for a moment before the cover arrived. SwiftUI's
+        // `scenePhase` is delivered through its own state propagation, so the
+        // cover needs a render pass that is not guaranteed to happen before iOS
+        // takes the app-switcher snapshot. `willResignActiveNotification` is
+        // delivered synchronously during the transition, which is as early as
+        // this can be asked for.
+        //
+        // Both paths call the same method and it only ever sets a flag to true,
+        // so arriving twice costs nothing. Deliberately *added to* the scene
+        // phase rather than replacing it: two independent ways to raise a
+        // privacy cover is the right number, and only one way to lower it.
+        //
+        // ⚠️ Nothing here can leave a cover stuck. The state is the same Bool
+        // the rest of the class owns, and `didBecomeActive` clears it; this adds
+        // no window and no view of its own. See the note there.
+        resignObserver = center.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.willResignActive() }
+        }
+    }
+
+    deinit {
+        if let resignObserver {
+            NotificationCenter.default.removeObserver(resignObserver)
+        }
     }
 
     /// Whether the gate can be raised at all.
