@@ -91,7 +91,17 @@ struct TerminalScreen: View {
                     // With the keyboard, or without it when pinned. Showing it
                     // unconditionally — which is what happened before — left the
                     // pin controlling nothing at all.
-                    if keyboard.isVisible || environment.preferences.extraKeysBarPinned {
+                    //
+                    // Read into a constant first, because `||` short-circuits.
+                    // Written inline after `keyboard.isVisible`, the preference
+                    // was never read while the keyboard was up — which is
+                    // exactly when the pin is pressed — so no dependency on it
+                    // was ever registered, nothing re-rendered, and the pin's
+                    // own icon never changed. The value did change underneath;
+                    // nobody was watching. Reported from the device on
+                    // 03/09/2026 as "it is as if the button were not a button".
+                    let isPinned = environment.preferences.extraKeysBarPinned
+                    if keyboard.isVisible || isPinned {
                         ExtraKeyRow(
                             session: session,
                             isPinned: $preferences.extraKeysBarPinned

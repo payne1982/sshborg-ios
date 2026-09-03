@@ -68,6 +68,18 @@ struct TerminalHostView: UIViewRepresentable {
             previous?.removeFromSuperview()
         }
 
+        #if DEBUG
+        var g = KeyboardDiagnostics.geometry(of: terminal)
+        // The grid SwiftTerm believes it has, next to the pixels it was given.
+        // If the rows do not shrink when the keyboard arrives, the view is
+        // taller than what can be seen — which is the reported symptom.
+        let grid = terminal.getTerminal()
+        g["cols"] = grid.cols
+        g["rows"] = grid.rows
+        g["fontH"] = String(format: "%.1f", terminal.font.lineHeight)
+        KeyboardDiagnostics.log("layout", g)
+        #endif
+
         let size = CGFloat(fontSize)
         let wanted = TerminalFont.regular(size: size)
         // Compare the family too: the size alone would not notice the very first

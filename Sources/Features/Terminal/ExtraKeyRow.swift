@@ -148,7 +148,30 @@ struct ExtraKeyRow: View {
     /// Decided 12/08/2026: a visible key beats a clever gesture here.
     private var hideKeyboard: some View {
         Button {
-            session.terminalView.resignFirstResponder()
+            #if DEBUG
+            KeyboardDiagnostics.log("hideKey.before", [
+                "responder": KeyboardDiagnostics.firstResponderDescription(),
+                "termIsFR": session.terminalView.isFirstResponder,
+            ])
+            let resigned = session.terminalView.resignFirstResponder()
+            KeyboardDiagnostics.log("hideKey.after", [
+                "returned": resigned,
+                "responder": KeyboardDiagnostics.firstResponderDescription(),
+                "termIsFR": session.terminalView.isFirstResponder,
+            ])
+            // Half a second later: if focus is back, something re-took it and
+            // the key worked. If it never left, the call itself did nothing.
+            let view = session.terminalView
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(500))
+                KeyboardDiagnostics.log("hideKey.settled", [
+                    "responder": KeyboardDiagnostics.firstResponderDescription(),
+                    "termIsFR": view.isFirstResponder,
+                ])
+            }
+            #else
+            _ = session.terminalView.resignFirstResponder()
+            #endif
         } label: {
             Image(systemName: "keyboard.chevron.compact.down")
                 .font(.system(size: 14))
