@@ -101,6 +101,23 @@ struct ExtraKeyRow: View {
             }
             .background(Color(.tertiarySystemBackground))
             #if DEBUG
+            // Where a finger actually lands on this bar, in the same coordinates
+            // as `barFrame`. The device says the terminal stops exactly where
+            // this bar starts — 485 both — so nothing overlaps, and yet the top
+            // of the keys does not answer unless something is put between them.
+            // If a tap near the top logs here, the bar received it and something
+            // inside swallowed it; if it does not, something above took it.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                    .onChanged { value in
+                        KeyboardDiagnostics.logIfChanged("barTouch", [
+                            "y": Int(value.location.y),
+                            "x": Int(value.location.x),
+                        ])
+                    }
+            )
+            #endif
+            #if DEBUG
             // Reported 04/09/2026: the top of every key is dead, and a press
             // only lands from the label downwards. Either the touchable region
             // sits below where the bar is drawn, or something above covers the
@@ -108,8 +125,13 @@ struct ExtraKeyRow: View {
             // which — and by how much.
             .background(
                 GeometryReader { proxy in
-                    Color.clear.onAppear {
-                        let f = proxy.frame(in: .global)
+                    // Every change, not just `onAppear`: measured once, the
+                    // frame is stale by the time a finger lands, and the device
+                    // reported touches at y=469 against a bar whose only
+                    // recorded frame started at 485. That gap is the thing being
+                    // investigated, so the measurement must not be the thing
+                    // producing it.
+                    Color.clear.onValueChange(of: proxy.frame(in: .global), initial: true) { f in
                         KeyboardDiagnostics.logIfChanged("barFrame", [
                             "minY": Int(f.minY), "maxY": Int(f.maxY),
                             "h": Int(f.height),

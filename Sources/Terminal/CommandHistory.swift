@@ -116,7 +116,15 @@ struct CommandHistory: Sendable {
 enum PromptParser {
 
     /// The characters a shell prompt conventionally ends with.
-    private static let terminators: [Character] = ["$", "#", ">", "%"]
+    ///
+    /// `❯` (U+276F) matters more than it looks: it is what Starship,
+    /// Powerlevel10k and most Nerd Font prompts end with, and this app ships
+    /// JetBrains Mono Nerd Font precisely so those prompts render. Android's
+    /// regex has carried it from the start — `[\$#%❯>]` — and this list did
+    /// not, so on a host whose prompt ends in an arrow the whole line went
+    /// unrecognised, `typedPortion` returned nil, and no suggestion ever
+    /// appeared. Reported 05/09/2026 as working on Android for the same host.
+    private static let terminators: [Character] = ["$", "#", ">", "%", "❯"]
 
     /// Strips the prompt from a terminal line, returning what was typed.
     ///

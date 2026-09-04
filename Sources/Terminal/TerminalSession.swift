@@ -110,6 +110,22 @@ final class TerminalSession: Identifiable {
     /// separate, deliberate act in the host editor.
     @PerceptionIgnored private var passwordForThisAttempt: String?
 
+    /// The credential that just worked, kept only until the history has been
+    /// fetched and then dropped.
+    ///
+    /// History opens a second connection of its own, and by the time it runs the
+    /// typed password is already gone — `passwordForThisAttempt` is cleared the
+    /// instant the shell is up. So `resolveAuth(typedPassword: nil)` had nothing
+    /// left to return for a host whose password is typed rather than saved, and
+    /// the suggestion bar never appeared. Reported 05/09/2026 as working on
+    /// Android for the same host, which reuses `lastConnectParams` directly.
+    ///
+    /// Deliberately *not* the same thing as keeping the password for the session.
+    /// `reconnectAutomatically` still refuses to reuse a typed password, and that
+    /// stays refused: this is held for the seconds between connecting and reading
+    /// one file, and `loadHistory` clears it in a `defer` whichever way it exits.
+    @PerceptionIgnored private var authForHistory: SSHAuth?
+
     /// The last size the view actually reported, as opposed to the one the
     /// terminal object carries before it has ever been laid out.
     @PerceptionIgnored private var measuredSize: (columns: Int, rows: Int)?
@@ -142,6 +158,18 @@ final class TerminalSession: Identifiable {
         bridge.session = self
         self.bridge = bridge
         terminalView.terminalDelegate = bridge
+
+        // Without this SwiftTerm never calls `rangeChanged`, and it defaults to
+        // false. That single line is why the suggestion bar stayed empty: the
+        // history loaded (382 commands, confirmed on the device), the prompt
+        // parsed, the matching worked — and nothing ever asked for it, because
+        // the delegate callback that drives it was switched off at the source.
+        //
+        // Found on 05/09/2026 by instrumenting the chain and finding not one of
+        // `change`, `scheduled` or `debounceFired` in a full session's log. An
+        // absence, rather than a wrong value, which is why reading the code had
+        // not turned it up: everything on our side was correct.
+        terminalView.notifyUpdateChanges = true
     }
 
     deinit {
@@ -201,6 +229,9 @@ final class TerminalSession: Identifiable {
             self.sshSession = session
             self.channel = channel
             phase = .connected
+            // Handed to the history fetch, which runs next and cannot ask for a
+            // credential of its own; see `authForHistory`.
+            authForHistory = params.auth
             passwordForThisAttempt = nil
 
             // Open a session and the keyboard is there, as on Android, where the
@@ -559,12 +590,25 @@ final class TerminalSession: Identifiable {
     /// The terminal redrew. Recompute suggestions, debounced: output arrives in
     /// bursts and rescanning on every chunk would be wasted work.
     fileprivate func terminalDidChange() {
+        #if DEBUG
+        // Fires on every redraw, so `logIfChanged` keeps it to one line per
+        // distinct state: enough to tell "the delegate never calls us" from
+        // "it calls us and the guard sends us home".
+        KeyboardDiagnostics.logIfChanged("change", ["historyCount": history.commands.count])
+        #endif
         guard !history.commands.isEmpty else { return }
+
+        #if DEBUG
+        KeyboardDiagnostics.logIfChanged("scheduled", ["historyCount": history.commands.count])
+        #endif
 
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 120_000_000)
             guard !Task.isCancelled else { return }
+            #if DEBUG
+            KeyboardDiagnostics.logIfChanged("debounceFired", [:])
+            #endif
             await MainActor.run { self?.refreshSuggestions() }
         }
     }
@@ -583,10 +627,29 @@ final class TerminalSession: Identifiable {
         let visible = line.translateToString(trimRight: true, startCol: 0, endCol: max(0, cursor.x))
 
         guard let typed = PromptParser.typedPortion(of: visible) else {
+            #if DEBUG
+            // The other place the bar can stay empty with everything loaded: the
+            // prompt was not recognised, so there is no "typed portion" to match
+            // against. Logs the raw line so a prompt shape we do not parse can be
+            // seen rather than guessed at.
+            KeyboardDiagnostics.logIfChanged("suggest", [
+                "step": "noPrompt",
+                "line": String(visible.suffix(60)),
+                "historyCount": history.commands.count,
+            ])
+            #endif
             suggestions = []
             return
         }
         suggestions = history.suggestions(for: typed)
+        #if DEBUG
+        KeyboardDiagnostics.logIfChanged("suggest", [
+            "step": "matched",
+            "typed": typed,
+            "hits": suggestions.count,
+            "historyCount": history.commands.count,
+        ])
+        #endif
     }
 
     /// Accepts a suggestion by replacing what is on the line with it.
@@ -605,9 +668,36 @@ final class TerminalSession: Identifiable {
     /// offer. Best effort and silent: a missing history file is normal, and it
     /// is not worth interrupting a working terminal over.
     func loadHistory(preferences: AppPreferences) async {
-        guard preferences.historySuggestions else { return }
+        // Every exit below is silent, which is why "the suggestion bar never
+        // appears" carried no information at all. Named, temporarily, so the
+        // device can say which one it takes.
+        #if DEBUG
+        func note(_ step: String, _ extra: [String: Any] = [:]) {
+            var d = extra
+            d["step"] = step
+            KeyboardDiagnostics.log("history", d)
+        }
+        #else
+        func note(_ step: String, _ extra: [String: Any] = [:]) {}
+        #endif
 
-        guard let auth = try? await resolveAuth(typedPassword: nil) else { return }
+        guard preferences.historySuggestions else { return note("disabledInSettings") }
+
+        // The credential that just worked, not a fresh resolution: by now the
+        // typed password has been cleared, and asking again would come back
+        // empty for any host whose password is not saved.
+        defer { authForHistory = nil }
+        // Written out rather than with `??`: that operator takes an autoclosure,
+        // which cannot be async, so the fallback has to be a statement.
+        let resolved: SSHAuth?
+        if let working = authForHistory {
+            resolved = working
+        } else {
+            resolved = try? await resolveAuth(typedPassword: nil)
+        }
+        guard let auth = resolved else {
+            return note("noCredential", ["hasKey": host.keyId != nil])
+        }
 
         // Same path as everything else, so a host behind a bastion gets its
         // history too. `acceptOnce` is safe here and only here: the terminal
@@ -621,18 +711,36 @@ final class TerminalSession: Identifiable {
         // History is a background convenience; it must not open listeners.
         params.portForwardings = []
 
-        guard let sftp = try? await SFTPSession.connect(params) else { return }
+        guard let sftp = try? await SFTPSession.connect(params) else {
+            return note("sftpConnectFailed")
+        }
         defer { sftp.disconnect() }
 
         var loaded: [CommandHistory] = []
+        var found: [String] = []
         for name in CommandHistory.candidatePaths {
             let path = sftp.homePath == "/" ? "/\(name)" : "\(sftp.homePath)/\(name)"
             if let data = try? await sftp.readSmallFile(at: path) {
+                found.append("\(name):\(data.count)")
                 loaded.append(CommandHistory.parse(data))
             }
         }
 
         history = CommandHistory.merging(loaded)
+
+        // Recompute now. Suggestions are otherwise driven only by `rangeChanged`,
+        // and the history usually finishes loading a second or two after the
+        // prompt has settled — by which point the terminal has nothing left to
+        // redraw, so nothing asks again until the next keystroke. Sitting at a
+        // prompt with something already typed would show an empty bar for no
+        // reason the user could see.
+        refreshSuggestions()
+
+        note("loaded", [
+            "home": sftp.homePath,
+            "files": found.isEmpty ? "none" : found.joined(separator: ","),
+            "commands": history.commands.count,
+        ])
     }
 }
 

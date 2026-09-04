@@ -119,6 +119,17 @@ final class CommandHistoryTests: XCTestCase {
         XCTAssertEqual(PromptParser.typedPortion(of: "box% make"), "make")
     }
 
+    /// The Starship / Powerlevel10k arrow, which this list did not have until
+    /// 05/09/2026 while Android's regex always did.
+    ///
+    /// It is not an exotic case: the app bundles a Nerd Font so exactly these
+    /// prompts render, and on a host using one the suggestion bar could never
+    /// appear — `typedPortion` returned nil for every line.
+    func testAnArrowPromptIsRecognised() {
+        XCTAssertEqual(PromptParser.typedPortion(of: "~/src ❯ git pu"), "git pu")
+        XCTAssertEqual(PromptParser.typedPortion(of: "❯ ls -la"), "ls -la")
+    }
+
     /// A prompt carrying a path with a terminator in it must not confuse the
     /// split — the *last* one wins.
     func testLastTerminatorWins() {
