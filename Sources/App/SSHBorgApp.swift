@@ -23,10 +23,6 @@ struct SSHBorgApp: App {
             // every pass and, on iOS 16, a cover that would never come down.
             WithPerceptionTracking {
                 ZStack {
-                    #if DEBUG
-                    Color.clear.frame(width: 0, height: 0)
-                        .task { KeyboardDiagnostics.startStallWatchdog() }
-                    #endif
 
                     RootView()
                         .environment(\.appEnvironment, Self.environment)

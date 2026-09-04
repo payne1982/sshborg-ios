@@ -31,18 +31,6 @@ final class KeyboardVisibility {
             ) { [weak self] note in
                 MainActor.assumeIsolated {
                     self?.isVisible = true
-                    #if DEBUG
-                    // The keyboard's own idea of how much room it takes. The
-                    // reported symptom is that the terminal keeps two rows more
-                    // than fit, and 45pt — the system assistant bar this app
-                    // removes — is about two rows. This is the number that
-                    // decides whether that coincidence means anything.
-                    let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-                    KeyboardDiagnostics.log("keyboard.show", [
-                        "height": Int(frame?.height ?? -1),
-                        "y": Int(frame?.origin.y ?? -1),
-                    ])
-                    #endif
                 }
             },
             center.addObserver(
@@ -52,9 +40,6 @@ final class KeyboardVisibility {
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.isVisible = false
-                    #if DEBUG
-                    KeyboardDiagnostics.log("keyboard.hide")
-                    #endif
                 }
             },
         ]

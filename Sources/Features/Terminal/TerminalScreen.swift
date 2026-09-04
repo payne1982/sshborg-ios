@@ -45,6 +45,28 @@ struct TerminalScreen: View {
         }
     }
 
+    /// Height of the margin below the terminal. See its use site.
+    ///
+    /// 16, measured by trying: 10 was tried on the phone and the top of the keys
+    /// went dead again, so the strip the terminal takes is wider than the ~11
+    /// points the key geometry suggested. 16 is the value that worked, twice.
+    private static let terminalTouchMargin: CGFloat = 16
+
+    /// What the terminal's backing is actually painted, which the margin has to
+    /// match to be invisible.
+    ///
+    /// ⚠️ Hardcoded, and it should not have to be. `TerminalHostView` paints its
+    /// container black by hand because SwiftTerm's `nativeBackgroundColor` is
+    /// only ever what someone assigned to it, and nothing here assigns it — so
+    /// it reports the library default, white, which is exactly what this margin
+    /// came out as when it followed that property.
+    ///
+    /// The reason nothing assigns it is worth its own note: the
+    /// `terminalColorScheme` preference is offered in Settings and carried in
+    /// backups, and **no code reads it to colour anything**. Until that is
+    /// wired up there is only one terminal appearance, and this matches it.
+    private static let terminalBackground = Color.black
+
     @ViewBuilder
     private func terminal(for session: TerminalSession) -> some View {
         ZStack {
@@ -94,6 +116,33 @@ struct TerminalScreen: View {
             @Perception.Bindable var preferences = environment.preferences
 
             VStack(spacing: 0) {
+                // A margin between the terminal and everything below it, in the
+                // terminal's own colour so it reads as part of the terminal
+                // rather than as a seam.
+                //
+                // Whatever sits directly under the terminal loses its top few
+                // points — the key bar when it is closest, the suggestion bar
+                // when that is. It follows the boundary and not the control,
+                // which is what ruled the buttons out: "I can only click the
+                // suggestions in their lower part". The frames do not overlap
+                // (terminal ends at 485, bar starts at 485, measured on the
+                // device), so this is gesture arbitration, and no `contentShape`
+                // on a button reaches it.
+                //
+                // It has to be *here*, outside the terminal's representable.
+                // Two earlier attempts put it inside — first refusing touches
+                // along the container's bottom edge, then insetting the terminal
+                // within its own container — and neither changed anything: the
+                // boundary that matters is the one SwiftUI lays out, not the one
+                // inside. "The bar must be outside the terminal", as he put it.
+                //
+                // `allowsHitTesting(false)`: nothing here is meant to be
+                // pressable. It is a sacrificial margin, and it costs a row.
+                Self.terminalBackground
+                    .frame(height: Self.terminalTouchMargin)
+                    .allowsHitTesting(false)
+
+
                 // Not gated on the phase: switching away from a session that
                 // failed is exactly when the tabs are needed most.
                 if manager.sessions.count > 1 {

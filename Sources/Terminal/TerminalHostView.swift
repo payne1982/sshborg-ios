@@ -28,9 +28,16 @@ struct TerminalHostView: UIViewRepresentable {
     let session: TerminalSession
     var fontSize: Int
 
+
     func makeUIView(context: Context) -> UIView {
         let container = UIView()
         // Matches the terminal underneath it, so a resize never flashes white.
+        //
+        // Black by hand, and it has to stay that way for now: SwiftTerm's own
+        // `nativeBackgroundColor` is whatever was last assigned to it, and
+        // nothing here ever assigns it, so it answers with the library's default
+        // — white. Following it turned this white too. See
+        // `TerminalScreen.terminalBackground`.
         container.backgroundColor = .black
         return container
     }
@@ -68,25 +75,6 @@ struct TerminalHostView: UIViewRepresentable {
             previous?.removeFromSuperview()
         }
 
-        #if DEBUG
-        var g = KeyboardDiagnostics.geometry(of: terminal)
-        // The grid SwiftTerm believes it has, next to the pixels it was given.
-        // If the rows do not shrink when the keyboard arrives, the view is
-        // taller than what can be seen — which is the reported symptom.
-        let grid = terminal.getTerminal()
-        g["cols"] = grid.cols
-        g["rows"] = grid.rows
-        g["fontH"] = String(format: "%.1f", terminal.font.lineHeight)
-        // In window coordinates, so it can be compared with the bar's frame
-        // directly. If the terminal's maxY runs past the bar's minY, the bar's
-        // top is underneath it and that is where the touches are going.
-        if let window = terminal.window {
-            let f = terminal.convert(terminal.bounds, to: window)
-            g["winMinY"] = Int(f.minY)
-            g["winMaxY"] = Int(f.maxY)
-        }
-        KeyboardDiagnostics.logIfChanged("layout", g)
-        #endif
 
         let size = CGFloat(fontSize)
         let wanted = TerminalFont.regular(size: size)

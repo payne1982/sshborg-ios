@@ -100,46 +100,6 @@ struct ExtraKeyRow: View {
                 .padding(.vertical, 3)
             }
             .background(Color(.tertiarySystemBackground))
-            #if DEBUG
-            // Where a finger actually lands on this bar, in the same coordinates
-            // as `barFrame`. The device says the terminal stops exactly where
-            // this bar starts — 485 both — so nothing overlaps, and yet the top
-            // of the keys does not answer unless something is put between them.
-            // If a tap near the top logs here, the bar received it and something
-            // inside swallowed it; if it does not, something above took it.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                    .onChanged { value in
-                        KeyboardDiagnostics.logIfChanged("barTouch", [
-                            "y": Int(value.location.y),
-                            "x": Int(value.location.x),
-                        ])
-                    }
-            )
-            #endif
-            #if DEBUG
-            // Reported 04/09/2026: the top of every key is dead, and a press
-            // only lands from the label downwards. Either the touchable region
-            // sits below where the bar is drawn, or something above covers the
-            // top of it. These two frames, in the same coordinate space, say
-            // which — and by how much.
-            .background(
-                GeometryReader { proxy in
-                    // Every change, not just `onAppear`: measured once, the
-                    // frame is stale by the time a finger lands, and the device
-                    // reported touches at y=469 against a bar whose only
-                    // recorded frame started at 485. That gap is the thing being
-                    // investigated, so the measurement must not be the thing
-                    // producing it.
-                    Color.clear.onValueChange(of: proxy.frame(in: .global), initial: true) { f in
-                        KeyboardDiagnostics.logIfChanged("barFrame", [
-                            "minY": Int(f.minY), "maxY": Int(f.maxY),
-                            "h": Int(f.height),
-                        ])
-                    }
-                }
-            )
-            #endif
         }
     }
 
@@ -159,14 +119,19 @@ struct ExtraKeyRow: View {
         repeatsOnHold: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        if repeatsOnHold {
-            RepeatingKey(label: label, action: action)
-        } else {
-            Button(action: action) {
-                KeyFace(label: label)
-            }
-            .buttonStyle(.plain)
-        }
+        // Every key on its own gesture, repeating or not.
+        //
+        // A `Button` fires on release and loses the touch to whatever else is
+        // competing for it; `RepeatingKey` acts the moment a finger lands and
+        // wins. That is why the arrows always felt more reliable than the rest.
+        //
+        // Proved by accident on 05/09/2026: a diagnostic gesture spanning the
+        // whole bar made the top of every key answer — and stopped the bar
+        // scrolling, because one gesture across the whole scroll view swallows
+        // the pan. Per-key gestures do not: he confirmed scrolling still worked
+        // when this was tried before, and it was reverted then for the wrong
+        // reason.
+        RepeatingKey(label: label, action: action, repeats: repeatsOnHold)
     }
 
     /// iPhone only. Android dismisses the keyboard with the system Back button
@@ -189,30 +154,7 @@ struct ExtraKeyRow: View {
     /// Decided 12/08/2026: a visible key beats a clever gesture here.
     private var hideKeyboard: some View {
         Button {
-            #if DEBUG
-            KeyboardDiagnostics.log("hideKey.before", [
-                "responder": KeyboardDiagnostics.firstResponderDescription(),
-                "termIsFR": session.terminalView.isFirstResponder,
-            ])
-            let resigned = session.terminalView.resignFirstResponder()
-            KeyboardDiagnostics.log("hideKey.after", [
-                "returned": resigned,
-                "responder": KeyboardDiagnostics.firstResponderDescription(),
-                "termIsFR": session.terminalView.isFirstResponder,
-            ])
-            // Half a second later: if focus is back, something re-took it and
-            // the key worked. If it never left, the call itself did nothing.
-            let view = session.terminalView
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(500))
-                KeyboardDiagnostics.log("hideKey.settled", [
-                    "responder": KeyboardDiagnostics.firstResponderDescription(),
-                    "termIsFR": view.isFirstResponder,
-                ])
-            }
-            #else
             _ = session.terminalView.resignFirstResponder()
-            #endif
         } label: {
             Image(systemName: "keyboard.chevron.compact.down")
                 .font(.system(size: 14))
@@ -371,6 +313,11 @@ private struct RepeatingKey: View {
     let label: String
     let action: () -> Void
 
+    /// Whether holding keeps firing. Off for keys where repeating would be a
+    /// bug rather than a feature — Esc, Tab, the function keys — which still
+    /// need the same touch-down gesture to be reliably pressable.
+    var repeats = true
+
     @State private var repeatTask: Task<Void, Never>?
     @State private var isPressed = false
 
@@ -401,6 +348,16 @@ private struct RepeatingKey: View {
                 isPressed = true
                 action()
 
+                // Hold the pressed face long enough to be seen. Without it the
+                // highlight lasts a few milliseconds and a key that worked is
+                // indistinguishable from one that did not — Esc and ← at an
+                // empty prompt have no visible effect of their own.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(120))
+                    if repeatTask == nil { isPressed = false }
+                }
+
+                guard repeats else { return }
                 repeatTask = Task {
                     try? await Task.sleep(for: Self.initialDelay)
                     while !Task.isCancelled {

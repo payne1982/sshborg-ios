@@ -590,25 +590,13 @@ final class TerminalSession: Identifiable {
     /// The terminal redrew. Recompute suggestions, debounced: output arrives in
     /// bursts and rescanning on every chunk would be wasted work.
     fileprivate func terminalDidChange() {
-        #if DEBUG
-        // Fires on every redraw, so `logIfChanged` keeps it to one line per
-        // distinct state: enough to tell "the delegate never calls us" from
-        // "it calls us and the guard sends us home".
-        KeyboardDiagnostics.logIfChanged("change", ["historyCount": history.commands.count])
-        #endif
         guard !history.commands.isEmpty else { return }
 
-        #if DEBUG
-        KeyboardDiagnostics.logIfChanged("scheduled", ["historyCount": history.commands.count])
-        #endif
 
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 120_000_000)
             guard !Task.isCancelled else { return }
-            #if DEBUG
-            KeyboardDiagnostics.logIfChanged("debounceFired", [:])
-            #endif
             await MainActor.run { self?.refreshSuggestions() }
         }
     }
@@ -627,29 +615,10 @@ final class TerminalSession: Identifiable {
         let visible = line.translateToString(trimRight: true, startCol: 0, endCol: max(0, cursor.x))
 
         guard let typed = PromptParser.typedPortion(of: visible) else {
-            #if DEBUG
-            // The other place the bar can stay empty with everything loaded: the
-            // prompt was not recognised, so there is no "typed portion" to match
-            // against. Logs the raw line so a prompt shape we do not parse can be
-            // seen rather than guessed at.
-            KeyboardDiagnostics.logIfChanged("suggest", [
-                "step": "noPrompt",
-                "line": String(visible.suffix(60)),
-                "historyCount": history.commands.count,
-            ])
-            #endif
             suggestions = []
             return
         }
         suggestions = history.suggestions(for: typed)
-        #if DEBUG
-        KeyboardDiagnostics.logIfChanged("suggest", [
-            "step": "matched",
-            "typed": typed,
-            "hits": suggestions.count,
-            "historyCount": history.commands.count,
-        ])
-        #endif
     }
 
     /// Accepts a suggestion by replacing what is on the line with it.
@@ -668,20 +637,12 @@ final class TerminalSession: Identifiable {
     /// offer. Best effort and silent: a missing history file is normal, and it
     /// is not worth interrupting a working terminal over.
     func loadHistory(preferences: AppPreferences) async {
-        // Every exit below is silent, which is why "the suggestion bar never
-        // appears" carried no information at all. Named, temporarily, so the
-        // device can say which one it takes.
-        #if DEBUG
-        func note(_ step: String, _ extra: [String: Any] = [:]) {
-            var d = extra
-            d["step"] = step
-            KeyboardDiagnostics.log("history", d)
-        }
-        #else
-        func note(_ step: String, _ extra: [String: Any] = [:]) {}
-        #endif
-
-        guard preferences.historySuggestions else { return note("disabledInSettings") }
+        // ⚠️ Every exit below is silent, and that cost a day: "the suggestion
+        // bar never appears" carried no information about which of five places
+        // it stopped at. Instrumenting them temporarily is what found the real
+        // cause, which was none of them. If this needs debugging again, name the
+        // exits again before guessing at them.
+        guard preferences.historySuggestions else { return }
 
         // The credential that just worked, not a fresh resolution: by now the
         // typed password has been cleared, and asking again would come back
@@ -696,7 +657,7 @@ final class TerminalSession: Identifiable {
             resolved = try? await resolveAuth(typedPassword: nil)
         }
         guard let auth = resolved else {
-            return note("noCredential", ["hasKey": host.keyId != nil])
+            return
         }
 
         // Same path as everything else, so a host behind a bastion gets its
@@ -712,16 +673,14 @@ final class TerminalSession: Identifiable {
         params.portForwardings = []
 
         guard let sftp = try? await SFTPSession.connect(params) else {
-            return note("sftpConnectFailed")
+            return
         }
         defer { sftp.disconnect() }
 
         var loaded: [CommandHistory] = []
-        var found: [String] = []
         for name in CommandHistory.candidatePaths {
             let path = sftp.homePath == "/" ? "/\(name)" : "\(sftp.homePath)/\(name)"
             if let data = try? await sftp.readSmallFile(at: path) {
-                found.append("\(name):\(data.count)")
                 loaded.append(CommandHistory.parse(data))
             }
         }
@@ -736,11 +695,6 @@ final class TerminalSession: Identifiable {
         // reason the user could see.
         refreshSuggestions()
 
-        note("loaded", [
-            "home": sftp.homePath,
-            "files": found.isEmpty ? "none" : found.joined(separator: ","),
-            "commands": history.commands.count,
-        ])
     }
 }
 

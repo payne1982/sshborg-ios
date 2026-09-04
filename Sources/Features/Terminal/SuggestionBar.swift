@@ -29,21 +29,35 @@ struct SuggestionBar: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(suggestions, id: \.self) { command in
-                        Button {
-                            onSelect(command)
-                        } label: {
-                            Text(command)
-                                .font(.system(size: 12, design: .monospaced))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .frame(maxWidth: 220)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .overlay(
-                                    Capsule().stroke(Color.secondary.opacity(0.4), lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
+                        Text(command)
+                            .font(.system(size: 12, design: .monospaced))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: 220)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .overlay(
+                                Capsule().stroke(Color.secondary.opacity(0.4), lineWidth: 1)
+                            )
+                            // Tappable across the whole capsule, not only where
+                            // the letters are drawn.
+                            .contentShape(Capsule())
+                            // And on touch-down, for the same reason as the key
+                            // bar above it: a `Button` acts on release and loses
+                            // the touch to whatever else is competing for it.
+                            // These were reported as never clickable at all.
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onEnded { value in
+                                        guard abs(value.translation.width) < 10,
+                                              abs(value.translation.height) < 10
+                                        else { return }
+                                        onSelect(command)
+                                    }
+                            )
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityLabel(command)
+                            .accessibilityAction { onSelect(command) }
                     }
                 }
                 .padding(.horizontal, 8)
