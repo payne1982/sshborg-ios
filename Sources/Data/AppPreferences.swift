@@ -231,6 +231,8 @@ extension AppPreferences {
         case device = 2
     }
 
+    /// Raw values are Android's `AppCompatDelegate.MODE_NIGHT_*`, deliberately,
+    /// so a backup carries between the two apps unchanged.
     enum NightMode: Int, CaseIterable {
         case followSystem = -1
         case light = 1

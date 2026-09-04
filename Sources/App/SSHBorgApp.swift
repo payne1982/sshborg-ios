@@ -39,6 +39,19 @@ struct SSHBorgApp: App {
                         .transition(.identity)
                     }
                 }
+                // `nightMode`, which until 04/09/2026 was the *other* setting
+                // wired to nothing: offered in Settings, stored, carried in
+                // backups, read by no one. On Android it picks between two
+                // hand-written Material palettes; here the system colours
+                // already follow the appearance, so choosing the appearance is
+                // the whole implementation.
+                //
+                // On the ZStack rather than on RootView so the lock cover
+                // follows it too, and above `RootView` so that everything below
+                // — including the terminal's "follow app" — reads the resolved
+                // appearance from `\.colorScheme` rather than resolving it
+                // again.
+                .preferredColorScheme(Self.environment.preferences.nightMode.colorScheme)
                 .onValueChange(of: scenePhase) { phase in
                     switch phase {
                     case .active:
@@ -63,4 +76,21 @@ struct SSHBorgApp: App {
     /// True while the system's own prompt is on screen, so the cover does not
     /// put a second one behind it.
     @State private var isAsking = false
+}
+
+extension AppPreferences.NightMode {
+
+    /// What to hand `preferredColorScheme`. Nil is "leave it to the system",
+    /// which is the whole of `followSystem`.
+    ///
+    /// Here and not beside the enum so that `Sources/Data` does not have to
+    /// import SwiftUI for it, the same split as `TerminalColorScheme` and
+    /// `TerminalPalette`.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .followSystem: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
 }

@@ -12,6 +12,11 @@ import Perception
 struct TerminalScreen: View {
 
     @Environment(\.appEnvironment) private var environment
+
+    /// The appearance the app is actually showing, which the root has already
+    /// resolved from the `nightMode` preference. What "follow app" follows.
+    @Environment(\.colorScheme) private var colorScheme
+
     @Perception.Bindable var manager: SessionManager
 
     @State private var passwordInput = ""
@@ -52,25 +57,34 @@ struct TerminalScreen: View {
     /// points the key geometry suggested. 16 is the value that worked, twice.
     private static let terminalTouchMargin: CGFloat = 16
 
-    /// What the terminal's backing is actually painted, which the margin has to
-    /// match to be invisible.
+    /// The colours the terminal is drawn in, and with them the colour the margin
+    /// below it has to match to stay invisible.
     ///
-    /// ⚠️ Hardcoded, and it should not have to be. `TerminalHostView` paints its
-    /// container black by hand because SwiftTerm's `nativeBackgroundColor` is
-    /// only ever what someone assigned to it, and nothing here assigns it — so
-    /// it reports the library default, white, which is exactly what this margin
-    /// came out as when it followed that property.
+    /// Read here rather than in `TerminalHostView` because both halves of the
+    /// choice are observable and this is inside the tracking scope: the
+    /// preference, and the appearance the app resolved from `nightMode`.
     ///
-    /// The reason nothing assigns it is worth its own note: the
-    /// `terminalColorScheme` preference is offered in Settings and carried in
-    /// backups, and **no code reads it to colour anything**. Until that is
-    /// wired up there is only one terminal appearance, and this matches it.
-    private static let terminalBackground = Color.black
+    /// Until 04/09/2026 there was a `Color.black` constant here instead, with a
+    /// note saying it should not have to be hardcoded — `terminalColorScheme`
+    /// was offered in Settings, stored, and carried in backups, and no code read
+    /// it to colour anything.
+    private var palette: TerminalPalette {
+        .resolve(environment.preferences.terminalColorScheme, app: colorScheme)
+    }
 
     @ViewBuilder
     private func terminal(for session: TerminalSession) -> some View {
+        // Read once, into the builder block, so every use below — the terminal
+        // itself and the margin under it — is the same palette and the
+        // preference is read here, inside the tracking scope.
+        let palette = self.palette
+
         ZStack {
-            TerminalHostView(session: session, fontSize: environment.preferences.terminalFontSize)
+            TerminalHostView(
+                session: session,
+                fontSize: environment.preferences.terminalFontSize,
+                palette: palette
+            )
                 // No `ignoresSafeArea(.container, edges: .bottom)` here, though
                 // there was from the first terminal commit until 03/09/2026.
                 //
@@ -138,7 +152,7 @@ struct TerminalScreen: View {
                 //
                 // `allowsHitTesting(false)`: nothing here is meant to be
                 // pressable. It is a sacrificial margin, and it costs a row.
-                Self.terminalBackground
+                Color(uiColor: palette.background)
                     .frame(height: Self.terminalTouchMargin)
                     .allowsHitTesting(false)
 

@@ -28,17 +28,18 @@ struct TerminalHostView: UIViewRepresentable {
     let session: TerminalSession
     var fontSize: Int
 
+    /// The colours to draw in. Passed in rather than read here so the choice —
+    /// which depends on a preference and on the app's appearance — stays in
+    /// SwiftUI, where both of those are observable.
+    var palette: TerminalPalette
+
 
     func makeUIView(context: Context) -> UIView {
         let container = UIView()
-        // Matches the terminal underneath it, so a resize never flashes white.
-        //
-        // Black by hand, and it has to stay that way for now: SwiftTerm's own
-        // `nativeBackgroundColor` is whatever was last assigned to it, and
-        // nothing here ever assigns it, so it answers with the library's default
-        // — white. Following it turned this white too. See
-        // `TerminalScreen.terminalBackground`.
-        container.backgroundColor = .black
+        // Matches the terminal underneath it, so a resize never flashes the
+        // wrong colour. Set again in `updateUIView`, which is where it follows
+        // the palette; this is only so the very first frame is right.
+        container.backgroundColor = palette.background
         return container
     }
 
@@ -75,6 +76,23 @@ struct TerminalHostView: UIViewRepresentable {
             previous?.removeFromSuperview()
         }
 
+
+        container.backgroundColor = palette.background
+
+        // Guarded, because `installColors` rebuilds all 256 entries and forces a
+        // full redraw, and this runs on every pass of the enclosing body — which
+        // includes every `cd`, since that changes the tab title.
+        //
+        // The two native colours are the check: SwiftTerm hands back exactly
+        // what was last assigned to it, so if both already match, the palette
+        // that came with them does too.
+        if terminal.nativeForegroundColor != palette.foreground
+            || terminal.nativeBackgroundColor != palette.background {
+            terminal.installColors(palette.ansi)
+            terminal.nativeForegroundColor = palette.foreground
+            terminal.nativeBackgroundColor = palette.background
+            terminal.caretColor = palette.caret
+        }
 
         let size = CGFloat(fontSize)
         let wanted = TerminalFont.regular(size: size)
