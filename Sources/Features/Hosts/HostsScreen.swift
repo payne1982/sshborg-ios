@@ -244,6 +244,9 @@ struct HostsScreen: View {
                     tint: model.color(for: host).map { Color(argb: $0) },
                     sessionCount: environment.sessions.sessions(forHostID: host.id ?? -1).count,
                     hasFileBrowser: environment.browsers.isOpen(hostID: host.id),
+                    // Handed in rather than wrapped around the row. See the
+                    // property, and the modifiers below that used to do it.
+                    onOpen: { open(host) },
                     onOpenFiles: { browsing = host; isBrowsing = true },
                     // The same actions the long press gives, from a control that
                     // says it is there. A context menu is native on iOS and close to
@@ -252,8 +255,11 @@ struct HostsScreen: View {
                     // the row and a long press — opening one menu, and so does this.
                     actions: { AnyView(hostActions(host, model: model)) }
                 )
+                // Still here, and now only for the long press: it is what
+                // gives the context menu a preview the shape of the whole row.
+                // The tap that opens the host used to be here too, and that was
+                // the defect — see `HostRow.onOpen`.
                 .contentShape(.rect)
-                .onTapGesture { open(host) }
                 // Swipe reaches edit only. Deleting a host throws away its stored
                 // credentials and pinned host key, and SwiftUI promotes the first
                 // trailing action to the full-swipe gesture — so putting delete
@@ -405,6 +411,25 @@ private struct HostRow: View {
     /// invisible from the list.
     let hasFileBrowser: Bool
 
+    /// Opening the host, from a tap anywhere the row is not already something
+    /// else.
+    ///
+    /// Passed in and applied *behind* the content, rather than wrapped around
+    /// the whole row with `.onTapGesture`, which is where it was until
+    /// 04/09/2026. Around the row it is an ancestor gesture, and an ancestor
+    /// does not lose to a descendant — both fire. Pressing the ellipsis opened
+    /// the menu and pushed the terminal on top of it, too fast to choose
+    /// anything: "it is as if there were two buttons in one".
+    ///
+    /// Behind, it is a sibling instead of an ancestor, and hit testing settles
+    /// it with no arbitration at all: the frontmost view that wants the touch
+    /// takes it. `Text` and `Image` want nothing, so a tap on the name reaches
+    /// this; the menu and the folder badge do, so a tap on them does not.
+    ///
+    /// The same shape as the fix in `TerminalScreen`: when two controls contend
+    /// for one touch, separate the regions rather than argue about priority.
+    let onOpen: () -> Void
+
     /// Tapping the folder goes back into the browser that is already open, which
     /// is the whole use for a badge that says one is. Android wires its badges
     /// the same way: `Modifier.clickable { onSftp() }` around the folder.
@@ -476,6 +501,11 @@ private struct HostRow: View {
             .accessibilityLabel(String(localized: .hostsOptionsCd))
         }
         .padding(.vertical, 2)
+        .background {
+            Color.clear
+                .contentShape(.rect)
+                .onTapGesture(perform: onOpen)
+        }
     }
 }
 
