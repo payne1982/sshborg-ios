@@ -77,8 +77,10 @@ final class TerminalPaletteTests: XCTestCase {
             }
         }
 
-        // Named, because it looks like an omission and is not: 12 stays
-        // (85, 85, 255) on Android, and copying its judgement is the point.
+        // Named, because it looks like an omission and is not: bright blue
+        // stays (85, 85, 255) on Android, and measured that is a 5.09 contrast
+        // ratio against white — above the 3.0 floor, so there was nothing to
+        // fix. The seven that are darkened are all below it untouched.
         XCTAssertTrue(rgb8(TerminalPalette.light.ansi[12]) == (85, 85, 255))
     }
 

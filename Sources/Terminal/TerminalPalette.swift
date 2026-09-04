@@ -43,6 +43,22 @@ struct TerminalPalette {
     /// no-op: SwiftTerm installs `terminalAppColors` by default, so until now
     /// the iOS terminal drew Apple's Terminal.app colours while Android drew
     /// VGA. The same `ls` really did come out a different green.
+    ///
+    /// ⚠️ And it is not a free change. Measured on 04/09/2026, VGA is the
+    /// *worse* of the two on black: three entries fall below a 3.0 contrast
+    /// ratio — blue (4) at 1.58, red (1) at 2.71, bright black (8) at 2.82 —
+    /// where Apple's palette has one. Apple chose its sixteen looking at a
+    /// black background; VGA inherited them from 1987 hardware.
+    ///
+    /// Kept anyway, and deliberately: matching Android matters more than the
+    /// margin, the same weakness is there on Android so the two apps behave
+    /// alike, and the practical cost is small — `ls` colours directories with
+    /// *bright* blue (12), which measures 4.13 on black. The 1.58 case is plain
+    /// blue, which turns up in some prompts and syntax highlighting rather than
+    /// in everyday output. Decided with him, with the numbers in front of us.
+    ///
+    /// If it is ever revisited, the best-legibility pairing is Apple's palette
+    /// on black with Android's on white — at the cost of the parity.
     static let dark = TerminalPalette(
         ansi: [
             rgb(0, 0, 0), rgb(170, 0, 0), rgb(0, 170, 0), rgb(170, 85, 0),
@@ -58,9 +74,13 @@ struct TerminalPalette {
     /// Same hues, with the entries that are unreadable on white darkened.
     ///
     /// Copied from Android's `lightPalette` exactly, **including what it leaves
-    /// alone**: bright blue (12) keeps its (85, 85, 255) there, so it keeps it
-    /// here. Diverging would be a judgement call about legibility that the two
-    /// apps should not make differently.
+    /// alone**: bright blue (12) keeps its (85, 85, 255) on white here as it
+    /// does there. That reads like an omission and is not — measured, it is a
+    /// WCAG contrast ratio of 5.09 against white, comfortably above the 3.0
+    /// floor. It was left alone because it did not need darkening.
+    ///
+    /// The seven that are changed all sit below 3.0 untouched. Bright white
+    /// (15) is the extreme: 1.20 on white, which is invisible.
     static let light = TerminalPalette(
         ansi: {
             var colors = dark.ansi
