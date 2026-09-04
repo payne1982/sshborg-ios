@@ -211,6 +211,22 @@ if [ -n "$hits" ]; then
     printf '%b\n' "$hits"
 fi
 
+# 9. Navigation driven by `SessionManager.selected`.
+#
+# That property falls back to the first tab when nothing is selected, so it
+# reports the same session whether the terminal is on screen or the host list
+# is. Anything that navigates on a *change* of it therefore misses the only
+# case that matters: resuming the single open session, where the value before
+# and after are identical. On the phone that was a terminal you could leave and
+# never get back into — the host row, the resume entry and the session picker
+# all did nothing, and only a second session made it work. See RootView and the
+# note on the property itself; `selectedID` is the one to navigate on.
+hits=$(grep -rn --include='*.swift' -E '(onValueChange|onChange)\(of: [^,)]*\.selected[^I]' Sources/ 2>/dev/null)
+if [ -n "$hits" ]; then
+    fail "navigation keyed on .selected — it cannot see a resume; use .selectedID:"
+    echo "$hits"
+fi
+
 if [ "$status" -eq 0 ]; then
     printf '\033[32mok\033[0m — no known-pattern problems\n'
 fi

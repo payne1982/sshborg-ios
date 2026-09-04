@@ -35,16 +35,32 @@ struct RootView: View {
                         TerminalScreen(manager: environment.sessions)
                     }
             }
-            // The session list is read here, inside the tracking scope, so
-            // opening or closing one re-evaluates this body and moves the plain
-            // Bool the stack watches. `initial` so a session already open when
-            // the view appears is on screen rather than one gesture away.
-            .onValueChange(of: environment.sessions.selected?.id, initial: true) { id in
+            // `selectedID`, and deliberately not `selected?.id`.
+            //
+            // `selected` falls back to the first tab when nothing is selected,
+            // so "on the host list" and "in session 1" are the same value — and
+            // this fires on a *change*, which that pair can never produce. With
+            // one session open the whole way back in was dead: leaving cleared
+            // the id below, tapping the host set it to the very same session,
+            // nothing moved, and the host row, the "Resume terminal" entry and
+            // the session picker all did nothing at all. Opening a second
+            // session worked, because that was a different id — which is what
+            // made it look like a problem with the tabs. Reported 04/09/2026.
+            //
+            // Read here, inside the tracking scope, so opening or closing a
+            // session re-evaluates this body and moves the plain Bool the stack
+            // watches. `initial` so a session already open when the view appears
+            // is on screen rather than one gesture away.
+            .onValueChange(of: environment.sessions.selectedID, initial: true) { id in
                 showsTerminal = id != nil
             }
             // And the way back: the chevron and the swipe both clear the Bool,
             // which is what closes the session rather than leaving it selected
             // behind a screen nobody is looking at.
+            //
+            // It is also what keeps the rule above honest: every exit from the
+            // terminal passes through here, so the id is nil for as long as the
+            // host list is showing, and re-selecting any session is an edge.
             .onValueChange(of: showsTerminal) { shown in
                 if !shown { environment.sessions.selectedID = nil }
             }
