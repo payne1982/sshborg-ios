@@ -121,9 +121,11 @@ final class TerminalSession: Identifiable {
     /// Android for the same host, which reuses `lastConnectParams` directly.
     ///
     /// Deliberately *not* the same thing as keeping the password for the session.
-    /// `reconnectAutomatically` still refuses to reuse a typed password, and that
-    /// stays refused: this is held for the seconds between connecting and reading
-    /// one file, and `loadHistory` clears it in a `defer` whichever way it exits.
+    /// A typed password is still never reused to reconnect, and that stays
+    /// refused — `passwordForThisAttempt` is cleared the moment the shell comes
+    /// up, so there is nothing left to reuse. This is held for the seconds
+    /// between connecting and reading one file, and `loadHistory` clears it in a
+    /// `defer` whichever way it exits.
     @PerceptionIgnored private var authForHistory: SSHAuth?
 
     /// The last size the view actually reported, as opposed to the one the
@@ -344,11 +346,17 @@ final class TerminalSession: Identifiable {
             return .password(carried)
         }
 
+        // Two different failures, and they used to be one. A host pointing at a
+        // key that has been deleted is not the same as a key whose material
+        // will not come back out of the Keychain, and neither is "the passphrase
+        // may be wrong" — which is what the shared case said, about a passphrase
+        // the user was never asked for.
         if let keyId = host.keyId {
-            guard let key = try await keys.fetch(id: keyId),
-                  let pem = KeychainCrypto.privateKeyPEM(for: key)
-            else {
-                throw SSHError.invalidPrivateKey
+            guard let key = try await keys.fetch(id: keyId) else {
+                throw SSHError.keyNotFound
+            }
+            guard let pem = KeychainCrypto.privateKeyPEM(for: key) else {
+                throw SSHError.keyUnreadable
             }
             return .publicKey(privateKeyPEM: pem)
         }
@@ -472,11 +480,24 @@ final class TerminalSession: Identifiable {
     private func reconnectAutomatically() async {
         guard !closedByUser, !endedByRemote else { return }
 
-        guard let auth = try? await resolveAuth(typedPassword: nil), auth != nil else {
-            phase = .needsPassword
-            return
-        }
-
+        // No pre-flight check on the credential any more, and that is the fix.
+        //
+        // There used to be one here, and it sent *both* of its failures to the
+        // password prompt: "nothing saved to reconnect with", which is a fair
+        // question, and "the key would not load", which is not — that one asked
+        // for a password on a host configured with a key, with nothing on screen
+        // saying why. The compiler had been pointing at it for a while: `try?`
+        // flattens the double optional, so the `auth != nil` beside it was
+        // always true and warned as much.
+        //
+        // `connect()` already tells the two apart — nil becomes `.needsPassword`
+        // and a throw becomes `.failed` with the reason — so the decision lives
+        // in one place instead of being made twice and disagreeing.
+        //
+        // What that check also guaranteed still holds, structurally rather than
+        // by inspection: a password typed by hand is never reused here, because
+        // `passwordForThisAttempt` is cleared the moment the shell comes up and
+        // nothing puts it back.
         let before = phase
         await connect()
 

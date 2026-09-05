@@ -21,8 +21,32 @@ enum SSHError: LocalizedError, Equatable {
 
     case authenticationFailed(String)
 
-    /// The private key could not be parsed, or the passphrase was wrong.
+    /// libssh2 could not make sense of the key material it was handed: an
+    /// unsupported format, a corrupt file, or the wrong passphrase.
+    ///
+    /// Narrowed on 05/09/2026. It used to cover the two cases below as well —
+    /// which meant a host whose key had been deleted was reported as a key that
+    /// "may be corrupt, or the passphrase may be wrong", about a passphrase
+    /// nobody had been asked for.
     case invalidPrivateKey
+
+    /// The host is set to use a key that is not in the database any more.
+    ///
+    /// Nothing to do with the key material: the record it points at is gone.
+    ///
+    /// Defensive, and it should stay unreachable: `hosts.keyId` references
+    /// `ssh_keys` with `onDelete: .setNull`, so deleting a key empties the
+    /// column rather than leaving a dangling id, and the foreign key refuses to
+    /// insert one. `CredentialFailureTests` pins that invariant. The branch
+    /// exists because the guard that raises it has to say *something*, and
+    /// `keyUnreadable` would be a lie.
+    case keyNotFound
+
+    /// The key record exists and its private half could not be read back.
+    ///
+    /// In practice the Keychain refusing. Distinct from `invalidPrivateKey`
+    /// because nothing has tried to parse anything yet.
+    case keyUnreadable
 
     /// The session ended, either because the peer closed it or the network died.
     case disconnected(String)
@@ -35,6 +59,11 @@ enum SSHError: LocalizedError, Equatable {
     /// The user stopped a transfer. Not a failure, and never worth an alert.
     case cancelled
 
+    /// ⚠️ These are user-visible — `phase = .failed(error.localizedDescription)`
+    /// puts them straight into the status panel — and every one of them is
+    /// hardcoded English. Localising this enum is its own job, listed in
+    /// PIANO.md, and doing it one case at a time would only hide how much of it
+    /// is left. New cases here follow the existing pattern deliberately.
     var errorDescription: String? {
         switch self {
         case .connectionFailed(let detail):
@@ -49,6 +78,10 @@ enum SSHError: LocalizedError, Equatable {
             return "Authentication failed: \(detail)"
         case .invalidPrivateKey:
             return "The private key could not be read. It may be corrupt, or the passphrase may be wrong."
+        case .keyNotFound:
+            return "The key this host is set to use is no longer in the app. Edit the host to pick another one, or use a password."
+        case .keyUnreadable:
+            return "The key this host is set to use could not be read from the Keychain."
         case .disconnected(let detail):
             return "Disconnected: \(detail)"
         case .library(let code, let message):

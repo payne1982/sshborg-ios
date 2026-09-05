@@ -120,10 +120,16 @@ final class SFTPModel {
         if let carried = passwordForThisAttempt, !carried.isEmpty {
             return .password(carried)
         }
+        // Same split as `TerminalSession.resolveAuth`, for the same reason: a
+        // deleted key and a Keychain that will not answer are different things
+        // to be told about, and neither is a wrong passphrase.
         if let keyId = host.keyId {
-            guard let key = try await keys.fetch(id: keyId),
-                  let pem = KeychainCrypto.privateKeyPEM(for: key)
-            else { throw SSHError.invalidPrivateKey }
+            guard let key = try await keys.fetch(id: keyId) else {
+                throw SSHError.keyNotFound
+            }
+            guard let pem = KeychainCrypto.privateKeyPEM(for: key) else {
+                throw SSHError.keyUnreadable
+            }
             return .publicKey(privateKeyPEM: pem)
         }
         return KeychainCrypto.password(for: host).map { SSHAuth.password($0) }
