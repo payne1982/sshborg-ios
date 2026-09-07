@@ -46,6 +46,8 @@ final class AppPreferences {
         static let sftpSortDirsFirst = "sftp_sort_dirs_first"
         static let securityReminderDismissed = "security_reminder_dismissed"
         static let privacyPolicyAccepted = "privacy_policy_accepted"
+        static let extraBarSelected = "extra_bar_selected"
+        static let extraBarCustom = "extra_bar_custom"
     }
 
     /// Registered so that an untouched key reads back its Android default rather
@@ -59,6 +61,7 @@ final class AppPreferences {
         Key.doubleTapAction: DoubleTapAction.none.rawValue,
         Key.historySuggestions: true,
         Key.sftpSortDirsFirst: true,
+        Key.extraBarSelected: ExtraBarPresets.standardID,
     ]
 
     // MARK: - Security
@@ -89,6 +92,35 @@ final class AppPreferences {
     var extraKeysBarPinned: Bool {
         get { read(Key.extraKeysBarPinned, keyPath: \.extraKeysBarPinned) }
         set { write(newValue, Key.extraKeysBarPinned, keyPath: \.extraKeysBarPinned) }
+    }
+
+    // MARK: - Extra-key bar
+
+    /// Id of the extra-key bar layout in use: a preset or a custom bar. Stored
+    /// as the id rather than the bar so a preset can change between versions
+    /// and the choice still points at it.
+    var extraBarSelectedID: String {
+        get { read(Key.extraBarSelected, keyPath: \.extraBarSelectedID) ?? ExtraBarPresets.standardID }
+        set { write(newValue, Key.extraBarSelected, keyPath: \.extraBarSelectedID) }
+    }
+
+    /// The user's own bars, stored as one JSON array in the Android shape.
+    var customExtraBars: [ExtraBar] {
+        get { ExtraBarJSON.decodeAll(read(Key.extraBarCustom, keyPath: \.customExtraBars)) }
+        set { write(ExtraBarJSON.encodeAllToString(newValue), Key.extraBarCustom, keyPath: \.customExtraBars) }
+    }
+
+    /// Custom bars first, then the presets — the order every picker shows.
+    var allExtraBars: [ExtraBar] {
+        customExtraBars + ExtraBarPresets.all
+    }
+
+    /// The bar to render: the selected one, or the standard preset when the
+    /// id no longer resolves — a custom bar deleted on another device and
+    /// restored from its backup, say.
+    var extraBar: ExtraBar {
+        let id = extraBarSelectedID
+        return customExtraBars.first { $0.id == id } ?? ExtraBarPresets.byID(id) ?? ExtraBarPresets.standard
     }
 
     /// Whether private keys and passwords are stored encrypted. Named
@@ -208,6 +240,11 @@ final class AppPreferences {
         return defaults.integer(forKey: key)
     }
 
+    private func read<V>(_ key: String, keyPath: KeyPath<AppPreferences, V>) -> String? {
+        access(keyPath: keyPath)
+        return defaults.string(forKey: key)
+    }
+
     private func write<T, V>(_ value: T, _ key: String, keyPath: KeyPath<AppPreferences, V>) {
         withMutation(keyPath: keyPath) {
             defaults.set(value, forKey: key)
@@ -287,6 +324,8 @@ extension AppPreferences {
             "history_suggestions": historySuggestions,
             "suggestions_bar_sticky": suggestionsBarSticky,
             "double_tap_action": doubleTapAction.rawValue,
+            "extra_bar_selected": extraBarSelectedID,
+            "extra_bar_custom": ExtraBarJSON.encodeAll(customExtraBars),
         ]
     }
 
@@ -310,5 +349,10 @@ extension AppPreferences {
         if let value = object["double_tap_action"] as? Int {
             doubleTapAction = DoubleTapAction(rawValue: value) ?? .none
         }
+        // Custom bars replace the local set — they carry their own ids — and a
+        // selected id that resolves to nothing falls back to the standard
+        // preset at read time, so an unknown id is stored as it came.
+        if let value = object["extra_bar_custom"] as? [Any] { customExtraBars = ExtraBarJSON.decodeAll(value) }
+        if let value = object["extra_bar_selected"] as? String { extraBarSelectedID = value }
     }
 }

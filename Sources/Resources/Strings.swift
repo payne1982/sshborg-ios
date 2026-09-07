@@ -51,6 +51,9 @@ extension LocalizedStringResource {
     /// Delete all
     static let actionDeleteAll = LocalizedStringResource("action_delete_all")
 
+    /// Discard
+    static let actionDiscard = LocalizedStringResource("action_discard")
+
     /// Done
     static let actionDone = LocalizedStringResource("action_done")
 
@@ -129,6 +132,15 @@ extension LocalizedStringResource {
     /// SSHBorg
     static let biometricPromptTitle = LocalizedStringResource("biometric_prompt_title")
 
+    /// Brightness
+    static let colorBrightness = LocalizedStringResource("color_brightness")
+
+    /// Hue
+    static let colorHue = LocalizedStringResource("color_hue")
+
+    /// Saturation
+    static let colorSaturation = LocalizedStringResource("color_saturation")
+
     /// Edit Host
     static let editHostTitle = LocalizedStringResource("edit_host_title")
 
@@ -170,6 +182,150 @@ extension LocalizedStringResource {
 
     /// Upload failed
     static let errorUploadFailed = LocalizedStringResource("error_upload_failed")
+
+    /// Add key
+    static let extraBarAddKey = LocalizedStringResource("extra_bar_add_key")
+
+    /// Add row
+    static let extraBarAddRow = LocalizedStringResource("extra_bar_add_row")
+
+    /// Discard changes?
+    static let extraBarDiscardTitle = LocalizedStringResource("extra_bar_discard_title")
+
+    /// Change key
+    static let extraBarEditKey = LocalizedStringResource("extra_bar_edit_key")
+
+    /// New bar
+    static let extraBarEditorNewTitle = LocalizedStringResource("extra_bar_editor_new_title")
+
+    /// Edit bar
+    static let extraBarEditorTitle = LocalizedStringResource("extra_bar_editor_title")
+
+    /// Large
+    static let extraBarFontLarge = LocalizedStringResource("extra_bar_font_large")
+
+    /// Medium
+    static let extraBarFontMedium = LocalizedStringResource("extra_bar_font_medium")
+
+    /// Key size
+    static let extraBarFontSize = LocalizedStringResource("extra_bar_font_size")
+
+    /// Small
+    static let extraBarFontSmall = LocalizedStringResource("extra_bar_font_small")
+
+    /// Tap a key in the bar to select it, then use the buttons below to move, change or remo…
+    static let extraBarHintSelect = LocalizedStringResource("extra_bar_hint_select")
+
+    /// Move to row below
+    static let extraBarMoveDown = LocalizedStringResource("extra_bar_move_down")
+
+    /// Move left
+    static let extraBarMoveLeft = LocalizedStringResource("extra_bar_move_left")
+
+    /// Move right
+    static let extraBarMoveRight = LocalizedStringResource("extra_bar_move_right")
+
+    /// Move to row above
+    static let extraBarMoveUp = LocalizedStringResource("extra_bar_move_up")
+
+    /// Name
+    static let extraBarName = LocalizedStringResource("extra_bar_name")
+
+    /// Minimal
+    static let extraBarPresetMinimal = LocalizedStringResource("extra_bar_preset_minimal")
+
+    /// Natural
+    static let extraBarPresetNatural = LocalizedStringResource("extra_bar_preset_natural")
+
+    /// Natural ×2
+    static let extraBarPresetNatural2 = LocalizedStringResource("extra_bar_preset_natural_2")
+
+    /// Natural ×3
+    static let extraBarPresetNatural3 = LocalizedStringResource("extra_bar_preset_natural_3")
+
+    /// Standard
+    static let extraBarPresetStandard = LocalizedStringResource("extra_bar_preset_standard")
+
+    /// Remove key
+    static let extraBarRemoveKey = LocalizedStringResource("extra_bar_remove_key")
+
+    /// Remove row
+    static let extraBarRemoveRowCd = LocalizedStringResource("extra_bar_remove_row_cd")
+
+    /// Fill
+    static let extraBarRowFill = LocalizedStringResource("extra_bar_row_fill")
+
+    /// Row %1$d · %2$d keys
+    static let extraBarRowN = LocalizedStringResource("extra_bar_row_n")
+
+    /// Scroll
+    static let extraBarRowScroll = LocalizedStringResource("extra_bar_row_scroll")
+
+    /// %1$@ (copy)
+    static let extraBarsCopyName = LocalizedStringResource("extra_bars_copy_name")
+
+    /// Delete “%1$@”?
+    static let extraBarsDeleteTitle = LocalizedStringResource("extra_bars_delete_title")
+
+    /// New bar
+    static let extraBarsNew = LocalizedStringResource("extra_bars_new")
+
+    /// Your bars
+    static let extraBarsSectionCustom = LocalizedStringResource("extra_bars_section_custom")
+
+    /// Presets
+    static let extraBarsSectionPresets = LocalizedStringResource("extra_bars_section_presets")
+
+    /// Extra key bars
+    static let extraBarsTitle = LocalizedStringResource("extra_bars_title")
+
+    /// Keyboard
+    static let extraKeyActionKeyboard = LocalizedStringResource("extra_key_action_keyboard")
+
+    /// Paste
+    static let extraKeyActionPaste = LocalizedStringResource("extra_key_action_paste")
+
+    /// Pin bar
+    static let extraKeyActionPin = LocalizedStringResource("extra_key_action_pin")
+
+    /// Switch bar
+    static let extraKeyActionSwitch = LocalizedStringResource("extra_key_action_switch")
+
+    /// Word mode
+    static let extraKeyActionWordMode = LocalizedStringResource("extra_key_action_word_mode")
+
+    /// Actions
+    static let extraKeyGroupActions = LocalizedStringResource("extra_key_group_actions")
+
+    /// Custom text
+    static let extraKeyGroupCustom = LocalizedStringResource("extra_key_group_custom")
+
+    /// Editing
+    static let extraKeyGroupEditing = LocalizedStringResource("extra_key_group_editing")
+
+    /// Function keys
+    static let extraKeyGroupFunction = LocalizedStringResource("extra_key_group_function")
+
+    /// Modifiers
+    static let extraKeyGroupModifiers = LocalizedStringResource("extra_key_group_modifiers")
+
+    /// Navigation
+    static let extraKeyGroupNavigation = LocalizedStringResource("extra_key_group_navigation")
+
+    /// Label (optional)
+    static let extraKeyLabel = LocalizedStringResource("extra_key_label")
+
+    /// Choose a key
+    static let extraKeyPickerTitle = LocalizedStringResource("extra_key_picker_title")
+
+    /// Text to send
+    static let extraKeyText = LocalizedStringResource("extra_key_text")
+
+    /// = Enter, 	 = Tab, e = Esc. Several characters make a macro.
+    static let extraKeyTextHint = LocalizedStringResource("extra_key_text_hint")
+
+    /// Use text
+    static let extraKeyUseText = LocalizedStringResource("extra_key_use_text")
 
     /// Delete "%1$@"? Its hosts will be kept, without a group.
     static let groupDeleteMessage = LocalizedStringResource("group_delete_message")
@@ -398,6 +554,9 @@ extension LocalizedStringResource {
 
     /// Could not save
     static let iosErrorSaveFailed = LocalizedStringResource("ios_error_save_failed")
+
+    /// \n = Enter, \t = Tab, \e = Esc. Several characters make a macro.
+    static let iosExtraKeyTextHint = LocalizedStringResource("ios_extra_key_text_hint")
 
     /// %1$d port forwarding rules are not active
     static let iosForwardingInactiveMany = LocalizedStringResource("ios_forwarding_inactive_many")
@@ -792,6 +951,15 @@ extension LocalizedStringResource {
     /// Encrypt sensitive data
     static let settingsEncryptTitle = LocalizedStringResource("settings_encrypt_title")
 
+    /// Customise
+    static let settingsExtraBarCustomizeTitle = LocalizedStringResource("settings_extra_bar_customize_title")
+
+    /// In use: %1$@
+    static let settingsExtraBarInUse = LocalizedStringResource("settings_extra_bar_in_use")
+
+    /// Extra key bar layout
+    static let settingsExtraBarLayoutTitle = LocalizedStringResource("settings_extra_bar_layout_title")
+
     /// Keep the extra key bar (Ctrl, arrows, F-keys…) visible even when the keyboard is clos…
     static let settingsExtraKeysBarSubtitle = LocalizedStringResource("settings_extra_keys_bar_subtitle")
 
@@ -1095,11 +1263,17 @@ extension LocalizedStringResource {
     /// Details
     static let terminalErrorDetails = LocalizedStringResource("terminal_error_details")
 
+    /// Show or hide keyboard
+    static let terminalKeyboardCd = LocalizedStringResource("terminal_keyboard_cd")
+
     /// Paste
     static let terminalPasteCd = LocalizedStringResource("terminal_paste_cd")
 
     /// Keep key bar visible
     static let terminalPinKeysCd = LocalizedStringResource("terminal_pin_keys_cd")
+
+    /// Switch key bar
+    static let terminalSwitchBarCd = LocalizedStringResource("terminal_switch_bar_cd")
 
     /// Terminal
     static let terminalTitleDefault = LocalizedStringResource("terminal_title_default")

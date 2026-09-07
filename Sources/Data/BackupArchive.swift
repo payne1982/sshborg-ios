@@ -22,14 +22,15 @@ import Foundation
 struct BackupArchive: Equatable {
 
     /// What each version added, following the Android writer: 2 `groups`, 3
-    /// `settings`, 4 `keyLabel`, 5 `sftpShowHidden`. Older files still load —
+    /// `settings`, 4 `keyLabel`, 5 `sftpShowHidden`, 6 the extra-key bars in
+    /// `settings`. Older files still load —
     /// their missing sections simply do not apply, and neither reader branches
     /// on the number.
     ///
     /// It sat at 3 while `keyLabel` was already being written, which is the
     /// failure mode of a version field nobody reads: nothing broke, and the
     /// number quietly stopped describing the file.
-    static let currentVersion = 5
+    static let currentVersion = 6
 
     var version: Int = currentVersion
     var exportedAt: String
@@ -83,7 +84,7 @@ struct BackupArchive: Equatable {
         var color: Int?
     }
 
-    /// The twelve preference keys the Android app exports, by its own names.
+    /// The preference keys the Android app exports, by its own names.
     struct Settings: Equatable {
         var confirmExit: Bool?
         var lockTimeoutSeconds: Int?
@@ -98,6 +99,10 @@ struct BackupArchive: Equatable {
         var suggestionsBarSticky: Bool?
         var doubleTapAction: Int?
         var extraKeysBarPinned: Bool?
+        /// Id of the extra-key bar in use, and the user's own bars. The bars
+        /// travel whole, in the Android JSON shape, see ``ExtraBarJSON``.
+        var extraBarSelected: String?
+        var extraBarCustom: [ExtraBar]?
     }
 
     enum DecodingFailure: LocalizedError, Equatable {
@@ -184,6 +189,8 @@ extension BackupArchive {
         if let value = settings.suggestionsBarSticky { object["suggestions_bar_sticky"] = value }
         if let value = settings.doubleTapAction { object["double_tap_action"] = value }
         if let value = settings.extraKeysBarPinned { object["extra_keys_bar_pinned"] = value }
+        if let value = settings.extraBarSelected { object["extra_bar_selected"] = value }
+        if let value = settings.extraBarCustom { object["extra_bar_custom"] = ExtraBarJSON.encodeAll(value) }
 
         return object
     }
@@ -258,7 +265,9 @@ extension BackupArchive {
                 historySuggestions: rawSettings["history_suggestions"] as? Bool,
                 suggestionsBarSticky: rawSettings["suggestions_bar_sticky"] as? Bool,
                 doubleTapAction: rawSettings["double_tap_action"] as? Int,
-                extraKeysBarPinned: rawSettings["extra_keys_bar_pinned"] as? Bool
+                extraKeysBarPinned: rawSettings["extra_keys_bar_pinned"] as? Bool,
+                extraBarSelected: rawSettings["extra_bar_selected"] as? String,
+                extraBarCustom: (rawSettings["extra_bar_custom"] as? [Any]).map(ExtraBarJSON.decodeAll)
             )
         }
 

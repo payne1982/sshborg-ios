@@ -102,7 +102,9 @@ struct BackupService {
             historySuggestions: preferences.historySuggestions,
             suggestionsBarSticky: preferences.suggestionsBarSticky,
             doubleTapAction: preferences.doubleTapAction.rawValue,
-            extraKeysBarPinned: preferences.extraKeysBarPinned
+            extraKeysBarPinned: preferences.extraKeysBarPinned,
+            extraBarSelected: preferences.extraBarSelectedID,
+            extraBarCustom: preferences.customExtraBars
         )
     }
 
@@ -278,5 +280,11 @@ struct BackupService {
             preferences.doubleTapAction = AppPreferences.DoubleTapAction(rawValue: value) ?? .none
         }
         if let value = settings.extraKeysBarPinned { preferences.extraKeysBarPinned = value }
+        // The bars replace the local set, as on Android: they carry their own
+        // ids, and merging two lists of the same bar would double it. The
+        // selected id is stored as it came; one that resolves to nothing falls
+        // back to the standard preset when read.
+        if let value = settings.extraBarCustom { preferences.customExtraBars = value }
+        if let value = settings.extraBarSelected { preferences.extraBarSelectedID = value }
     }
 }

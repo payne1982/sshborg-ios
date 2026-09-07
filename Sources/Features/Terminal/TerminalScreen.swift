@@ -186,9 +186,35 @@ struct TerminalScreen: View {
                     // 03/09/2026 as "it is as if the button were not a button".
                     let isPinned = environment.preferences.extraKeysBarPinned
                     if keyboard.isVisible || isPinned {
-                        ExtraKeyRow(
-                            session: session,
-                            isPinned: $preferences.extraKeysBarPinned
+                        // Both read here, inside the tracking scope, so
+                        // choosing another bar — from Settings or from the
+                        // switch key on the bar itself — redraws this.
+                        let bar = environment.preferences.extraBar
+                        let bars = environment.preferences.allExtraBars
+                        ExtraKeyBar(
+                            bar: bar,
+                            state: ExtraBarState(
+                                ctrlActive: session.ctrlActive,
+                                altActive: session.altActive,
+                                wordMode: session.wordMode,
+                                pinned: isPinned,
+                                keyboardVisible: keyboard.isVisible,
+                                onCtrlToggle: { session.ctrlActive.toggle() },
+                                onAltToggle: { session.altActive.toggle() },
+                                onWordModeToggle: { session.wordMode.toggle() },
+                                onPinToggle: { preferences.extraKeysBarPinned.toggle() },
+                                onKeyboardToggle: {
+                                    if keyboard.isVisible {
+                                        _ = session.terminalView.resignFirstResponder()
+                                    } else {
+                                        _ = session.terminalView.becomeFirstResponder()
+                                    }
+                                },
+                                onKey: { session.sendExtraKey($0) },
+                                cursorKeys: { session.cursorKey($0) }
+                            ),
+                            bars: bars,
+                            onSelectBar: { environment.preferences.extraBarSelectedID = $0 }
                         )
                     }
                 }

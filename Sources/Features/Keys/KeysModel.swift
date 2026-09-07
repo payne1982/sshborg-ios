@@ -33,7 +33,7 @@ final class KeysModel {
     // MARK: - Creating
 
     func generate(type: SSHKey.KeyType, bits: Int?, label: String) async throws {
-        let generated = try SSHKeyGenerator.generate(type: type, bits: bits, comment: label)
+        let generated = try SSHKeyGenerator.generate(type: type, bits: bits, comment: Self.comment(for: label))
 
         try await store(
             label: label,
@@ -119,13 +119,35 @@ final class KeysModel {
     ///
     /// A public line is `type base64 [comment]`, and the comment may contain
     /// spaces — so it is split at most twice and the remainder taken whole.
+    ///
+    /// The comment counts as "the old label" in either spelling: as typed, or
+    /// normalised by ``comment(for:)``. New keys carry the normalised form, but
+    /// keys generated before this app normalised anything carry the label with
+    /// its spaces intact — and accepting only one of the two would quietly stop
+    /// the comment following the label for exactly the names that have a space
+    /// in them. The replacement is always written normalised.
     static func publicKey(_ line: String, renamedFrom old: String, to new: String) -> String {
         let fields = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: false)
-        guard fields.count == 3,
-              String(fields[2]).trimmed == old.trimmed
-        else { return line }
+        let existing = fields.count == 3 ? String(fields[2]).trimmed : nil
+        guard let existing, existing == old.trimmed || existing == comment(for: old) else { return line }
 
-        return "\(fields[0]) \(fields[1]) \(new)"
+        return "\(fields[0]) \(fields[1]) \(comment(for: new))"
+    }
+
+    /// The label as it goes into a public key's comment: one token, with runs
+    /// of whitespace collapsed to underscores.
+    ///
+    /// Matching Android, which normalises for a reason worth keeping. The
+    /// comment is the free-text tail of the line, so spaces in it are legal —
+    /// but every tool that reads `authorized_keys` by splitting on whitespace
+    /// sees a name with a space as several fields, and `ssh-keygen -l` prints
+    /// only what it takes to be the comment. The name shown in the app keeps
+    /// its spaces; only the embedded copy is normalised.
+    static func comment(for label: String) -> String {
+        label
+            .trimmed
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: "_")
     }
 
     // MARK: - Removing

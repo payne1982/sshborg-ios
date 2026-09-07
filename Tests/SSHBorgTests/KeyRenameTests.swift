@@ -39,14 +39,40 @@ final class KeyRenameTests: XCTestCase {
 
     // MARK: - The comment
 
-    /// A generated key's comment is its label, so it follows the label.
+    /// A generated key's comment is its label, so it follows the label — as one
+    /// token, which is what goes into the line.
     func testTheCommentFollowsTheLabelWhenItWasTheLabel() {
         let renamed = KeysModel.publicKey(
             "ssh-ed25519 AAAAB3 laptop",
             renamedFrom: "laptop",
             to: "nas backup"
         )
-        XCTAssertEqual(renamed, "ssh-ed25519 AAAAB3 nas backup")
+        XCTAssertEqual(renamed, "ssh-ed25519 AAAAB3 nas_backup")
+    }
+
+    /// A public key's comment is the free-text tail of the line, so spaces in
+    /// it are legal — but every tool that reads `authorized_keys` by splitting
+    /// on whitespace sees a name with a space as several fields. Android
+    /// collapses them and this follows, so the same label gives the same public
+    /// line on both platforms.
+    func testTheEmbeddedCommentIsOneToken() {
+        XCTAssertEqual(KeysModel.comment(for: "nas backup"), "nas_backup")
+        XCTAssertEqual(KeysModel.comment(for: "  spaced   out  "), "spaced_out")
+        XCTAssertEqual(KeysModel.comment(for: "a\tb"), "a_b")
+        XCTAssertEqual(KeysModel.comment(for: "plain"), "plain")
+        XCTAssertEqual(KeysModel.comment(for: "   "), "")
+    }
+
+    /// The label the user sees keeps its spaces. Only the copy inside the
+    /// public line is collapsed.
+    func testTheLabelItselfKeepsItsSpaces() async throws {
+        let stored = try await repository.save(makeKey(label: "laptop", comment: "laptop"))
+
+        try await model.rename(stored, to: "nas backup")
+
+        let all = try await repository.fetchAll()
+        XCTAssertEqual(all[0].label, "nas backup")
+        XCTAssertTrue(all[0].publicKey.hasSuffix(" nas_backup"))
     }
 
     /// An imported key's comment is usually `user@host` and means something of
@@ -66,9 +92,23 @@ final class KeyRenameTests: XCTestCase {
 
     /// The comment is everything after the second field, spaces and all — it
     /// must be matched and replaced whole, not just its first word.
+    ///
+    /// A key generated before this app collapsed the comment carries the label
+    /// with its spaces, and its comment still has to follow a rename.
     func testACommentWithSpacesIsMatchedWhole() {
         let renamed = KeysModel.publicKey(
             "ssh-ed25519 AAAAB3 my laptop key",
+            renamedFrom: "my laptop key",
+            to: "server"
+        )
+        XCTAssertEqual(renamed, "ssh-ed25519 AAAAB3 server")
+    }
+
+    /// And the same key once its comment has been through the collapse: both
+    /// spellings of the old label are accepted.
+    func testAnAlreadyCollapsedCommentIsMatchedToo() {
+        let renamed = KeysModel.publicKey(
+            "ssh-ed25519 AAAAB3 my_laptop_key",
             renamedFrom: "my laptop key",
             to: "server"
         )

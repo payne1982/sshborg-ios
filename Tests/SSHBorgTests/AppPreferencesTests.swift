@@ -41,6 +41,8 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertTrue(preferences.sftpSortDirsFirst)
         XCTAssertFalse(preferences.securityReminderDismissed)
         XCTAssertFalse(preferences.privacyPolicyAccepted)
+        XCTAssertEqual(preferences.extraBarSelectedID, ExtraBarPresets.standardID)
+        XCTAssertTrue(preferences.customExtraBars.isEmpty)
     }
 
     /// The raw values are written verbatim into the shared backup, so they must
@@ -98,6 +100,8 @@ final class AppPreferencesTests: XCTestCase {
                 "history_suggestions",
                 "suggestions_bar_sticky",
                 "double_tap_action",
+                "extra_bar_selected",
+                "extra_bar_custom",
             ]
         )
     }
@@ -141,6 +145,81 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertFalse(fresh.historySuggestions)
         XCTAssertTrue(fresh.suggestionsBarSticky)
         XCTAssertEqual(fresh.doubleTapAction, .tabTwice)
+    }
+
+    // MARK: - The extra-key bar
+
+    /// A bar the user built is a small structure, not a scalar, and it is the
+    /// only setting that is. It has to survive the same trip as the rest.
+    func testCustomBarsAndTheChosenOneRoundTrip() throws {
+        let mine = ExtraBar(
+            id: "custom:round-trip",
+            name: "Mine",
+            rows: [
+                ExtraBarRow(keys: [.special(.esc), .text("ls -la\\n", label: "ll")], fit: true),
+                ExtraBarRow(keys: [.action(.switchBar)], fit: false),
+            ],
+            fontScale: .large
+        )
+        preferences.customExtraBars = [mine]
+        preferences.extraBarSelectedID = mine.id
+
+        let exported = preferences.exportSettings()
+        let data = try JSONSerialization.data(withJSONObject: exported)
+        let decoded = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        let fresh = try makeScratchPreferences(suffix: "bars")
+        fresh.importSettings(decoded)
+
+        XCTAssertEqual(fresh.customExtraBars, [mine])
+        XCTAssertEqual(fresh.extraBar, mine)
+    }
+
+    /// Bars replace rather than merge: they carry their own ids, and adding an
+    /// imported list to a local one would double every bar the two share.
+    func testImportingBarsReplacesTheLocalSet() {
+        preferences.customExtraBars = [
+            ExtraBar(id: "custom:old", name: "Old", rows: [ExtraBarRow(keys: [.special(.tab)])]),
+        ]
+
+        preferences.importSettings([
+            "extra_bar_custom": ExtraBarJSON.encodeAll([
+                ExtraBar(id: "custom:new", name: "New", rows: [ExtraBarRow(keys: [.special(.esc)])]),
+            ]),
+        ])
+
+        XCTAssertEqual(preferences.customExtraBars.map(\.id), ["custom:new"])
+    }
+
+    /// A backup can name a bar this device does not have — deleted here, or
+    /// never restored. The stored id is left as it came and the terminal draws
+    /// the standard preset, rather than the app rewriting the user's choice
+    /// behind their back.
+    func testAChosenBarThatIsNotThereFallsBackWithoutLosingTheChoice() {
+        preferences.extraBarSelectedID = "custom:absent"
+
+        XCTAssertEqual(preferences.extraBar.id, ExtraBarPresets.standardID)
+        XCTAssertEqual(preferences.extraBarSelectedID, "custom:absent")
+    }
+
+    func testTheChosenBarIsFoundAmongPresetsAndCustomAlike() {
+        preferences.extraBarSelectedID = ExtraBarPresets.natural2ID
+        XCTAssertEqual(preferences.extraBar, ExtraBarPresets.natural2)
+
+        let mine = ExtraBar(id: "custom:mine", name: "Mine", rows: [ExtraBarRow(keys: [.action(.pin)])])
+        preferences.customExtraBars = [mine]
+        preferences.extraBarSelectedID = mine.id
+        XCTAssertEqual(preferences.extraBar, mine)
+    }
+
+    /// Custom bars come first in every picker, which is the order the terminal
+    /// switch key and the settings list both show.
+    func testTheUsersOwnBarsComeBeforeThePresets() {
+        let mine = ExtraBar(id: "custom:mine", name: "Mine", rows: [ExtraBarRow(keys: [.action(.pin)])])
+        preferences.customExtraBars = [mine]
+
+        XCTAssertEqual(preferences.allExtraBars.first, mine)
+        XCTAssertEqual(preferences.allExtraBars.count, ExtraBarPresets.all.count + 1)
     }
 
     /// The export must survive a trip through real JSON, which is how it reaches

@@ -141,7 +141,28 @@ struct SettingsScreen: View {
                 Text(.settingsExtraKeysBarTitle)
                 Text(.settingsExtraKeysBarSubtitle)
             }
+
+            // Which bar the terminal draws, and the way to the list and the
+            // editor behind it. The name is read here so choosing another bar
+            // — from this list or from the switch key on the bar itself —
+            // updates this row.
+            NavigationLink {
+                ExtraBarsScreen()
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(.settingsExtraBarLayoutTitle)
+                    Text(inUseLabel)
+                        .font(.footnote)
+                        .foregroundStyle(Color.secondary)
+                }
+            }
         }
+    }
+
+    /// "In use: Natural ×2", with the argument substituted before it is shown.
+    private var inUseLabel: String {
+        String(localized: .settingsExtraBarInUse)
+            .replacingOccurrences(of: "%1$@", with: preferences.extraBar.localizedName)
     }
 
     // MARK: - SFTP

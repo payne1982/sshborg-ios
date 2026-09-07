@@ -120,6 +120,19 @@ catalog = pathlib.Path("Sources/Resources/Localizable.xcstrings")
 if not catalog.exists():
     sys.exit(0)
 
+# Pairs that share an English word by coincidence rather than meaning, checked
+# by hand. A one-word string like "Actions" will collide with anything, and
+# collapsing the two would tie a screen here to a string whose Android meaning
+# is different — a later rename there would silently change this app's wording.
+#
+# Both sides of each pair have been compared in all ten languages and are
+# already word for word identical, so nothing is lost by keeping them apart.
+ALLOWED = {
+    # The SFTP file menu, against the "Actions" group in the key catalogue.
+    ("ios_sftp_actions", "extra_key_group_actions"),
+}
+
+
 def normalise(text):
     text = text.replace("\\'", "'").replace('\\"', '"').replace("\\n", "\n")
     return re.sub(r'%(\d+\$)s', r'%\1@', text).strip().lower()
@@ -137,7 +150,7 @@ for key, entry in json.loads(catalog.read_text(encoding="utf-8"))["strings"].ite
     if not english:
         continue
     twin = android.get(normalise(english))
-    if twin:
+    if twin and (key, twin) not in ALLOWED:
         problems.append(f"  {key} duplicates Android's {twin}")
 
 print("\n".join(problems))

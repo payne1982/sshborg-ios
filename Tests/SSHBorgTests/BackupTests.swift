@@ -437,6 +437,47 @@ final class BackupTests: XCTestCase {
         XCTAssertEqual(preferences.nightMode, .followSystem)
     }
 
+    /// The bars a user built travel with the rest of the settings, in the
+    /// Android shape — that is the whole reason the file exists.
+    func testCustomBarsTravelInTheBackup() async throws {
+        let mine = ExtraBar(
+            id: "custom:travelling",
+            name: "Travelling",
+            rows: [ExtraBarRow(keys: [.special(.esc), .modifier(.ctrl), .action(.switchBar)], fit: true)],
+            fontScale: .medium
+        )
+        preferences.customExtraBars = [mine]
+        preferences.extraBarSelectedID = mine.id
+
+        let archive = try await service.export()
+        let reparsed = try BackupArchive.decode(try archive.jsonData())
+
+        XCTAssertEqual(reparsed.settings?.extraBarCustom, [mine])
+        XCTAssertEqual(reparsed.settings?.extraBarSelected, mine.id)
+    }
+
+    /// The format number is the one thing in this file that describes the file
+    /// itself. It sat at 3 while `keyLabel` was already being written once, so
+    /// it gets checked rather than assumed.
+    func testTheVersionSaysWhatTheFileActuallyCarries() async throws {
+        let archive = try await service.export()
+        XCTAssertEqual(archive.version, 6)
+    }
+
+    /// A backup written before the bars existed must still restore, and must
+    /// not blank out the bars this device has.
+    func testAnOlderBackupLeavesTheBarsAlone() async throws {
+        let mine = ExtraBar(id: "custom:kept", name: "Kept", rows: [ExtraBarRow(keys: [.special(.tab)])])
+        preferences.customExtraBars = [mine]
+
+        let file = """
+        { "version": 5, "hosts": [], "settings": { "confirm_exit": true } }
+        """
+        _ = try await service.restore(try BackupArchive.decode(Data(file.utf8)))
+
+        XCTAssertEqual(preferences.customExtraBars, [mine])
+    }
+
     /// Settings absent from the file leave the current ones alone.
     func testMissingSettingsAreNotOverwritten() async throws {
         preferences.terminalFontSize = 18
