@@ -131,11 +131,13 @@ struct KeyPickerSheet: View {
                 .textFieldStyle(.roundedBorder)
                 .autocorrectionDisabled()
 
-            // The iOS-only twin of the Android string: that one is written with
-            // single backslashes in strings.xml, so its \n and \t reach the
-            // screen as a real newline and tab — the sentence disappears into
-            // the whitespace it is describing. This copy keeps them literal.
-            Text(.iosExtraKeyTextHint)
+            // Written `\\n` in strings.xml, so the backslashes survive to the
+            // screen. They did not until 07/09/2026: the string had single
+            // backslashes there and the resource compiler turned them into a
+            // real newline and tab, dissolving the sentence into the whitespace
+            // it describes. Fixed on the Android side, so there is one string
+            // again rather than an iOS copy of it.
+            Text(.extraKeyTextHint)
                 .font(.caption)
                 .foregroundStyle(Color.secondary)
 

@@ -6716,61 +6716,61 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Eingabe, \t = Tab, e = Esc. Mehrere Zeichen ergeben ein Makro."
+            "value": "\\n = Eingabe, \\t = Tab, \\e = Esc. Mehrere Zeichen ergeben ein Makro."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Enter, \t = Tab, e = Esc. Several characters make a macro."
+            "value": "\\n = Enter, \\t = Tab, \\e = Esc. Several characters make a macro."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Intro, \t = Tab, e = Esc. Varios caracteres forman una macro."
+            "value": "\\n = Intro, \\t = Tab, \\e = Esc. Varios caracteres forman una macro."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Entrée, \t = Tab, e = Échap. Plusieurs caractères forment une macro."
+            "value": "\\n = Entrée, \\t = Tab, \\e = Échap. Plusieurs caractères forment une macro."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Invio, \t = Tab, e = Esc. Più caratteri formano una macro."
+            "value": "\\n = Invio, \\t = Tab, \\e = Esc. Più caratteri formano una macro."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Enter、\t = Tab、e = Esc。複数文字でマクロになります。"
+            "value": "\\n = Enter、\\t = Tab、\\e = Esc。複数文字でマクロになります。"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Enter, \t = Tab, e = Esc. Vários caracteres formam uma macro."
+            "value": "\\n = Enter, \\t = Tab, \\e = Esc. Vários caracteres formam uma macro."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Enter, \t = Tab, e = Esc. Несколько символов образуют макрос."
+            "value": "\\n = Enter, \\t = Tab, \\e = Esc. Несколько символов образуют макрос."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = Enter, \t = Tab, e = Esc. Кілька символів утворюють макрос."
+            "value": "\\n = Enter, \\t = Tab, \\e = Esc. Кілька символів утворюють макрос."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n = 回车，\t = Tab，e = Esc。多个字符可组成宏。"
+            "value": "\\n = 回车，\\t = Tab，\\e = Esc。多个字符可组成宏。"
           }
         }
       }
@@ -11782,72 +11782,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法保存"
-          }
-        }
-      }
-    },
-    "ios_extra_key_text_hint": {
-      "comment": "iOS only — the Android key extra_key_text_hint is written with single backslashes in strings.xml, so the resource compiler turns its \\n and \\t into a real newline and tab before the text is shown. This copy keeps the backslashes literal, which is what the sentence is about. Same wording as the Android string in every language, taken from the raw XML.",
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Eingabe, \\t = Tab, \\e = Esc. Mehrere Zeichen ergeben ein Makro."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Enter, \\t = Tab, \\e = Esc. Several characters make a macro."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Intro, \\t = Tab, \\e = Esc. Varios caracteres forman una macro."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Entrée, \\t = Tab, \\e = Échap. Plusieurs caractères forment une macro."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Invio, \\t = Tab, \\e = Esc. Più caratteri formano una macro."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Enter、\\t = Tab、\\e = Esc。複数文字でマクロになります。"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Enter, \\t = Tab, \\e = Esc. Vários caracteres formam uma macro."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Enter, \\t = Tab, \\e = Esc. Несколько символов образуют макрос."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = Enter, \\t = Tab, \\e = Esc. Кілька символів утворюють макрос."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\n = 回车，\\t = Tab，\\e = Esc。多个字符可组成宏。"
           }
         }
       }

@@ -321,7 +321,7 @@ extension LocalizedStringResource {
     /// Text to send
     static let extraKeyText = LocalizedStringResource("extra_key_text")
 
-    /// = Enter, 	 = Tab, e = Esc. Several characters make a macro.
+    /// \n = Enter, \t = Tab, \e = Esc. Several characters make a macro.
     static let extraKeyTextHint = LocalizedStringResource("extra_key_text_hint")
 
     /// Use text
@@ -554,9 +554,6 @@ extension LocalizedStringResource {
 
     /// Could not save
     static let iosErrorSaveFailed = LocalizedStringResource("ios_error_save_failed")
-
-    /// \n = Enter, \t = Tab, \e = Esc. Several characters make a macro.
-    static let iosExtraKeyTextHint = LocalizedStringResource("ios_extra_key_text_hint")
 
     /// %1$d port forwarding rules are not active
     static let iosForwardingInactiveMany = LocalizedStringResource("ios_forwarding_inactive_many")
