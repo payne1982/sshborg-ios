@@ -12,12 +12,6 @@ extension LocalizedStringResource {
     /// Licence
     static let aboutLicence = LocalizedStringResource("about_licence")
 
-    /// About
-    static let aboutSectionTitle = LocalizedStringResource("about_section_title")
-
-    /// Version
-    static let aboutVersion = LocalizedStringResource("about_version")
-
     /// Accept
     static let actionAccept = LocalizedStringResource("action_accept")
 
@@ -525,6 +519,12 @@ extension LocalizedStringResource {
     /// Manage keys
     static let hostsManageKeysCd = LocalizedStringResource("hosts_manage_keys_cd")
 
+    /// Move down
+    static let hostsMoveDown = LocalizedStringResource("hosts_move_down")
+
+    /// Move up
+    static let hostsMoveUp = LocalizedStringResource("hosts_move_up")
+
     /// Options
     static let hostsOptionsCd = LocalizedStringResource("hosts_options_cd")
 
@@ -536,6 +536,9 @@ extension LocalizedStringResource {
 
     /// SSHBorg
     static let hostsTitle = LocalizedStringResource("hosts_title")
+
+    /// SSHBorg for iOS
+    static let iosAboutApp = LocalizedStringResource("ios_about_app")
 
     /// Add
     static let iosActionAdd = LocalizedStringResource("ios_action_add")
@@ -876,6 +879,12 @@ extension LocalizedStringResource {
     /// Terminal
     static let sessionTypeTerminal = LocalizedStringResource("session_type_terminal")
 
+    /// SSHBorg for Android
+    static let settingsAboutApp = LocalizedStringResource("settings_about_app")
+
+    /// Version %1$@ (%2$d)
+    static let settingsAboutVersion = LocalizedStringResource("settings_about_version")
+
     /// Permit screenshots and screen recording. Leave disabled to protect sensitive content.
     static let settingsAllowScreenshotsSubtitle = LocalizedStringResource("settings_allow_screenshots_subtitle")
 
@@ -975,6 +984,24 @@ extension LocalizedStringResource {
     /// Command history suggestions
     static let settingsHistorySuggestionsTitle = LocalizedStringResource("settings_history_suggestions_title")
 
+    /// Alphabetical
+    static let settingsHostSortAlpha = LocalizedStringResource("settings_host_sort_alpha")
+
+    /// Manual
+    static let settingsHostSortManual = LocalizedStringResource("settings_host_sort_manual")
+
+    /// Most used
+    static let settingsHostSortPopular = LocalizedStringResource("settings_host_sort_popular")
+
+    /// Recently used
+    static let settingsHostSortRecent = LocalizedStringResource("settings_host_sort_recent")
+
+    /// Groups stay alphabetical except in manual order
+    static let settingsHostSortSubtitle = LocalizedStringResource("settings_host_sort_subtitle")
+
+    /// Host list order
+    static let settingsHostSortTitle = LocalizedStringResource("settings_host_sort_title")
+
     /// Swipe up to see older output instead of newer
     static let settingsInvertScrollSubtitle = LocalizedStringResource("settings_invert_scroll_subtitle")
 
@@ -1019,6 +1046,9 @@ extension LocalizedStringResource {
 
     /// Scrollback lines
     static let settingsScrollbackTitle = LocalizedStringResource("settings_scrollback_title")
+
+    /// About
+    static let settingsSectionAbout = LocalizedStringResource("settings_section_about")
 
     /// Backup
     static let settingsSectionBackup = LocalizedStringResource("settings_section_backup")

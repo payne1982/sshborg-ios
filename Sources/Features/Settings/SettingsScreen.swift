@@ -345,17 +345,29 @@ struct SettingsScreen: View {
     // MARK: - About
 
     private var aboutSection: some View {
-        Section(String(localized: .aboutSectionTitle)) {
-            LabeledContent(String(localized: .aboutVersion), value: Self.version)
+        Section(String(localized: .settingsSectionAbout)) {
+            // Named per platform rather than just "Version": this row is what
+            // leaves the app in the screenshot attached to a bug report, and
+            // nothing else in that picture says which of the two editions it
+            // is. The platform goes in the product name and not beside the
+            // number, where "iOS version 1.0" would read as the OS release.
+            LabeledContent(String(localized: .iosAboutApp), value: Self.version)
             LabeledContent(String(localized: .aboutLicence), value: "GPL-3.0-or-later")
         }
     }
 
+    /// The marketing version and the build number, which is the only thing
+    /// telling two builds of the same version apart. A debug build says so:
+    /// it installs beside a store one and is otherwise identical from here.
     private static var version: String {
         let bundle = Bundle.main
         let short = bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         let build = bundle.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        #if DEBUG
+        return "\(short) (\(build)) · debug"
+        #else
         return "\(short) (\(build))"
+        #endif
     }
 
     // MARK: - Bindings

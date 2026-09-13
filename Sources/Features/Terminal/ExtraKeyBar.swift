@@ -423,6 +423,15 @@ private struct RepeatingKey<Face: View>: View {
     var body: some View {
         face(isPressed)
             .simultaneousGesture(press)
+            // A held key can be taken off the screen mid-press: the keyboard
+            // key dismisses the keyboard and the whole bar goes with it, and so
+            // does choosing another bar, or the session dropping. The gesture
+            // then never ends, `onEnded` never runs, and the repeat task — which
+            // is not owned by this view and does not die with it — carries on
+            // sending arrow bytes to a session nobody is touching. Android had
+            // the same defect from the other direction (4f34a7a), reported as
+            // the cursor moving on its own after the finger was gone.
+            .onDisappear { stop() }
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { action() }
     }

@@ -166,8 +166,19 @@ struct TerminalScreen: View {
 
                 if session.phase == .connected {
                     ForwardingNotice(statuses: session.forwardingStatus)
+                    // Paused in word mode: that is the mode which turns
+                    // autocorrection on, so iOS puts its own QuickType strip
+                    // directly above ours and the two compete for the same
+                    // glance and the same tap.
+                    //
+                    // The list is emptied rather than the bar hidden. With the
+                    // bar sticky, hiding it would resize the terminal on every
+                    // word-mode toggle, which is the one thing that option
+                    // exists to prevent — and empty-plus-sticky is already the
+                    // reserved-height case, so nothing moves. Leaving word mode
+                    // brings the chips straight back.
                     SuggestionBar(
-                        suggestions: session.suggestions,
+                        suggestions: session.wordMode ? [] : session.suggestions,
                         isSticky: environment.preferences.suggestionsBarSticky
                     ) { command in
                         session.apply(suggestion: command)
