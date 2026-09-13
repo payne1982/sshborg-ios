@@ -230,16 +230,23 @@ struct HostsScreen: View {
                                 Task { await model.toggleCollapsed(group) }
                             }
                             .contextMenu {
-                                moveActions(
-                                    isManual: model.sortMode == .manual,
-                                    canMoveUp: index > 0,
-                                    canMoveDown: index < groupIDs.count - 1
-                                ) { delta in
-                                    Task { await model.move(group, by: delta) }
-                                }
-                                Button(String(localized: .actionEdit), systemImage: "pencil") { groupEditing = .existing(group) }
-                                Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) {
-                                    groupToDelete = group
+                                // A context menu is built outside the body pass,
+                                // like `hostActions`, so it needs its own scope: the
+                                // sort mode read here was untracked, and the test
+                                // run reported it against whichever test happened to
+                                // be running at the time.
+                                WithPerceptionTracking {
+                                    moveActions(
+                                        isManual: model.sortMode == .manual,
+                                        canMoveUp: index > 0,
+                                        canMoveDown: index < groupIDs.count - 1
+                                    ) { delta in
+                                        Task { await model.move(group, by: delta) }
+                                    }
+                                    Button(String(localized: .actionEdit), systemImage: "pencil") { groupEditing = .existing(group) }
+                                    Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) {
+                                        groupToDelete = group
+                                    }
                                 }
                             }
                         }
