@@ -109,11 +109,31 @@ in a password is read as a reference to another setting.
 
 ## Export compliance
 
-`ITSAppUsesNonExemptEncryption` is currently set to `true` in `project.yml`. The
-app embeds OpenSSL and performs general-purpose cryptography, so this is the
-conservative reading. **This must be confirmed before the first App Store
-submission** — the answer determines whether a self-classification report is
-required.
+SSHBorg uses cryptography — the SSH protocol through libssh2 and OpenSSL, and
+AES-GCM from CryptoKit for keys and passwords stored on the device — but only
+standard algorithms, and nothing proprietary.
+
+`ITSAppUsesNonExemptEncryption` is `false` in `project.yml`. Apple's definition
+of that key is about **documentation to upload to App Store Connect**, not
+about whether an app encrypts: `NO` when the app only uses encryption that is
+exempt from those documentation requirements. For standard algorithms the only
+document Apple asks for is the French encryption declaration, and only for
+distribution in France. The App Store Connect questionnaire, answered with
+standard algorithms and no distribution in France, concluded that no
+documents are needed.
+
+Two things follow:
+
+- **France stays out of the App Store availability** until an ANSSI
+  declaration exists. Adding it without one would make that answer false.
+- On the US side, encryption source code that is publicly available and uses
+  only standard cryptography is not subject to the EAR (15 CFR 742.15(b)); no
+  notification is needed for standard cryptography. That relies on this
+  repository being public.
+
+`true` is not a safe default either: without an
+`ITSEncryptionExportComplianceCode`, which Apple issues only after approving
+uploaded documentation, the upload is rejected with ITMS-90592.
 
 ## License
 

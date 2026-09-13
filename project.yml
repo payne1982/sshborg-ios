@@ -59,7 +59,7 @@ settings:
     # The build: one more for every upload to App Store Connect, TestFlight
     # included, and never reset between versions — the counterpart of Android's
     # versionCode.
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"
     TARGETED_DEVICE_FAMILY: "1,2" # iPhone + iPad
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     CLANG_ENABLE_MODULES: YES
@@ -189,10 +189,17 @@ targets:
         # Key import/export and SFTP transfers (phases 5-6)
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
-        # TODO: confirm before submission — see README, "Export compliance".
-        # The app embeds OpenSSL and performs general-purpose cryptography, so
-        # the conservative declaration is `true`.
-        ITSAppUsesNonExemptEncryption: true
+        # `false` means "no export compliance documentation to upload", which
+        # is what Apple's key asks — not whether the app uses cryptography (it
+        # does: libssh2 and OpenSSL). App Store Connect's questionnaire, answered
+        # on 13/09/2026 with standard algorithms only and the app not offered
+        # in France, concluded that no documents are needed. See README,
+        # "Export compliance": the answer stops being true the day France is
+        # added without an ANSSI declaration.
+        #
+        # `true` without an ITSEncryptionExportComplianceCode is rejected at
+        # upload with ITMS-90592.
+        ITSAppUsesNonExemptEncryption: false
 
   SSHBorgTests:
     type: bundle.unit-test
