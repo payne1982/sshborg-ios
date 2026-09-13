@@ -52,7 +52,13 @@ settings:
     # instead of breaking the build. Raise to `complete` (and SWIFT_VERSION 6)
     # once the SSH layer has settled.
     SWIFT_STRICT_CONCURRENCY: targeted
-    MARKETING_VERSION: "0.1.0"
+    # The version the App Store shows: major.minor.patch, and every release must
+    # be higher than the last one published. Its own history, not Android's
+    # 1.16.x — the About row names the platform, so reports are not confused.
+    MARKETING_VERSION: "1.0.0"
+    # The build: one more for every upload to App Store Connect, TestFlight
+    # included, and never reset between versions — the counterpart of Android's
+    # versionCode.
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1,2" # iPhone + iPad
     ENABLE_USER_SCRIPT_SANDBOXING: YES
