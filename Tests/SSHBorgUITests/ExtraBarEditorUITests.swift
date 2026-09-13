@@ -39,6 +39,64 @@ final class ExtraBarEditorUITests: XCTestCase {
         add(shot)
     }
 
+    /// Settings → Extra key bar layout → duplicate `preset` → the editor.
+    private func openEditor(duplicating preset: String) {
+        let gear = app.buttons["Settings"].firstMatch
+        XCTAssertTrue(gear.waitForExistence(timeout: 10), "no Settings button in the toolbar")
+        gear.tap()
+
+        let layoutRow = button(startingWith: "Extra key bar layout")
+        var swipes = 0
+        while !layoutRow.isHittable && swipes < 8 {
+            app.swipeUp()
+            swipes += 1
+        }
+        layoutRow.tap()
+
+        let row = button(startingWith: preset)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "\(preset) is not listed:\n\(app.debugDescription)")
+        row.press(forDuration: 1.2)
+        let duplicate = app.buttons["Duplicate"].firstMatch
+        XCTAssertTrue(duplicate.waitForExistence(timeout: 5), "the row menu has no Duplicate")
+        duplicate.tap()
+        XCTAssertTrue(app.buttons["Save"].firstMatch.waitForExistence(timeout: 10), "the editor did not open")
+    }
+
+    /// A drag that starts on a key scrolls the row and presses nothing.
+    ///
+    /// Reported from the phone on 14/09/2026: every key fired the moment a finger
+    /// landed and held on to the touch, so the scrolling bar only moved when the
+    /// drag began in the one-point gap between two keys. The editor's preview is
+    /// the very same bar, and there a press selects the key — which the toolbar's
+    /// Remove button makes visible — so it can be asked without a live session.
+    func testDraggingAcrossTheKeysScrollsInsteadOfPressing() throws {
+        openEditor(duplicating: "Standard")
+
+        let esc = app.buttons["ESC"].firstMatch
+        XCTAssertTrue(esc.waitForExistence(timeout: 5), "no ESC key in the preview:\n\(app.debugDescription)")
+        let remove = app.buttons["Remove key"].firstMatch
+        XCTAssertFalse(remove.isEnabled, "a key is selected before anything was touched")
+
+        let before = esc.frame.minX
+        let start = esc.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -260, dy: 0)))
+        Thread.sleep(forTimeInterval: 1)
+        attach("10-preview-after-drag")
+
+        XCTAssertLessThan(esc.frame.minX, before - 60, "the row did not scroll under a drag that began on a key")
+        XCTAssertFalse(remove.isEnabled, "the drag pressed the key it started on")
+
+        // And a plain tap still presses: a key that did nothing at all would pass
+        // the two assertions above just as well.
+        let candidates = ["F1", "F2", "F3", "F4", "F5", "Del", "PgDn", "PgUp", "End", "Home"]
+        guard let visible = candidates.map({ app.buttons[$0].firstMatch }).first(where: { $0.exists && $0.isHittable }) else {
+            XCTFail("no key on screen to tap after the scroll:\n\(app.debugDescription)")
+            return
+        }
+        visible.tap()
+        XCTAssertTrue(remove.waitForEnabled(timeout: 3), "a tap on \(visible.label) did not select it")
+    }
+
     func testTheBarListAndTheEditorAreLegible() throws {
         let gear = app.buttons["Settings"].firstMatch
         XCTAssertTrue(gear.waitForExistence(timeout: 10), "no Settings button in the toolbar")
@@ -97,5 +155,19 @@ final class ExtraBarEditorUITests: XCTestCase {
 
         app.swipeUp()
         attach("07-key-catalogue-custom-text")
+    }
+}
+
+private extension XCUIElement {
+
+    /// `isEnabled` read once is a snapshot; a selection lands a moment after the
+    /// tap that made it.
+    func waitForEnabled(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if isEnabled { return true }
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+        return isEnabled
     }
 }

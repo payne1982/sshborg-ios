@@ -378,101 +378,142 @@ private struct IconKey: View {
     }
 }
 
-/// The press behaviour every key on this bar shares, and the reason it is a
-/// gesture rather than a `Button`.
+/// The press behaviour every key on this bar shares: a `Button`.
 ///
-/// A `Button` fires on release and loses the touch to whatever else is
-/// competing for it; this acts the moment a finger lands and wins. That is why
-/// the arrows always felt more reliable than the rest before every key came
-/// through here.
+/// A button fires on release, and gives the touch up to the scroll view as soon
+/// as the finger travels — so tapping a key types it, and dragging across the
+/// keys scrolls the row without typing anything. That is Android's split too:
+/// its ordinary keys are `clickable`, which behaves the same way.
 ///
-/// The gesture is **simultaneous**, not exclusive. An exclusive one claims the
-/// touch the moment the finger lands and the enclosing scroll view never sees
-/// it, which is how the whole bar became unscrollable. Sharing it lets the
-/// scroll view recognise a pan while this still detects a hold, and a finger
-/// that travels cancels the repeat.
+/// **This has swung twice, so the history is worth keeping.** From 05/09 to
+/// 14/09/2026 every key was a simultaneous `DragGesture(minimumDistance: 0)`
+/// that fired the moment a finger landed. On the phone that meant: "the key is
+/// executed at once and blocks scrolling; the bar only scrolls if I land
+/// between two keys". The belief behind the gesture — that a button "loses the
+/// touch" — came from the pin key, whose hit area turned out to be only its
+/// glyph; `.contentShape(.rect)` on every face fixed that (see ``KeyFace``), and
+/// the gesture stayed on for a reason that no longer existed.
 ///
-/// One press still fires on touch-down even if that touch turns into a scroll —
-/// Android has the same wart, its `awaitFirstDown(requireUnconsumed = false)`
-/// calling `onClick()` before it can know which one it is.
+/// Holding a repeating key still repeats. The button style reports the press;
+/// once it has lasted `initialDelay` with the finger still on the key — a drag
+/// ends the press, so a scroll never repeats — the action fires every
+/// `interval`, and the release adds nothing more.
 ///
 /// Android reads the platform's key-repeat timings from `ViewConfiguration`.
-/// iOS has no public equivalent, so the two constants below are chosen to match
-/// what the system keyboard feels like — long enough that a normal tap never
-/// repeats, short enough that holding is quicker than tapping.
+/// iOS has no public equivalent, so the constants in ``KeyRepeater`` are chosen
+/// to match what the system keyboard feels like.
 private struct RepeatingKey<Face: View>: View {
 
     /// Whether holding keeps firing. Off for keys where repeating would be a
-    /// bug rather than a feature — Esc, Tab, the function keys — which still
-    /// need the same touch-down gesture to be reliably pressable.
+    /// bug rather than a feature — Esc, Tab, the function keys.
     let repeats: Bool
     let action: () -> Void
 
     @ViewBuilder var face: (Bool) -> Face
 
-    @State private var repeatTask: Task<Void, Never>?
-    @State private var isPressed = false
+    @State private var repeater = KeyRepeater()
 
-    /// Before the first repeat, and between repeats afterwards.
-    private static var initialDelay: Duration { .milliseconds(450) }
-    private static var interval: Duration { .milliseconds(60) }
-
-    /// How far a finger may stray before this counts as scrolling the bar.
-    private static var slop: CGFloat { 10 }
+    /// Holds the pressed face a moment after a quick tap. Without it the
+    /// highlight lasts a few milliseconds and a key that worked is
+    /// indistinguishable from one that did not — Esc and ← at an empty prompt
+    /// have no visible effect of their own.
+    @State private var isFlashing = false
 
     var body: some View {
-        face(isPressed)
-            .simultaneousGesture(press)
-            // A held key can be taken off the screen mid-press: the keyboard
-            // key dismisses the keyboard and the whole bar goes with it, and so
-            // does choosing another bar, or the session dropping. The gesture
-            // then never ends, `onEnded` never runs, and the repeat task — which
-            // is not owned by this view and does not die with it — carries on
-            // sending arrow bytes to a session nobody is touching. Android had
-            // the same defect from the other direction (4f34a7a), reported as
-            // the cursor moving on its own after the finger was gone.
-            .onDisappear { stop() }
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { action() }
+        Button {
+            guard !repeater.didRepeat else { return }
+            action()
+            flash()
+        } label: {
+            EmptyView()
+        }
+        .buttonStyle(KeyPressStyle(
+            repeats: repeats,
+            action: action,
+            repeater: repeater,
+            isFlashing: isFlashing,
+            face: face
+        ))
+        // A held key can be taken off the screen mid-press: the keyboard key
+        // dismisses the keyboard and the whole bar goes with it, and so does
+        // choosing another bar, or the session dropping. The repeat task is not
+        // owned by the view and would carry on sending arrow bytes to a session
+        // nobody is touching. Android had the same defect (4f34a7a), reported as
+        // the cursor moving on its own after the finger was gone.
+        .onDisappear { repeater.stop() }
     }
 
-    private var press: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                if abs(value.translation.width) > Self.slop
-                    || abs(value.translation.height) > Self.slop {
-                    stop()
-                    return
-                }
-                guard !isPressed else { return }
-                isPressed = true
-                action()
+    private func flash() {
+        isFlashing = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            isFlashing = false
+        }
+    }
+}
 
-                // Hold the pressed face long enough to be seen. Without it the
-                // highlight lasts a few milliseconds and a key that worked is
-                // indistinguishable from one that did not — Esc and ← at an
-                // empty prompt have no visible effect of their own.
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(120))
-                    if repeatTask == nil { isPressed = false }
-                }
+/// Draws a key from its press state, and tells the repeater when a press starts
+/// and ends. The label the button carries is ignored: the face is the label.
+private struct KeyPressStyle<Face: View>: ButtonStyle {
 
-                guard repeats else { return }
-                repeatTask = Task {
-                    try? await Task.sleep(for: Self.initialDelay)
-                    while !Task.isCancelled {
-                        action()
-                        try? await Task.sleep(for: Self.interval)
-                    }
-                }
+    let repeats: Bool
+    let action: () -> Void
+    let repeater: KeyRepeater
+    let isFlashing: Bool
+    let face: (Bool) -> Face
+
+    func makeBody(configuration: Configuration) -> some View {
+        face(configuration.isPressed || isFlashing)
+            .onValueChange(of: configuration.isPressed) { pressed in
+                repeater.pressChanged(pressed, repeats: repeats, action: action)
             }
-            .onEnded { _ in stop() }
+    }
+}
+
+/// The hold-to-repeat timer of one key.
+///
+/// A reference type held in `@State`, so the timer survives the redraws the
+/// press itself causes, and so the release — which reaches the button's action
+/// and the style's press change in no guaranteed order — can read whether the
+/// hold already typed.
+///
+/// Not `@MainActor` as a type, because a `@State` default value is evaluated
+/// outside the actor; it is only ever touched from the main thread, and the
+/// repeat task is pinned there.
+final class KeyRepeater {
+
+    /// Before the first repeat: long enough that a normal tap never repeats.
+    static let initialDelay: Duration = .milliseconds(450)
+    /// Between repeats: quicker than tapping.
+    static let interval: Duration = .milliseconds(60)
+
+    /// Whether the current press has fired by repeating, in which case its
+    /// release must not fire once more.
+    private(set) var didRepeat = false
+
+    private var task: Task<Void, Never>?
+
+    func pressChanged(_ pressed: Bool, repeats: Bool, action: @escaping () -> Void) {
+        guard pressed else {
+            stop()
+            return
+        }
+        didRepeat = false
+        guard repeats else { return }
+        task?.cancel()
+        task = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.initialDelay)
+            while !Task.isCancelled {
+                self?.didRepeat = true
+                action()
+                try? await Task.sleep(for: Self.interval)
+            }
+        }
     }
 
-    private func stop() {
-        isPressed = false
-        repeatTask?.cancel()
-        repeatTask = nil
+    func stop() {
+        task?.cancel()
+        task = nil
     }
 }
 
