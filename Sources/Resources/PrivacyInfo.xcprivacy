@@ -4,9 +4,14 @@
 <dict>
 	<!--
 	  SSHBorg does not track, does not collect data and contains no third-party
-	  SDKs. Revisit on every phase that introduces new APIs: in particular phase 6
-	  (SFTP) will use file timestamp and disk space APIs, which must be declared
-	  here.
+	  SDKs. Revisit whenever code or a dependency starts using a required-reason
+	  API. Apple checks the linked binary, not the Swift sources: a C library
+	  compiled in statically counts as this app's own use.
+
+	  Checked 13/09/2026 with `nm -u` on the Release binary: it imports `stat` and
+	  `fstat` and nothing else from the required-reason lists. They come from
+	  SQLite inside GRDB, on the app's own database. Our Swift reads only `.size`
+	  through `attributesOfItem(atPath:)`, which is not on Apple's list.
 	-->
 	<key>NSPrivacyTracking</key>
 	<false/>
@@ -16,6 +21,21 @@
 	<array/>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- C617.1: metadata of files inside the app container — SQLite's
+				     stat/fstat on the database in Application Support, and the
+				     SFTP downloads in Documents. -->
+				<string>C617.1</string>
+				<!-- 3B52.1: metadata of files the user picked — an SFTP upload,
+				     a key or a backup chosen with the document picker, whose
+				     size is read before it is sent. -->
+				<string>3B52.1</string>
+			</array>
+		</dict>
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
