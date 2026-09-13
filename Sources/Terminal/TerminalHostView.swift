@@ -33,6 +33,11 @@ struct TerminalHostView: UIViewRepresentable {
     /// SwiftUI, where both of those are observable.
     var palette: TerminalPalette
 
+    /// The Settings values that act on the view itself. Passed in for the same
+    /// reason as the palette: read where observation can see them.
+    var doubleTapAction: AppPreferences.DoubleTapAction
+    var invertsScroll: Bool
+    var scrollbackLines: Int
 
     func makeUIView(context: Context) -> UIView {
         let container = UIView()
@@ -94,7 +99,15 @@ struct TerminalHostView: UIViewRepresentable {
             terminal.caretColor = palette.caret
         }
 
-        let size = CGFloat(fontSize)
+        session.applyViewSettings(
+            doubleTap: doubleTapAction,
+            invertedScroll: invertsScroll,
+            scrollback: scrollbackLines
+        )
+
+        // A pinched tab keeps its own size; the Settings value is the default
+        // for tabs nobody has zoomed.
+        let size = session.zoomedFontSize ?? CGFloat(fontSize)
         let wanted = TerminalFont.regular(size: size)
         // Compare the family too: the size alone would not notice the very first
         // switch from the system font to the bundled one at the same point size.

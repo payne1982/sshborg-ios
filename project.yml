@@ -59,7 +59,7 @@ settings:
     # The build: one more for every upload to App Store Connect, TestFlight
     # included, and never reset between versions — the counterpart of Android's
     # versionCode.
-    CURRENT_PROJECT_VERSION: "2"
+    CURRENT_PROJECT_VERSION: "3"
     TARGETED_DEVICE_FAMILY: "1,2" # iPhone + iPad
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     CLANG_ENABLE_MODULES: YES

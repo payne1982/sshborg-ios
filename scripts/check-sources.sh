@@ -240,6 +240,31 @@ if [ -n "$hits" ]; then
     echo "$hits"
 fi
 
+# 10. A preference that nothing reads.
+#
+# A setting offered in Settings, stored and carried in backups while no code acts
+# on it looks exactly like a finished feature. It happened seven times during the
+# port, and then four more at once, found on 13/09/2026 only because the website's
+# user guide was being checked against the code: keep screen on, the double-tap
+# action, scrollback lines and inverted scrolling — in the build already sent for
+# review.
+#
+# Every property of AppPreferences needs a reader outside the files that only
+# store it, back it up or edit it. The exceptions are deliberate and say why in
+# their doc comments.
+hits=""
+for p in $(grep -oE '^    var [a-zA-Z]+' Sources/Data/AppPreferences.swift | awk '{print $2}'); do
+    case "$p" in allowScreenshots|confirmExit) continue ;; esac
+    n=$(grep -rnE "\\.$p\\b" --include='*.swift' Sources/ \
+        | grep -vE 'Sources/Data/(AppPreferences|BackupArchive|BackupService)\.swift|Sources/Features/Settings/SettingsScreen\.swift' \
+        | wc -l)
+    [ "$n" -eq 0 ] && hits="$hits  $p\n"
+done
+if [ -n "$hits" ]; then
+    fail "preference that nothing reads — wire it up, or say in its doc comment why not:"
+    printf '%b' "$hits"
+fi
+
 if [ "$status" -eq 0 ]; then
     printf '\033[32mok\033[0m — no known-pattern problems\n'
 fi

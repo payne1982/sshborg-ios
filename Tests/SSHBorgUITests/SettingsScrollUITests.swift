@@ -46,7 +46,9 @@ final class SettingsScrollUITests: XCTestCase {
         XCTAssertTrue(gear.waitForExistence(timeout: 10), "no Settings button in the toolbar")
         gear.tap()
 
-        let firstRow = app.staticTexts["Confirm exit"].firstMatch
+        // The theme picker, now that the exit confirmation — which meant nothing
+        // on iOS — is no longer above it.
+        let firstRow = app.staticTexts["Theme"].firstMatch
         XCTAssertTrue(firstRow.waitForExistence(timeout: 10), "the settings screen did not open")
         attach("02-settings-top")
 

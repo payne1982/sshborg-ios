@@ -7,12 +7,16 @@ import Perception
 /// Ported from the Android `SettingsScreen`, with the entries that cannot mean
 /// anything on iOS left out rather than shown as decoration.
 ///
-/// Two are missing on purpose:
+/// Three are missing on purpose:
 ///
 /// - **Allow screenshots.** Android has `FLAG_SECURE`; iOS has no equivalent and
 ///   an app cannot stop a screenshot. The stored value is still round-tripped
 ///   through backups so it survives a trip to an Android device and back, but a
 ///   switch that changes nothing would be a lie.
+/// - **Confirm exit.** Android asks before Back closes the app. An iOS app is
+///   never closed from inside itself — there is no Back out of it — so there is
+///   nothing to confirm. It was shown here until 13/09/2026, doing nothing; the
+///   value still travels in backups for the same reason as the one above.
 /// - **Language.** iOS keeps per-app language in Settings.app, so this offers a
 ///   link there instead of a picker of its own, which would fight the system.
 struct SettingsScreen: View {
@@ -64,11 +68,6 @@ struct SettingsScreen: View {
 
     private var generalSection: some View {
         Section {
-            Toggle(isOn: binding(\.confirmExit)) {
-                Text(.settingsConfirmExitTitle)
-                Text(.settingsConfirmExitSubtitle)
-            }
-
             Picker(String(localized: .settingsThemeTitle), selection: binding(\.nightMode)) {
                 Text(.settingsThemeFollowSystem).tag(AppPreferences.NightMode.followSystem)
                 Text(.settingsThemeLight).tag(AppPreferences.NightMode.light)

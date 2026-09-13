@@ -36,6 +36,9 @@ struct TerminalScreen: View {
                     )
                 }
             }
+            // While a terminal is on screen, and only then — Android's
+            // `keepScreenOn` sits on the terminal view for the same reason.
+            .modifier(KeepsScreenOn(isOn: environment.preferences.keepScreenOn && manager.selected != nil))
             .navigationTitle(manager.selected?.title ?? String(localized: .terminalTitleDefault))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -83,7 +86,10 @@ struct TerminalScreen: View {
             TerminalHostView(
                 session: session,
                 fontSize: environment.preferences.terminalFontSize,
-                palette: palette
+                palette: palette,
+                doubleTapAction: environment.preferences.doubleTapAction,
+                invertsScroll: environment.preferences.invertTerminalScroll,
+                scrollbackLines: environment.preferences.scrollbackLines
             )
                 // No `ignoresSafeArea(.container, edges: .bottom)` here, though
                 // there was from the first terminal commit until 03/09/2026.
@@ -338,6 +344,23 @@ struct TerminalScreen: View {
         Task { await session.connect(password: password) }
     }
 
+}
+
+/// Holds the idle timer off while the screen is showing and the setting is on.
+///
+/// The timer is app-wide, so leaving the screen has to put it back: a terminal
+/// closed with the setting on would otherwise keep the phone awake on the host
+/// list, or anywhere else, until the app quits.
+private struct KeepsScreenOn: ViewModifier {
+
+    let isOn: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { UIApplication.shared.isIdleTimerDisabled = isOn }
+            .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+            .onValueChange(of: isOn) { on in UIApplication.shared.isIdleTimerDisabled = on }
+    }
 }
 
 private struct SessionTabRow: View {

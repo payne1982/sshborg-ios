@@ -38,6 +38,14 @@ final class TerminalSession: Identifiable {
 
     let terminalView: TerminalView
 
+    /// Double tap, inverted scrolling, scrollback and pinch, which all act on
+    /// the view. Optional only because it needs `self` to exist first.
+    @PerceptionIgnored private var touch: TerminalTouchHandling?
+
+    /// The size a pinch left this tab at. It takes over from the default in
+    /// Settings for as long as the tab lives, which is Android's `userScaled`.
+    @PerceptionIgnored private(set) var zoomedFontSize: CGFloat?
+
     /// Sticky modifiers driven by the extra key row. They apply to the next
     /// character typed on the soft keyboard and then clear themselves, which is
     /// how the Android row behaves.
@@ -172,6 +180,28 @@ final class TerminalSession: Identifiable {
         // absence, rather than a wrong value, which is why reading the code had
         // not turned it up: everything on our side was correct.
         terminalView.notifyUpdateChanges = true
+
+        touch = TerminalTouchHandling(
+            terminal: terminalView,
+            send: { [weak self] bytes in self?.send(bytes) },
+            zoom: { [weak self] size in self?.zoom(to: size) }
+        )
+    }
+
+    // MARK: - View settings
+
+    /// Applies the terminal settings that live on the view. Called on every pass
+    /// of the screen; each part does nothing when its value has not changed.
+    func applyViewSettings(doubleTap: AppPreferences.DoubleTapAction, invertedScroll: Bool, scrollback: Int) {
+        touch?.apply(doubleTap: doubleTap)
+        touch?.apply(invertedScroll: invertedScroll)
+        touch?.apply(scrollback: scrollback)
+    }
+
+    /// Sets this tab's text size, as a pinch does.
+    func zoom(to size: CGFloat) {
+        zoomedFontSize = size
+        terminalView.font = TerminalFont.regular(size: size)
     }
 
     deinit {

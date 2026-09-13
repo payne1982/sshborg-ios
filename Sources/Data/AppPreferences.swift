@@ -155,6 +155,10 @@ final class AppPreferences {
 
     // MARK: - Appearance and behaviour
 
+    /// Kept only so that a settings backup round-trips without losing the value.
+    ///
+    /// Android asks before Back closes the app; an iOS app is never closed from
+    /// inside itself, so nothing here reads this and Settings does not offer it.
     var confirmExit: Bool {
         get { read(Key.confirmExit, keyPath: \.confirmExit) }
         set { write(newValue, Key.confirmExit, keyPath: \.confirmExit) }
