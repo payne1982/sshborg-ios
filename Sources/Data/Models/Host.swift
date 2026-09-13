@@ -72,6 +72,18 @@ struct Host: Identifiable, Hashable, Codable, FetchableRecord, MutablePersistabl
     /// Stored as ARGB (not a SwiftUI `Color`) to stay backup-compatible.
     var color: Int?
 
+    /// Place in the manual list order, scoped to the host's own section.
+    ///
+    /// `nil` means "not placed yet", and it stays that way until the manual
+    /// order is actually chosen: seeding lazily is what keeps every path that
+    /// inserts a host — the editor, a clone, a restored backup — free of any
+    /// ordering logic at all.
+    var position: Int?
+
+    /// How many times this host has been connected to, for the "most used"
+    /// order. Bumped by ``HostRepository/recordConnection(id:at:)``.
+    var connectCount: Int = 0
+
     mutating func didInsert(_ inserted: InsertionSuccess) {
         id = inserted.rowID
     }

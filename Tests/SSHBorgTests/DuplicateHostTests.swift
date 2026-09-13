@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import Foundation
 import XCTest
 
 @testable import SSHBorg
@@ -16,12 +17,21 @@ final class DuplicateHostTests: XCTestCase {
 
     private var database: AppDatabase!
     private var model: HostsModel!
+    private var preferences: AppPreferences!
 
     override func setUpWithError() throws {
         database = try AppDatabase.makeInMemory()
+
+        // A suite of its own, so the test never reads or writes the real defaults.
+        let suiteName = "duplicate-host-tests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        preferences = AppPreferences(defaults: defaults)
+
         model = HostsModel(
             hosts: HostRepository(database),
-            groups: HostGroupRepository(database)
+            groups: HostGroupRepository(database),
+            preferences: preferences
         )
     }
 
@@ -32,6 +42,8 @@ final class DuplicateHostTests: XCTestCase {
         host.knownHostsEntry = "server.example ssh-ed25519 AAAAC3Nz…"
         host.agentForwarding = true
         host.lastConnected = 1_700_000_000_000
+        host.connectCount = 7
+        host.position = 3
         host.jumpHosts = "bastion.example:22"
         host.jumpHostKeys = "bastion.example ssh-ed25519 AAAAC3Nz…"
         host.portForwardings = "8080:localhost:80"
@@ -52,6 +64,8 @@ final class DuplicateHostTests: XCTestCase {
         XCTAssertNotEqual(unwrapped.id, saved.id, "the copy reused the original's row")
         XCTAssertEqual(unwrapped.label, "production (copy)")
         XCTAssertNil(unwrapped.lastConnected, "the copy inherited a history that is not its own")
+        XCTAssertEqual(unwrapped.connectCount, 0, "the copy inherited a usage count that is not its own")
+        XCTAssertNil(unwrapped.position, "the copy took the original's turn in the manual order")
     }
 
     func testEverythingElseComesAcrossVerbatim() async throws {

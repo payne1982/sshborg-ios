@@ -63,7 +63,7 @@ struct SettingsScreen: View {
     // MARK: - General
 
     private var generalSection: some View {
-        Section(String(localized: .settingsSectionGeneral)) {
+        Section {
             Toggle(isOn: binding(\.confirmExit)) {
                 Text(.settingsConfirmExitTitle)
                 Text(.settingsConfirmExitSubtitle)
@@ -83,6 +83,29 @@ struct SettingsScreen: View {
                 LabeledContent(String(localized: .settingsLanguage), value: String(localized: .settingsLanguageSystem))
             }
             .tint(.primary)
+
+            // Host list order (#16), last so the footer below reads as its own.
+            //
+            // Android draws this as one row with the caveat as a supporting
+            // line under the title. A `Form` picker cannot: the value has to
+            // share the row with the label, and with a two-line label there is
+            // nowhere for it to go — photographed twice, once wrapped onto a
+            // third line on the left, once with title and subtitle squeezed
+            // into two columns beside each other. So the caveat becomes what
+            // iOS uses a caveat for, and the row matches every other picker
+            // here.
+            Picker(String(localized: .settingsHostSortTitle), selection: binding(\.hostSortMode)) {
+                ForEach(HostSort.allCases) { mode in
+                    Text(mode.localizedName).tag(mode)
+                }
+            }
+        } header: {
+            Text(.settingsSectionGeneral)
+        } footer: {
+            // Manual also adds "move up / move down" to the menus in the host
+            // list; the other modes leave the groups alphabetical and only
+            // rearrange the hosts inside them.
+            Text(.settingsHostSortSubtitle)
         }
     }
 

@@ -12,9 +12,13 @@ import Foundation
 /// against a file that app produced rather than against our own writer.
 ///
 /// **A backup carries no credentials.** No password, no key, no pinned host
-/// key, no last-connected time. That is deliberate on Android and kept here: the
-/// file is meant to be moved between devices and mailed to oneself, and it can
-/// be handled as ordinary configuration rather than as a secret.
+/// key. That is deliberate on Android and kept here: the file is meant to be
+/// moved between devices and mailed to oneself, and it can be handled as
+/// ordinary configuration rather than as a secret.
+///
+/// Version 7 did add the last-connected time, which used to be left out with
+/// the secrets. It is not one: it says when, not how, and without it a restore
+/// silently resets the "recently used" order it feeds.
 ///
 /// Encoding is by hand rather than `Codable` because the format omits null
 /// fields entirely instead of writing `null`, and `Codable` would need almost as
@@ -23,14 +27,15 @@ struct BackupArchive: Equatable {
 
     /// What each version added, following the Android writer: 2 `groups`, 3
     /// `settings`, 4 `keyLabel`, 5 `sftpShowHidden`, 6 the extra-key bars in
-    /// `settings`. Older files still load —
+    /// `settings`, 7 the host list order — `position` on a group and on a host,
+    /// plus `lastConnected` and `connectCount`. Older files still load —
     /// their missing sections simply do not apply, and neither reader branches
     /// on the number.
     ///
     /// It sat at 3 while `keyLabel` was already being written, which is the
     /// failure mode of a version field nobody reads: nothing broke, and the
     /// number quietly stopped describing the file.
-    static let currentVersion = 6
+    static let currentVersion = 7
 
     var version: Int = currentVersion
     var exportedAt: String
@@ -42,6 +47,8 @@ struct BackupArchive: Equatable {
         var name: String
         /// ARGB, matching ``HostGroup/swatches``.
         var color: Int
+        /// Place in the manual list order, or `nil` when the group has none.
+        var position: Int?
     }
 
     /// A host as the backup carries it: identity and behaviour, never secrets.
@@ -82,6 +89,18 @@ struct BackupArchive: Equatable {
 
         /// Per-host ARGB tint, or `nil` to inherit the group's.
         var color: Int?
+
+        /// Place in the manual list order, scoped to the host's section.
+        var position: Int?
+
+        /// Milliseconds since the Unix epoch, or `nil` for a host never
+        /// connected to. Feeds the "recently used" order.
+        var lastConnected: Int64?
+
+        /// Feeds the "most used" order. Android omits the field when it is
+        /// zero, so a host that has never been connected to carries neither
+        /// this nor ``lastConnected``.
+        var connectCount: Int = 0
     }
 
     /// The preference keys the Android app exports, by its own names.
@@ -99,6 +118,8 @@ struct BackupArchive: Equatable {
         var suggestionsBarSticky: Bool?
         var doubleTapAction: Int?
         var extraKeysBarPinned: Bool?
+        /// Raw ``HostSort`` value: the order of the host list (#16).
+        var hostSortMode: Int?
         /// Id of the extra-key bar in use, and the user's own bars. The bars
         /// travel whole, in the Android JSON shape, see ``ExtraBarJSON``.
         var extraBarSelected: String?
@@ -134,7 +155,7 @@ extension BackupArchive {
         var root: [String: Any] = [
             "version": version,
             "exported_at": exportedAt,
-            "groups": groups.map { ["name": $0.name, "color": $0.color] },
+            "groups": groups.map(Self.encode),
             "hosts": hosts.map(Self.encode),
         ]
         if let settings {
@@ -145,6 +166,12 @@ extension BackupArchive {
             withJSONObject: root,
             options: [.prettyPrinted, .sortedKeys]
         )
+    }
+
+    private static func encode(_ group: Group) -> [String: Any] {
+        var object: [String: Any] = ["name": group.name, "color": group.color]
+        if let value = group.position { object["position"] = value }
+        return object
     }
 
     private static func encode(_ host: HostEntry) -> [String: Any] {
@@ -170,6 +197,12 @@ extension BackupArchive {
         if let value = host.keyLabel { object["keyLabel"] = value }
         if let value = host.color { object["color"] = value }
 
+        // Host list order (#16). Without these a restore loses the manual
+        // arrangement and both usage-based orders start again from nothing.
+        if let value = host.position { object["position"] = value }
+        if let value = host.lastConnected { object["lastConnected"] = value }
+        if host.connectCount > 0 { object["connectCount"] = host.connectCount }
+
         return object
     }
 
@@ -189,6 +222,7 @@ extension BackupArchive {
         if let value = settings.suggestionsBarSticky { object["suggestions_bar_sticky"] = value }
         if let value = settings.doubleTapAction { object["double_tap_action"] = value }
         if let value = settings.extraKeysBarPinned { object["extra_keys_bar_pinned"] = value }
+        if let value = settings.hostSortMode { object["host_sort_mode"] = value }
         if let value = settings.extraBarSelected { object["extra_bar_selected"] = value }
         if let value = settings.extraBarCustom { object["extra_bar_custom"] = ExtraBarJSON.encodeAll(value) }
 
@@ -222,7 +256,11 @@ extension BackupArchive {
 
         archive.groups = (root["groups"] as? [[String: Any]] ?? []).compactMap { raw in
             guard let name = raw["name"] as? String, !name.isEmpty else { return nil }
-            return Group(name: name, color: raw["color"] as? Int ?? HostGroup.swatches[0])
+            return Group(
+                name: name,
+                color: raw["color"] as? Int ?? HostGroup.swatches[0],
+                position: raw["position"] as? Int
+            )
         }
 
         archive.hosts = try rawHosts.enumerated().map { index, raw in
@@ -247,7 +285,12 @@ extension BackupArchive {
                 sftpStartDir: nonEmpty(raw["sftpStartDir"]),
                 group: nonEmpty(raw["group"]),
                 keyLabel: nonEmpty(raw["keyLabel"]),
-                color: raw["color"] as? Int
+                color: raw["color"] as? Int,
+                position: raw["position"] as? Int,
+                // Written by Android as a JSON number too large for `Int` on a
+                // 32-bit read, so it is taken as `Int64` and not as `Int`.
+                lastConnected: (raw["lastConnected"] as? NSNumber)?.int64Value,
+                connectCount: raw["connectCount"] as? Int ?? 0
             )
         }
 
@@ -266,6 +309,7 @@ extension BackupArchive {
                 suggestionsBarSticky: rawSettings["suggestions_bar_sticky"] as? Bool,
                 doubleTapAction: rawSettings["double_tap_action"] as? Int,
                 extraKeysBarPinned: rawSettings["extra_keys_bar_pinned"] as? Bool,
+                hostSortMode: rawSettings["host_sort_mode"] as? Int,
                 extraBarSelected: rawSettings["extra_bar_selected"] as? String,
                 extraBarCustom: (rawSettings["extra_bar_custom"] as? [Any]).map(ExtraBarJSON.decodeAll)
             )

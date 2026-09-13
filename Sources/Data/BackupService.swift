@@ -55,7 +55,9 @@ struct BackupService {
 
         return BackupArchive(
             exportedAt: Self.timestampFormatter.string(from: now),
-            groups: allGroups.map { BackupArchive.Group(name: $0.name, color: $0.color) },
+            groups: allGroups.map {
+                BackupArchive.Group(name: $0.name, color: $0.color, position: $0.position)
+            },
             hosts: allHosts.map { host in
                 BackupArchive.HostEntry(
                     label: host.label,
@@ -73,7 +75,10 @@ struct BackupService {
                     sftpStartDir: host.sftpStartDir,
                     group: host.groupId.flatMap { groupNameByID[$0] },
                     keyLabel: host.keyId.flatMap { keyLabelByID[$0] },
-                    color: host.color
+                    color: host.color,
+                    position: host.position,
+                    lastConnected: host.lastConnected,
+                    connectCount: host.connectCount
                 )
             },
             settings: currentSettings()
@@ -103,6 +108,7 @@ struct BackupService {
             suggestionsBarSticky: preferences.suggestionsBarSticky,
             doubleTapAction: preferences.doubleTapAction.rawValue,
             extraKeysBarPinned: preferences.extraKeysBarPinned,
+            hostSortMode: preferences.hostSortMode.rawValue,
             extraBarSelected: preferences.extraBarSelectedID,
             extraBarCustom: preferences.customExtraBars
         )
@@ -162,10 +168,15 @@ struct BackupService {
         for entry in entries {
             if var existing = try await groups.fetch(name: entry.name) {
                 existing.color = entry.color
+                // A group already placed by hand keeps its place; one that has
+                // none takes the file's. Same rule as the hosts below.
+                existing.position = existing.position ?? entry.position
                 let saved = try await groups.save(existing)
                 idsByName[entry.name] = saved.id
             } else {
-                let saved = try await groups.save(HostGroup(name: entry.name, color: entry.color))
+                let saved = try await groups.save(
+                    HostGroup(name: entry.name, color: entry.color, position: entry.position)
+                )
                 idsByName[entry.name] = saved.id
             }
         }
@@ -200,7 +211,7 @@ struct BackupService {
         groupID: Int64?,
         keyID: Int64?
     ) -> Host {
-        Host(
+        var host = Host(
             label: entry.label,
             hostname: entry.hostname,
             port: entry.port,
@@ -216,16 +227,25 @@ struct BackupService {
             sftpShowHidden: entry.sftpShowHidden,
             allowLegacyCiphers: entry.allowLegacyCiphers,
             groupId: groupID,
-            color: entry.color
+            color: entry.color,
+            position: entry.position,
+            connectCount: entry.connectCount
         )
+        host.lastConnected = entry.lastConnected
+        return host
     }
 
     /// Folds an imported host onto one that already exists under the same label.
     ///
-    /// Two different things are being protected here.
+    /// Three different things are being protected here.
     ///
-    /// Credentials and history are simply not in the file, so they are always
-    /// kept: re-importing a backup must not log the user out of a host.
+    /// Credentials are not in the file at all, so they are always kept:
+    /// re-importing a backup must not log the user out of a host.
+    ///
+    /// Usage data and the manual place *are* in the file, as of version 7, and
+    /// there the local value wins. A backup taken on another device knows that
+    /// device's habits, not this one's, and a restore that overwrote them would
+    /// rearrange a list the user had arranged by hand.
     ///
     /// Pinned host keys are subtler. A stored key is a trust-on-first-use anchor
     /// bound to one endpoint, so it may only survive while that endpoint is
@@ -245,7 +265,15 @@ struct BackupService {
         host.keyId = existing.keyId ?? imported.keyId
         host.password = existing.password
         host.encryptedPassword = existing.encryptedPassword
-        host.lastConnected = existing.lastConnected
+
+        // Usage data and the manual place are local facts, so what this install
+        // already knows wins and the file only fills in what it has never
+        // recorded. The counter takes the larger of the two rather than one or
+        // the other: both sides counted real connections, and neither number is
+        // the whole story.
+        host.lastConnected = existing.lastConnected ?? imported.lastConnected
+        host.connectCount = max(existing.connectCount, imported.connectCount)
+        host.position = existing.position ?? imported.position
 
         let sameEndpoint = existing.hostname == imported.hostname && existing.port == imported.port
         host.knownHostsEntry = sameEndpoint ? existing.knownHostsEntry : nil
@@ -280,6 +308,7 @@ struct BackupService {
             preferences.doubleTapAction = AppPreferences.DoubleTapAction(rawValue: value) ?? .none
         }
         if let value = settings.extraKeysBarPinned { preferences.extraKeysBarPinned = value }
+        if let value = settings.hostSortMode { preferences.hostSortMode = HostSort.mode(for: value) }
         // The bars replace the local set, as on Android: they carry their own
         // ids, and merging two lists of the same bar would double it. The
         // selected id is stored as it came; one that resolves to nothing falls

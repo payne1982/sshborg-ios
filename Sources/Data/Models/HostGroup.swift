@@ -21,6 +21,10 @@ struct HostGroup: Identifiable, Equatable, Codable, FetchableRecord, MutablePers
     /// Whether the group's section is collapsed in the host list.
     var collapsed: Bool = false
 
+    /// Place in the manual list order; `nil` until that order is first seeded.
+    /// See ``HostSort`` for why the groups only move in that one mode.
+    var position: Int?
+
     mutating func didInsert(_ inserted: InsertionSuccess) {
         id = inserted.rowID
     }

@@ -102,9 +102,19 @@ struct HostsScreen: View {
                 }
             }
             .task {
-                let model = model ?? HostsModel(hosts: environment.hosts, groups: environment.groups)
+                let model = model ?? HostsModel(
+                    hosts: environment.hosts,
+                    groups: environment.groups,
+                    preferences: environment.preferences
+                )
                 self.model = model
                 await model.observe()
+            }
+            // Picking the manual order in Settings changes no table, so the
+            // observation above never fires and nothing would be placed until
+            // the next edit. This is the other way in.
+            .onValueChange(of: environment.preferences.hostSortMode) { _ in
+                Task { await model?.seedPositionsIfNeeded() }
             }
             .sheet(item: $editing) { target in
                 NavigationStack {
@@ -202,17 +212,31 @@ struct HostsScreen: View {
             }
         } else {
             List {
-                ForEach(model.sections) { section in
+                let sections = model.sections
+                // The groups in the order they are drawn, so a header knows
+                // whether it is the first or the last one and can grey out the
+                // move it cannot make.
+                let groupIDs = sections.compactMap { $0.group?.id }
+
+                ForEach(sections) { section in
                     if let group = section.group {
                         Section {
                             if !group.collapsed {
                                 rows(for: section.hosts, model: model)
                             }
                         } header: {
+                            let index = groupIDs.firstIndex { $0 == group.id } ?? 0
                             GroupHeader(group: group, count: section.hosts.count) {
                                 Task { await model.toggleCollapsed(group) }
                             }
                             .contextMenu {
+                                moveActions(
+                                    isManual: model.sortMode == .manual,
+                                    canMoveUp: index > 0,
+                                    canMoveDown: index < groupIDs.count - 1
+                                ) { delta in
+                                    Task { await model.move(group, by: delta) }
+                                }
                                 Button(String(localized: .actionEdit), systemImage: "pencil") { groupEditing = .existing(group) }
                                 Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) {
                                     groupToDelete = group
@@ -232,6 +256,11 @@ struct HostsScreen: View {
 
     private func rows(for hosts: [Host], model: HostsModel) -> some View {
         ForEach(hosts) { host in
+            // Its place in this section, for the move entries. `firstIndex`
+            // rather than an enumerated ForEach: the identity SwiftUI diffs on
+            // must stay the host, or every reorder would rebuild the rows
+            // instead of animating them.
+            let index = hosts.firstIndex { $0.id == host.id } ?? 0
             // A ForEach row builder is escaping, so the wrapper on the body does
             // not reach in here — and these two lines are the badges that say how
             // many terminals and whether a file browser is open on this host.
@@ -253,7 +282,16 @@ struct HostsScreen: View {
                     // invisible: nothing on a row announces that holding it does
                     // anything. Android carries both — a `MoreVert` button beside
                     // the row and a long press — opening one menu, and so does this.
-                    actions: { AnyView(hostActions(host, model: model)) }
+                    actions: {
+                        AnyView(
+                            hostActions(
+                                host,
+                                model: model,
+                                canMoveUp: index > 0,
+                                canMoveDown: index < hosts.count - 1
+                            )
+                        )
+                    }
                 )
                 // Still here, and now only for the long press: it is what
                 // gives the context menu a preview the shape of the whole row.
@@ -269,7 +307,14 @@ struct HostsScreen: View {
                     Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
                         .tint(.blue)
                 }
-                .contextMenu { hostActions(host, model: model) }
+                .contextMenu {
+                    hostActions(
+                        host,
+                        model: model,
+                        canMoveUp: index > 0,
+                        canMoveDown: index < hosts.count - 1
+                    )
+                }
             }
         }
     }
@@ -285,7 +330,12 @@ struct HostsScreen: View {
     /// thing from connecting. With nothing open the two would be the same
     /// action twice.
     @ViewBuilder
-    private func hostActions(_ host: Host, model: HostsModel) -> some View {
+    private func hostActions(
+        _ host: Host,
+        model: HostsModel,
+        canMoveUp: Bool,
+        canMoveDown: Bool
+    ) -> some View {
         // Reached through `actions:` — an escaping closure — and through
         // .contextMenu, so this is built outside the body pass and needs its own
         // scope. The first entries change with the running sessions: "Connect"
@@ -332,6 +382,13 @@ struct HostsScreen: View {
                     Image(systemName: "folder")
                 }
             }
+            moveActions(
+                isManual: model.sortMode == .manual,
+                canMoveUp: canMoveUp,
+                canMoveDown: canMoveDown
+            ) { delta in
+                Task { await model.move(host, by: delta) }
+            }
             Button(String(localized: .actionEdit), systemImage: "pencil") { editing = .existing(host) }
             // Between Edit and Delete, as on Android. The copy opens in the editor
             // straight away: nobody duplicates a host to leave it identical, so
@@ -344,6 +401,29 @@ struct HostsScreen: View {
             Button(String(localized: .actionDelete), systemImage: "trash", role: .destructive) {
                 hostToDelete = host
             }
+        }
+    }
+
+    /// "Move up" / "Move down" for the manual list order (#16), for a host row
+    /// and for a group header alike.
+    ///
+    /// Offered only while that order is in use: in every other mode the arrows
+    /// would appear to do nothing, because the next redraw sorts the list back.
+    /// At the ends of a section they are shown disabled rather than hidden, so
+    /// the boundary is visible instead of the menu changing shape as you travel
+    /// down the list.
+    @ViewBuilder
+    private func moveActions(
+        isManual: Bool,
+        canMoveUp: Bool,
+        canMoveDown: Bool,
+        move: @escaping (Int) -> Void
+    ) -> some View {
+        if isManual {
+            Button(String(localized: .hostsMoveUp), systemImage: "arrow.up") { move(-1) }
+                .disabled(!canMoveUp)
+            Button(String(localized: .hostsMoveDown), systemImage: "arrow.down") { move(1) }
+                .disabled(!canMoveDown)
         }
     }
 

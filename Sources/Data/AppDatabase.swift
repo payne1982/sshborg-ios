@@ -120,6 +120,21 @@ final class AppDatabase: Sendable {
             }
         }
 
+        // Android's Room migration 12 -> 13: the host list order (#16).
+        //
+        // Both positions are nullable on purpose — "no manual place yet" is a
+        // state, not a zero — while the counter is not: a host that has never
+        // been connected to has been connected to nought times.
+        migrator.registerMigration("v3") { db in
+            try db.alter(table: "hosts") { t in
+                t.add(column: "position", .integer)
+                t.add(column: "connectCount", .integer).notNull().defaults(to: 0)
+            }
+            try db.alter(table: "host_groups") { t in
+                t.add(column: "position", .integer)
+            }
+        }
+
         return migrator
     }
 }

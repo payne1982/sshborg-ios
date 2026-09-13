@@ -23,7 +23,7 @@ final class AppDatabaseTests: XCTestCase {
         }
     }
 
-    /// The Android Room entity has these 22 columns, its version 12. A mismatch
+    /// The Android Room entity has these 24 columns, its version 13. A mismatch
     /// means the shared JSON backup would silently drop a field.
     ///
     /// It has already earned its keep: `sftpShowHidden` was added to the model,
@@ -39,7 +39,7 @@ final class AppDatabaseTests: XCTestCase {
                     "agentForwarding", "lastConnected", "jumpHosts", "jumpHostKeys",
                     "portForwardings", "jumpMode", "jumpHostIdList", "sftpStartMode",
                     "sftpStartDir", "sftpShowHidden", "allowLegacyCiphers",
-                    "groupId", "color",
+                    "groupId", "color", "position", "connectCount",
                 ]
             )
         }
@@ -106,18 +106,46 @@ final class AppDatabaseTests: XCTestCase {
         XCTAssertEqual(labels, ["alpha", "mid", "zeta"])
     }
 
-    func testUpdateLastConnected() async throws {
+    func testRecordingAConnectionStampsTheTimeAndBumpsTheCount() async throws {
         let repository = HostRepository(database)
         let saved = try await repository.save(Host(label: "h", hostname: "h", username: "u"))
         let id = try XCTUnwrap(saved.id)
         XCTAssertNil(saved.lastConnected)
+        XCTAssertEqual(saved.connectCount, 0)
 
         let date = Date(timeIntervalSince1970: 1_700_000_000)
-        try await repository.updateLastConnected(id: id, to: date)
+        try await repository.recordConnection(id: id, at: date)
 
         let fetched = try await repository.fetch(id: id)
         let reloaded = try XCTUnwrap(fetched)
         XCTAssertEqual(reloaded.lastConnected, 1_700_000_000_000)
+        XCTAssertEqual(reloaded.connectCount, 1)
+
+        // The counter is the only record of a connection that is not the last
+        // one, so a second connection must not simply overwrite the first.
+        try await repository.recordConnection(id: id, at: date.addingTimeInterval(60))
+        let second = try await repository.fetch(id: id)
+        let again = try XCTUnwrap(second)
+        XCTAssertEqual(again.connectCount, 2)
+        XCTAssertEqual(again.lastConnected, 1_700_000_060_000)
+    }
+
+    func testPositionsAreWrittenInOneTransaction() async throws {
+        let repository = HostRepository(database)
+        var ids: [Int64] = []
+        for label in ["a", "b", "c"] {
+            let saved = try await repository.save(Host(label: label, hostname: "h", username: "u"))
+            ids.append(try XCTUnwrap(saved.id))
+        }
+
+        try await repository.updatePositions([
+            (ids[0], 2), (ids[1], 0), (ids[2], 1),
+        ])
+
+        let byID = Dictionary(uniqueKeysWithValues: try await repository.fetchAll().map { ($0.id, $0.position) })
+        XCTAssertEqual(byID[ids[0]], 2)
+        XCTAssertEqual(byID[ids[1]], 0)
+        XCTAssertEqual(byID[ids[2]], 1)
     }
 
     // MARK: - Referential integrity

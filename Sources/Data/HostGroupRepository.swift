@@ -61,4 +61,18 @@ struct HostGroupRepository {
             )
         }
     }
+
+    /// Several placements in the manual list order, in one transaction. See
+    /// ``HostSort``.
+    func updatePositions(_ writes: [(id: Int64, position: Int)]) async throws {
+        guard !writes.isEmpty else { return }
+        try await database.writer.write { db in
+            for write in writes {
+                try db.execute(
+                    sql: "UPDATE host_groups SET position = ? WHERE id = ?",
+                    arguments: [write.position, write.id]
+                )
+            }
+        }
+    }
 }

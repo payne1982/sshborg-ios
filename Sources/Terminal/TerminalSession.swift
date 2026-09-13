@@ -378,7 +378,7 @@ final class TerminalSession: Identifiable {
         if host.knownHostsEntry?.isEmpty ?? true {
             try await hosts.updateKnownHostsEntry(id: id, to: hostKey.knownHostsLine)
         }
-        try await hosts.updateLastConnected(id: id)
+        try await hosts.recordConnection(id: id)
     }
 
     // MARK: - Streaming

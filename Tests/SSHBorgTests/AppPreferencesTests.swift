@@ -100,6 +100,7 @@ final class AppPreferencesTests: XCTestCase {
                 "history_suggestions",
                 "suggestions_bar_sticky",
                 "double_tap_action",
+                "host_sort_mode",
                 "extra_bar_selected",
                 "extra_bar_custom",
             ]

@@ -52,13 +52,43 @@ struct HostRepository {
         }
     }
 
-    func updateLastConnected(id: Int64, to date: Date = Date()) async throws {
+    /// One connection: stamps the time and bumps the counter the "most used"
+    /// order reads.
+    ///
+    /// Both in the same statement, as on Android. Two statements would leave a
+    /// window where a host has been connected to but not counted, and the
+    /// counter is the only record of a connection that is not the last one.
+    func recordConnection(id: Int64, at date: Date = Date()) async throws {
         let milliseconds = Int64(date.timeIntervalSince1970 * 1000)
         try await database.writer.write { db in
             try db.execute(
-                sql: "UPDATE hosts SET lastConnected = ? WHERE id = ?",
+                sql: "UPDATE hosts SET lastConnected = ?, connectCount = connectCount + 1 WHERE id = ?",
                 arguments: [milliseconds, id]
             )
+        }
+    }
+
+    /// Places a host in the manual list order. See ``HostSort``.
+    func updatePosition(id: Int64, to position: Int) async throws {
+        try await database.writer.write { db in
+            try db.execute(
+                sql: "UPDATE hosts SET position = ? WHERE id = ?",
+                arguments: [position, id]
+            )
+        }
+    }
+
+    /// Several placements in one transaction, so a reorder is all or nothing
+    /// and the observation fires once rather than per row.
+    func updatePositions(_ writes: [(id: Int64, position: Int)]) async throws {
+        guard !writes.isEmpty else { return }
+        try await database.writer.write { db in
+            for write in writes {
+                try db.execute(
+                    sql: "UPDATE hosts SET position = ? WHERE id = ?",
+                    arguments: [write.position, write.id]
+                )
+            }
         }
     }
 

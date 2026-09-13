@@ -41,6 +41,7 @@ final class AppPreferences {
         static let keepScreenOn = "keep_screen_on"
         static let terminalColorScheme = "terminal_color_scheme"
         static let doubleTapAction = "double_tap_action"
+        static let hostSortMode = "host_sort_mode"
         static let historySuggestions = "history_suggestions"
         static let suggestionsBarSticky = "suggestions_bar_sticky"
         static let sftpSortDirsFirst = "sftp_sort_dirs_first"
@@ -59,6 +60,7 @@ final class AppPreferences {
         Key.terminalFontSize: Limits.defaultTerminalFontSize,
         Key.terminalColorScheme: TerminalColorScheme.dark.rawValue,
         Key.doubleTapAction: DoubleTapAction.none.rawValue,
+        Key.hostSortMode: HostSort.alphabetical.rawValue,
         Key.historySuggestions: true,
         Key.sftpSortDirsFirst: true,
         Key.extraBarSelected: ExtraBarPresets.standardID,
@@ -213,6 +215,12 @@ final class AppPreferences {
         set { write(newValue.rawValue, Key.doubleTapAction, keyPath: \.doubleTapAction) }
     }
 
+    /// Order of the host list and its groups (#16). See ``HostSort``.
+    var hostSortMode: HostSort {
+        get { HostSort.mode(for: read(Key.hostSortMode, keyPath: \.hostSortMode)) }
+        set { write(newValue.rawValue, Key.hostSortMode, keyPath: \.hostSortMode) }
+    }
+
     var historySuggestions: Bool {
         get { read(Key.historySuggestions, keyPath: \.historySuggestions) }
         set { write(newValue, Key.historySuggestions, keyPath: \.historySuggestions) }
@@ -324,6 +332,7 @@ extension AppPreferences {
             "history_suggestions": historySuggestions,
             "suggestions_bar_sticky": suggestionsBarSticky,
             "double_tap_action": doubleTapAction.rawValue,
+            "host_sort_mode": hostSortMode.rawValue,
             "extra_bar_selected": extraBarSelectedID,
             "extra_bar_custom": ExtraBarJSON.encodeAll(customExtraBars),
         ]
@@ -349,6 +358,7 @@ extension AppPreferences {
         if let value = object["double_tap_action"] as? Int {
             doubleTapAction = DoubleTapAction(rawValue: value) ?? .none
         }
+        if let value = object["host_sort_mode"] as? Int { hostSortMode = HostSort.mode(for: value) }
         // Custom bars replace the local set — they carry their own ids — and a
         // selected id that resolves to nothing falls back to the standard
         // preset at read time, so an unknown id is stored as it came.

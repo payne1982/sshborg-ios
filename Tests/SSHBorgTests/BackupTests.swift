@@ -461,7 +461,114 @@ final class BackupTests: XCTestCase {
     /// it gets checked rather than assumed.
     func testTheVersionSaysWhatTheFileActuallyCarries() async throws {
         let archive = try await service.export()
-        XCTAssertEqual(archive.version, 6)
+        XCTAssertEqual(archive.version, 7)
+    }
+
+    // MARK: - The host list order (#16)
+
+    func testTheOrderAndTheUsageDataTravel() async throws {
+        var group = HostGroup(name: "servers", color: HostGroup.swatches[2])
+        group.position = 3
+        let savedGroup = try await groups.save(group)
+
+        var host = Host(label: "one", hostname: "h.example.com", username: "u")
+        host.groupId = savedGroup.id
+        host.position = 2
+        host.lastConnected = 1_700_000_000_000
+        host.connectCount = 5
+        _ = try await hosts.save(host)
+
+        let reparsed = try BackupArchive.decode(try await service.export().jsonData())
+        let entry = try XCTUnwrap(reparsed.hosts.first { $0.label == "one" })
+        XCTAssertEqual(entry.position, 2)
+        XCTAssertEqual(entry.lastConnected, 1_700_000_000_000)
+        XCTAssertEqual(entry.connectCount, 5)
+        XCTAssertEqual(reparsed.groups.first { $0.name == "servers" }?.position, 3)
+    }
+
+    /// Android omits `connectCount` when it is zero, so a host nobody has
+    /// connected to carries neither counter nor timestamp.
+    func testAnUnusedHostCarriesNoUsageFields() async throws {
+        _ = try await hosts.save(Host(label: "fresh", hostname: "h", username: "u"))
+
+        let data = try await service.export().jsonData()
+        let root = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        let raw = try XCTUnwrap((root["hosts"] as? [[String: Any]])?.first)
+        XCTAssertNil(raw["connectCount"])
+        XCTAssertNil(raw["lastConnected"])
+        XCTAssertNil(raw["position"])
+    }
+
+    /// A backup knows the habits of the device it was taken on, not of this
+    /// one. Restoring it must not rearrange a list the user arranged by hand,
+    /// nor reset a counter this install earned.
+    func testLocalOrderAndUsageWinOverTheFile() async throws {
+        var local = Host(label: "gateway", hostname: "gw.example.com", port: 2222, username: "admin")
+        local.position = 9
+        local.lastConnected = 1_800_000_000_000
+        local.connectCount = 12
+        _ = try await hosts.save(local)
+
+        let json = """
+        { "version": 7, "hosts": [
+            { "label": "gateway", "hostname": "gw.example.com", "port": 2222, "username": "admin",
+              "position": 0, "lastConnected": 1700000000000, "connectCount": 3 }
+        ] }
+        """
+        _ = try await service.restore(try BackupArchive.decode(Data(json.utf8)))
+
+        let all = try await hosts.fetchAll()
+        let reloaded = try XCTUnwrap(all.first { $0.label == "gateway" })
+        XCTAssertEqual(reloaded.position, 9)
+        XCTAssertEqual(reloaded.lastConnected, 1_800_000_000_000)
+        // The larger of the two: both sides counted real connections.
+        XCTAssertEqual(reloaded.connectCount, 12)
+    }
+
+    /// The other half of the same rule: what this install has never recorded,
+    /// the file may fill in.
+    func testTheFileFillsInWhatThisInstallNeverRecorded() async throws {
+        _ = try await hosts.save(Host(label: "gateway", hostname: "gw.example.com", port: 2222, username: "admin"))
+
+        let json = """
+        { "version": 7, "hosts": [
+            { "label": "gateway", "hostname": "gw.example.com", "port": 2222, "username": "admin",
+              "position": 4, "lastConnected": 1700000000000, "connectCount": 3 }
+        ] }
+        """
+        _ = try await service.restore(try BackupArchive.decode(Data(json.utf8)))
+
+        let all = try await hosts.fetchAll()
+        let reloaded = try XCTUnwrap(all.first { $0.label == "gateway" })
+        XCTAssertEqual(reloaded.position, 4)
+        XCTAssertEqual(reloaded.lastConnected, 1_700_000_000_000)
+        XCTAssertEqual(reloaded.connectCount, 3)
+    }
+
+    func testTheListOrderSettingTravels() async throws {
+        preferences.hostSortMode = .popular
+        let reparsed = try BackupArchive.decode(try await service.export().jsonData())
+        preferences.hostSortMode = .alphabetical
+
+        _ = try await service.restore(reparsed)
+        XCTAssertEqual(preferences.hostSortMode, .popular)
+    }
+
+    /// A backup written before the order existed must restore without placing
+    /// or unplacing anything.
+    func testAnOlderBackupCarriesNoOrder() throws {
+        let json = """
+        { "version": 6, "hosts": [
+            { "label": "a", "hostname": "h", "username": "u" }
+        ], "groups": [ { "name": "g", "color": 1 } ] }
+        """
+        let archive = try BackupArchive.decode(Data(json.utf8))
+        XCTAssertNil(archive.hosts[0].position)
+        XCTAssertNil(archive.hosts[0].lastConnected)
+        XCTAssertEqual(archive.hosts[0].connectCount, 0)
+        XCTAssertNil(archive.groups[0].position)
     }
 
     /// A backup written before the bars existed must still restore, and must
