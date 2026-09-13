@@ -115,6 +115,59 @@ final class HostOrderUITests: XCTestCase {
         // Still the whole menu, not a replacement for it.
         XCTAssertTrue(app.buttons["Edit"].exists)
         XCTAssertTrue(app.buttons["Delete"].exists)
+
+        // The row pressed above is the first of its section, so the move that
+        // would leave the section has to be refused. Asserted rather than
+        // looked at: a menu's panel is not composited into the screenshot, so
+        // an entry that is merely pale is indistinguishable there from one that
+        // is disabled — and "it looks greyed" is how a control that still works
+        // gets called broken, or the reverse.
+        XCTAssertFalse(app.buttons["Move up"].isEnabled, "Move up is offered on the first row of a section")
+        XCTAssertTrue(app.buttons["Move down"].isEnabled, "Move down is refused where it should work")
+    }
+
+    /// That the chosen order reaches the screen at all.
+    ///
+    /// The unit tests exercise `HostSort` on its own; nothing else checks that
+    /// the preference, the model and the sections are actually joined up. This
+    /// reads the rows off the screen and compares where they sit.
+    ///
+    /// It depends on the hosts seeded into this simulator, so it skips rather
+    /// than fails when they are not there — a red line about somebody else's
+    /// data would say nothing about the app.
+    func testTheChosenOrderReachesTheScreen() throws {
+        // Alphabetically: backup-nas, raspberry, vps-frankfurt.
+        // By use:        vps-frankfurt (12), backup-nas (3), raspberry (0).
+        // By recency:    vps-frankfurt, backup-nas, raspberry (never).
+        let names = ["backup-nas", "raspberry", "vps-frankfurt"]
+
+        launch(extraArguments: ["-host_sort_mode", "0"])
+        guard app.staticTexts[names[0]].waitForExistence(timeout: 15) else {
+            throw XCTSkip("this simulator does not hold the seeded hosts")
+        }
+        for name in names where !app.staticTexts[name].exists {
+            throw XCTSkip("missing \(name)")
+        }
+        XCTAssertEqual(orderOnScreen(of: names), names, "alphabetical is not the database order")
+
+        for mode in ["1", "2"] {
+            app.terminate()
+            launch(extraArguments: ["-host_sort_mode", mode])
+            XCTAssertTrue(app.staticTexts[names[0]].waitForExistence(timeout: 15))
+            XCTAssertEqual(
+                orderOnScreen(of: names),
+                ["vps-frankfurt", "backup-nas", "raspberry"],
+                "mode \(mode) did not reorder the ungrouped hosts"
+            )
+        }
+    }
+
+    /// The given labels, ordered by where they are drawn down the screen.
+    private func orderOnScreen(of names: [String]) -> [String] {
+        names
+            .map { ($0, app.staticTexts[$0].firstMatch.frame.minY) }
+            .sorted { $0.1 < $1.1 }
+            .map(\.0)
     }
 
     /// The other half of the rule. In every mode but manual the arrows would
