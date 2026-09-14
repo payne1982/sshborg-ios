@@ -162,8 +162,7 @@ final class TerminalSession: Identifiable {
         // `open`, so a subclass outside that module cannot. Paste itself is
         // already there; only the refinement is out of reach without a one-line
         // change upstream.
-        // The subclass is for the keyboard's delete key; see ShellTerminalView.
-        self.terminalView = ShellTerminalView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
+        self.terminalView = TerminalView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
 
         let bridge = TerminalDelegateBridge()
         bridge.session = self
