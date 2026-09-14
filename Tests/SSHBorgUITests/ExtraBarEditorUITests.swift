@@ -116,8 +116,23 @@ final class ExtraBarEditorUITests: XCTestCase {
         attach("01-settings-row")
 
         layoutRow.tap()
+        XCTAssertTrue(
+            app.navigationBars["Extra key bars"].firstMatch.waitForExistence(timeout: 10),
+            "the bar list did not open"
+        )
+
+        // "Your bars" comes first, and every run of this suite duplicates a
+        // preset and leaves the copy behind. On 14/09/2026 a dozen of them had
+        // piled up on the VM simulator, pushing the Presets header off the
+        // screen, where the list does not build it — and the assertion read
+        // "the bar list did not open" over a list that was plainly open.
         let presets = app.staticTexts["Presets"].firstMatch
-        XCTAssertTrue(presets.waitForExistence(timeout: 10), "the bar list did not open")
+        swipes = 0
+        while !(presets.exists && presets.isHittable) && swipes < 12 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(presets.exists, "no Presets section in the bar list:\n\(app.debugDescription)")
         attach("02-bar-list")
 
         // Duplicating a preset is the documented way to start a bar of your
