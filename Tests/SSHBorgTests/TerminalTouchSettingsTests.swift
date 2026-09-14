@@ -98,6 +98,64 @@ final class TerminalTouchSettingsTests: XCTestCase {
         )
     }
 
+    // MARK: - Scrolling inside full-screen apps
+
+    /// tmux turns on the mouse; SwiftTerm would answer by installing a pan that
+    /// reports every swipe as a drag with the button held, which tmux takes for
+    /// a selection. Plain `TerminalView` adds that recogniser here.
+    func testTurningOnTheMouseDoesNotTurnASwipeIntoADrag() {
+        let before = session.terminalView.gestureRecognizers?.count
+        session.terminalView.feed(text: "\u{1b}[?1049h\u{1b}[?1000h\u{1b}[?1006h")
+        XCTAssertEqual(session.terminalView.gestureRecognizers?.count, before)
+    }
+
+    func testASwipeReachesTheAppOnlyInAFullScreenAppThatAskedForTheMouse() {
+        let terminal = session.terminalView.getTerminal()
+        XCTAssertFalse(TerminalTouchHandling.reportsWheel(terminal))
+
+        session.terminalView.feed(text: "\u{1b}[?1000h")
+        XCTAssertFalse(TerminalTouchHandling.reportsWheel(terminal), "the main screen has history to scroll")
+
+        session.terminalView.feed(text: "\u{1b}[?1049h")
+        XCTAssertTrue(TerminalTouchHandling.reportsWheel(terminal))
+
+        session.terminalView.feed(text: "\u{1b}[?1000l")
+        XCTAssertFalse(TerminalTouchHandling.reportsWheel(terminal), "the app gave the mouse back")
+    }
+
+    /// A finger moving down reads older output, as it does on the main screen:
+    /// wheel up. Inverted, the other way.
+    func testTheWheelFollowsTheScrollDirection() {
+        XCTAssertEqual(TerminalTouchHandling.wheelButton(lines: 2, inverted: false), 4)
+        XCTAssertEqual(TerminalTouchHandling.wheelButton(lines: -2, inverted: false), 5)
+        XCTAssertEqual(TerminalTouchHandling.wheelButton(lines: 2, inverted: true), 5)
+        XCTAssertEqual(TerminalTouchHandling.wheelButton(lines: -2, inverted: true), 4)
+    }
+
+    // MARK: - Selection
+
+    /// The immediate selection hangs off SwiftTerm's own long-press recogniser.
+    /// If an update drops or replaces it, this fails rather than the long press
+    /// quietly going back to a menu with nothing selected.
+    func testSwiftTermStillHasTheLongPressThisExtends() {
+        XCTAssertFalse(TerminalTouchHandling.longPressRecognizers(on: session.terminalView).isEmpty)
+    }
+
+    /// SwiftTerm clears the selection on every chunk of output; a shell
+    /// repainting its prompt was enough to make copying impossible.
+    func testOutputArrivingDoesNotClearTheSelection() {
+        let terminal = session.terminalView
+        terminal.feed(text: "hello world\r\n")
+        terminal.selectAll(nil)
+        XCTAssertTrue(terminal.selectionActive)
+
+        terminal.feed(text: "more output\r\n")
+        XCTAssertTrue(terminal.selectionActive, "the output took the selection away")
+
+        terminal.selectNone()
+        XCTAssertTrue(terminal.allowMouseReporting, "a tap is no longer a click for tmux")
+    }
+
     // MARK: - Pinch to zoom
 
     func testAPinchStaysInsideTheSettingsBounds() {

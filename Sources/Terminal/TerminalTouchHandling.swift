@@ -5,8 +5,9 @@ import UIKit
 
 /// The terminal settings that act on the view rather than on the connection:
 /// the double-tap action, inverted scrolling, the scrollback size, and
-/// pinch-to-zoom. Counterpart of the Android `TerminalView`'s `GestureListener`
-/// and `ScaleListener`.
+/// pinch-to-zoom — plus the swipe that scrolls inside tmux and other full-screen
+/// apps. Counterpart of the Android `TerminalView`'s `GestureListener` and
+/// `ScaleListener`.
 ///
 /// Until 13/09/2026 the first three were offered in Settings, stored, carried in
 /// backups — and read by nothing, and there was no pinch at all. It came to
@@ -27,6 +28,7 @@ final class TerminalTouchHandling: NSObject {
     private var appliedScrollback: Int?
 
     private let invertedPan = UIPanGestureRecognizer()
+    private let wheelPan = UIPanGestureRecognizer()
     private let pinch = UIPinchGestureRecognizer()
 
     /// Points dragged but not yet worth a whole line. Carried across events,
@@ -36,6 +38,10 @@ final class TerminalTouchHandling: NSObject {
     private var coast: CADisplayLink?
     private var coastVelocity: CGFloat = 0
     private var coastTimestamp: CFTimeInterval = 0
+
+    /// Where the finger left the screen when the momentum is a wheel's, which
+    /// keeps reporting at that cell. Nil when it scrolls the view.
+    private var coastWheelPoint: CGPoint?
 
     private var pinchStartSize: CGFloat = 0
 
@@ -48,7 +54,22 @@ final class TerminalTouchHandling: NSObject {
         invertedPan.addTarget(self, action: #selector(handleInvertedPan(_:)))
         invertedPan.maximumNumberOfTouches = 1
         invertedPan.isEnabled = false
+        invertedPan.delegate = self
         terminal.addGestureRecognizer(invertedPan)
+
+        wheelPan.addTarget(self, action: #selector(handleWheelPan(_:)))
+        wheelPan.maximumNumberOfTouches = 1
+        wheelPan.delegate = self
+        terminal.addGestureRecognizer(wheelPan)
+        // Both scrolling drags wait for the wheel to decline, which it does the
+        // moment a swipe starts anywhere but in a full-screen app that asked for
+        // the mouse. A swipe is never a scroll and a wheel at once.
+        terminal.panGestureRecognizer.require(toFail: wheelPan)
+        invertedPan.require(toFail: wheelPan)
+
+        for longPress in Self.longPressRecognizers(on: terminal) {
+            longPress.addTarget(self, action: #selector(handleLongPress(_:)))
+        }
 
         pinch.addTarget(self, action: #selector(handlePinch(_:)))
         terminal.addGestureRecognizer(pinch)
@@ -105,6 +126,40 @@ final class TerminalTouchHandling: NSObject {
         // sent while reading old output would complete something out of sight.
         terminal.scrollTo(row: .max)
         send(bytes)
+    }
+
+    // MARK: - Long press
+
+    /// Every long-press recogniser on the view, SwiftTerm's among them.
+    ///
+    /// All of them rather than the first: picking the first on 14/09/2026 hung
+    /// the handler on some other one and it never ran. Being on a stray one
+    /// costs nothing, because `select(_:)` does nothing unless SwiftTerm's own
+    /// long press has just recorded a position.
+    static func longPressRecognizers(on terminal: TerminalView) -> [UILongPressGestureRecognizer] {
+        (terminal.gestureRecognizers ?? []).compactMap { $0 as? UILongPressGestureRecognizer }
+    }
+
+    /// Selects straight away, as Android does.
+    ///
+    /// SwiftTerm's long press only opens the edit menu, and a selection begins
+    /// from its Select item — a step nobody looks for, which on the phone read
+    /// as "the copy and paste menu comes up, but nothing can be selected"
+    /// (14/09/2026). This chooses that item for the user: SwiftTerm's own
+    /// handler has just recorded where the finger is, and `select(_:)` selects
+    /// the word there and brings the menu back with Copy in it.
+    @objc private func handleLongPress(_ press: UILongPressGestureRecognizer) {
+        guard press.state == .began else { return }
+        // On the next turn, so SwiftTerm's handler for the same recogniser has
+        // run whichever of the two targets is called first.
+        DispatchQueue.main.async { [weak self] in
+            guard let terminal = self?.terminal, !terminal.selectionActive else { return }
+            // The menu SwiftTerm has just opened lists Select, not Copy, and a
+            // menu already on screen is not asked again. Closed here,
+            // `select(_:)` reopens it with the items a selection offers.
+            UIMenuController.shared.hideMenu()
+            terminal.select(nil)
+        }
     }
 
     // MARK: - Scrollback
@@ -171,6 +226,88 @@ final class TerminalTouchHandling: NSObject {
         }
     }
 
+    // MARK: - Scrolling inside full-screen apps
+
+    /// Whether a swipe goes to the remote app as wheel notches instead of
+    /// scrolling the view. Android's `reportsWheel`, condition for condition.
+    ///
+    /// Only on the alternate screen: on the main screen there is real history
+    /// above the prompt, and scrolling it here is what the finger is after.
+    /// The alternate screen has none — SwiftTerm gives it no scrollback — so
+    /// there the swipe is better spent on the app, which scrolls itself; in
+    /// tmux that is its own history rather than the shell underneath. And only
+    /// once the app has asked for mouse events, or the notches mean nothing.
+    static func reportsWheel(_ terminal: Terminal) -> Bool {
+        terminal.isCurrentBufferAlternate && terminal.mouseMode != .off
+    }
+
+    /// The wheel button for a drag of `lines`, positive being a finger moving
+    /// down. Unless inverted, that reads older output, as the main screen's
+    /// scroll does: wheel up, button 4. Down is 5.
+    static func wheelButton(lines: Int, inverted: Bool) -> Int {
+        (lines > 0) != inverted ? 4 : 5
+    }
+
+    /// Momentum for a reported wheel, relative to the view's own. Android found
+    /// a full-strength flick overshooting: the view does not move, so there is
+    /// no moving content to judge the speed by, and even a gentle one ran away.
+    static let wheelCoastDamping: CGFloat = 0.7
+
+    @objc private func handleWheelPan(_ pan: UIPanGestureRecognizer) {
+        guard let terminal else { return }
+        switch pan.state {
+        case .began:
+            stopCoasting()
+            remainder = 0
+        case .changed:
+            let dy = pan.translation(in: terminal).y
+            pan.setTranslation(.zero, in: terminal)
+            wheel(byPoints: dy, at: pan.location(in: terminal), in: terminal)
+        case .ended:
+            startCoasting(
+                velocity: pan.velocity(in: terminal).y * Self.wheelCoastDamping,
+                wheelAt: pan.location(in: terminal)
+            )
+        default:
+            break
+        }
+    }
+
+    /// One notch per line of travel, at the cell under the finger — the cell is
+    /// what tells tmux which pane to scroll. One per line because tmux moves
+    /// about a line per notch, and Android's coarser first ratio made a long
+    /// swipe crawl.
+    private func wheel(byPoints dy: CGFloat, at point: CGPoint, in terminal: TerminalView) {
+        let emulator = terminal.getTerminal()
+        // The app may have left the alternate screen, or dropped the mouse,
+        // while a flick was still coasting.
+        guard Self.reportsWheel(emulator) else {
+            stopCoasting()
+            return
+        }
+
+        let rows = max(1, emulator.rows)
+        let cols = max(1, emulator.cols)
+        let cellHeight = terminal.bounds.height / CGFloat(rows)
+        let step = Self.wholeLines(accumulated: remainder + dy, cellHeight: cellHeight)
+        remainder = step.remainder
+        guard step.lines != 0 else { return }
+
+        // The view is a scroll view, so the location includes its offset.
+        let x = point.x - terminal.bounds.minX
+        let y = point.y - terminal.bounds.minY
+        let col = min(max(0, Int(x / (terminal.bounds.width / CGFloat(cols)))), cols - 1)
+        let row = min(max(0, Int(y / cellHeight)), rows - 1)
+        let flags = emulator.encodeButton(
+            button: Self.wheelButton(lines: step.lines, inverted: appliedInvertedScroll ?? false),
+            release: false, shift: false, meta: false, control: false
+        )
+        for _ in 0..<abs(step.lines) {
+            // Pixel coordinates in points, as SwiftTerm's own mouse events do.
+            emulator.sendEvent(buttonFlags: flags, x: col, y: row, pixelX: Int(x), pixelY: Int(y))
+        }
+    }
+
     // MARK: Momentum
 
     /// Below this, in points per second, a lifted finger just stops.
@@ -184,10 +321,11 @@ final class TerminalTouchHandling: NSObject {
         return velocity * CGFloat(pow(perMillisecond, interval * 1000))
     }
 
-    private func startCoasting(velocity: CGFloat) {
+    private func startCoasting(velocity: CGFloat, wheelAt point: CGPoint? = nil) {
         stopCoasting()
         guard abs(velocity) >= Self.minimumCoastSpeed else { return }
         coastVelocity = velocity
+        coastWheelPoint = point
         coastTimestamp = 0
         let link = CADisplayLink(target: self, selector: #selector(coastStep(_:)))
         link.add(to: .main, forMode: .common)
@@ -206,7 +344,13 @@ final class TerminalTouchHandling: NSObject {
         let interval = link.timestamp - coastTimestamp
         coastTimestamp = link.timestamp
 
-        scroll(byPoints: coastVelocity * CGFloat(interval), in: terminal)
+        let travel = coastVelocity * CGFloat(interval)
+        if let point = coastWheelPoint {
+            wheel(byPoints: travel, at: point, in: terminal)
+        } else {
+            scroll(byPoints: travel, in: terminal)
+        }
+        guard coast != nil else { return }
         coastVelocity = Self.decayed(coastVelocity, over: interval)
         if abs(coastVelocity) < Self.minimumCoastSpeed {
             stopCoasting()
@@ -248,6 +392,20 @@ final class TerminalTouchHandling: NSObject {
         default:
             break
         }
+    }
+}
+
+extension TerminalTouchHandling: UIGestureRecognizerDelegate {
+
+    /// The wheel declines every swipe it should not take, which is what lets
+    /// the scrolling drags waiting on it go ahead. A selection in progress keeps
+    /// its gestures, as on Android: neither drag starts while one is up, the
+    /// same rule `SessionTerminalView` applies to the scroll view's own pan.
+    func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+        guard let terminal else { return false }
+        if terminal.selectionActive { return false }
+        if recognizer === wheelPan { return Self.reportsWheel(terminal.getTerminal()) }
+        return true
     }
 }
 

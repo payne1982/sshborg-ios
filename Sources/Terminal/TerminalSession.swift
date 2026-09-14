@@ -155,14 +155,16 @@ final class TerminalSession: Identifiable {
         self.hosts = hosts
         self.keys = keys
         self.title = host.label
-        // Plain SwiftTerm view. Narrowing the paste item to "only when the
+        // SwiftTerm's view with one gesture fewer — see SessionTerminalView.
+        //
+        // Narrowing the paste item to "only when the
         // clipboard holds text" — which the Android build does, and which
         // avoids a menu entry that does nothing — would mean overriding
         // canPerformAction, and SwiftTerm declares it `public` rather than
         // `open`, so a subclass outside that module cannot. Paste itself is
         // already there; only the refinement is out of reach without a one-line
         // change upstream.
-        self.terminalView = TerminalView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
+        self.terminalView = SessionTerminalView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
 
         let bridge = TerminalDelegateBridge()
         bridge.session = self
