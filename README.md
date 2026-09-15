@@ -2,9 +2,9 @@
 
 An SSH client for iPhone and iPad. Full terminal emulation, SFTP file manager, SSH key management, jump hosts, agent and port forwarding, and Face ID lock — with no ads, no tracking, and no cloud.
 
-The iOS counterpart of [SSHBorg for Android](https://github.com/payne1982/sshborg): same features, same ten languages, and backups that move between the two. Available on the App Store.
+The iOS counterpart of [SSHBorg for Android](https://github.com/payne1982/sshborg): same features, same ten languages, and backups that move between the two. Available on the [App Store](https://apps.apple.com/app/id6811622926).
 
-[![Website](https://img.shields.io/badge/website-sshborg.com-222222?style=for-the-badge)](https://sshborg.com/)
+[![Download on the App Store](https://img.shields.io/badge/App_Store-Download-0D96F6?style=for-the-badge&logo=app-store&logoColor=white)](https://apps.apple.com/app/id6811622926) &nbsp; [![Website](https://img.shields.io/badge/website-sshborg.com-222222?style=for-the-badge)](https://sshborg.com/)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) &nbsp; [![Leave a tip on Ko-fi](https://img.shields.io/badge/Ko--fi-tip-FF5E5B?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/massimilianoplaydev)
 
