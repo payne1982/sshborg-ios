@@ -1,0 +1,40 @@
+<en-US>
+• First release on the App Store
+• SSH terminal, SFTP file manager, SSH keys, jump hosts, agent and port forwarding, in ten languages
+</en-US>
+<it-IT>
+• Prima versione sull'App Store
+• Terminale SSH, gestione file SFTP, chiavi SSH, jump host, forwarding dell'agente e delle porte, in dieci lingue
+</it-IT>
+<de-DE>
+• Erste Version im App Store
+• SSH-Terminal, SFTP-Dateimanager, SSH-Schlüssel, Jump-Hosts, Agent- und Port-Weiterleitung, in zehn Sprachen
+</de-DE>
+<es-ES>
+• Primera versión en la App Store
+• Terminal SSH, gestor de archivos SFTP, claves SSH, hosts de salto, reenvío de agente y de puertos, en diez idiomas
+</es-ES>
+<fr-FR>
+• Première version sur l'App Store
+• Terminal SSH, gestionnaire de fichiers SFTP, clés SSH, hôtes de saut, transfert d'agent et de ports, en dix langues
+</fr-FR>
+<pt-PT>
+• Primeira versão na App Store
+• Terminal SSH, gestor de ficheiros SFTP, chaves SSH, hosts de salto, encaminhamento de agente e de portas, em dez idiomas
+</pt-PT>
+<uk>
+• Перший випуск в App Store
+• Термінал SSH, файловий менеджер SFTP, ключі SSH, проміжні хости, переспрямування агента та портів, десятьма мовами
+</uk>
+<ru-RU>
+• Первый выпуск в App Store
+• Терминал SSH, файловый менеджер SFTP, ключи SSH, промежуточные хосты, переадресация агента и портов, на десяти языках
+</ru-RU>
+<zh-CN>
+• App Store 首个版本
+• SSH 终端、SFTP 文件管理、SSH 密钥、跳板机、代理与端口转发，支持十种语言
+</zh-CN>
+<ja-JP>
+• App Store 初回リリース
+• SSH ターミナル、SFTP ファイルマネージャー、SSH 鍵、踏み台ホスト、エージェントとポートの転送、10 言語対応
+</ja-JP>
