@@ -768,6 +768,9 @@ extension LocalizedStringResource {
     /// This key is encrypted — enter the passphrase
     static let keysImportErrorEncrypted = LocalizedStringResource("keys_import_error_encrypted")
 
+    /// This key is encrypted in a format the app cannot unlock. Decrypt it with the tool tha…
+    static let keysImportErrorEncryption = LocalizedStringResource("keys_import_error_encryption")
+
     /// Invalid or unsupported key format
     static let keysImportErrorInvalid = LocalizedStringResource("keys_import_error_invalid")
 
@@ -789,7 +792,7 @@ extension LocalizedStringResource {
     /// Passphrase missing — import this key again
     static let keysNeedsPassphrase = LocalizedStringResource("keys_needs_passphrase")
 
-    /// Saved with the key, so it is not asked at every connection. When hardware encryption …
+    /// Used once to unlock the key and then dropped — the passphrase itself is never stored.…
     static let keysPassphraseNote = LocalizedStringResource("keys_passphrase_note")
 
     /// Public key (add to ~/.ssh/authorized_keys):

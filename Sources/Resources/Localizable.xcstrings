@@ -16268,6 +16268,71 @@
         }
       }
     },
+    "keys_import_error_encryption": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Schlüssel ist in einem Format verschlüsselt, das die App nicht öffnen kann. Entschlüssle ihn mit dem Werkzeug, das ihn erstellt hat, und importiere ihn erneut."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This key is encrypted in a format the app cannot unlock. Decrypt it with the tool that created it, then import it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta clave está cifrada en un formato que la app no puede abrir. Descífrala con la herramienta que la creó e impórtala de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette clé est chiffrée dans un format que l'app ne sait pas ouvrir. Déchiffrez-la avec l'outil qui l'a créée, puis réimportez-la."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa chiave è cifrata in un formato che l'app non sa aprire. Decifrala con lo strumento con cui è stata creata e importala di nuovo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この鍵は、アプリが開けない形式で暗号化されています。作成に使ったツールで復号してから、もう一度インポートしてください。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta chave está cifrada num formato que a app não consegue abrir. Decifre-a com a ferramenta que a criou e importe-a de novo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот ключ зашифрован в формате, который приложение не может открыть. Расшифруйте его тем же инструментом, которым он создан, и импортируйте заново."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цей ключ зашифровано у форматі, який застосунок не може відкрити. Розшифруйте його засобом, яким він створений, і імпортуйте знову."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此密钥的加密格式应用无法打开。请用创建它的工具解密后重新导入。"
+          }
+        }
+      }
+    },
     "keys_import_error_invalid": {
       "extractionState": "manual",
       "localizations": {
@@ -16729,61 +16794,61 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wird mit dem Schlüssel gespeichert, damit sie nicht bei jeder Verbindung verlangt wird. Ist in den Einstellungen die Hardware-Verschlüsselung aktiv, verschlüsselt das Gerät sie."
+            "value": "Wird nur zum Öffnen des Schlüssels verwendet und nicht gespeichert. Der geöffnete Schlüssel wird wie jeder andere aufbewahrt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saved with the key, so it is not asked at every connection. When hardware encryption is on in Settings, the device encrypts it."
+            "value": "Used once to unlock the key and then dropped — the passphrase itself is never stored. The unlocked key is kept like any other key."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Se guarda con la clave, así no se pide en cada conexión. Si el cifrado por hardware está activado en los ajustes, el dispositivo la cifra."
+            "value": "Solo se usa para abrir la clave y no se guarda. La clave abierta se conserva como cualquier otra."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elle est enregistrée avec la clé, pour ne pas être demandée à chaque connexion. Si le chiffrement matériel est activé dans les réglages, l'appareil la chiffre."
+            "value": "Elle sert seulement à ouvrir la clé et n'est pas conservée. La clé, ouverte, est gardée comme toutes les autres."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Viene salvata con la chiave, così non è richiesta a ogni collegamento. Se nelle impostazioni è attiva la cifratura hardware, la cifra il dispositivo."
+            "value": "Serve solo ad aprire la chiave e non viene conservata. La chiave, aperta, è custodita come tutte le altre."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "鍵と一緒に保存されるため、接続ごとに尋ねられません。設定でハードウェア暗号化を有効にしていると、端末が暗号化します。"
+            "value": "鍵を開くためだけに使われ、保存されません。開かれた鍵はほかの鍵と同じように保管されます。"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "É guardada com a chave, para não ser pedida em cada ligação. Se a cifragem por hardware estiver ativa nas definições, o dispositivo cifra-a."
+            "value": "Serve apenas para abrir a chave e não é guardada. A chave, aberta, é guardada como qualquer outra."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сохраняется вместе с ключом, чтобы его не запрашивали при каждом подключении. Если в настройках включено аппаратное шифрование, устройство его шифрует."
+            "value": "Нужен только чтобы открыть ключ, и не сохраняется. Открытый ключ хранится так же, как все остальные."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Зберігається разом із ключем, щоб її не запитували під час кожного з'єднання. Якщо в налаштуваннях увімкнено апаратне шифрування, пристрій її шифрує."
+            "value": "Використовується лише для відкриття ключа й не зберігається. Відкритий ключ зберігається так само, як усі інші."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "会与密钥一起保存，这样每次连接时就不再询问。如果在设置中启用了硬件加密，设备会对其加密。"
+            "value": "仅用于打开密钥，不会被保存。打开后的密钥与其他密钥一样保管。"
           }
         }
       }

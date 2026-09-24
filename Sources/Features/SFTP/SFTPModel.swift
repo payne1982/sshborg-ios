@@ -130,7 +130,7 @@ final class SFTPModel {
             guard let pem = KeychainCrypto.privateKeyPEM(for: key) else {
                 throw SSHError.keyUnreadable
             }
-            return .publicKey(privateKeyPEM: pem, passphrase: KeychainCrypto.passphrase(for: key))
+            return .publicKey(privateKeyPEM: pem)
         }
         return KeychainCrypto.password(for: host).map { SSHAuth.password($0) }
     }

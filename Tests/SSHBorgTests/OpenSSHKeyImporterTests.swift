@@ -157,7 +157,7 @@ final class OpenSSHKeyImporterTests: XCTestCase {
         """
 
         XCTAssertThrowsError(try OpenSSHKeyImporter.parse(pem)) { error in
-            XCTAssertEqual(error as? OpenSSHKeyImporter.ImportError, .legacyEncryptedPEM)
+            XCTAssertEqual(error as? OpenSSHKeyImporter.ImportError, .unsupportedEncryption)
         }
     }
 

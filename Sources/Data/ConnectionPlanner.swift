@@ -64,9 +64,7 @@ struct ConnectionPlanner {
             guard let key = try? await keys.fetch(id: keyId),
                   let pem = KeychainCrypto.privateKeyPEM(for: key)
             else { return nil }
-            // With the passphrase, when the key was imported encrypted: without
-            // it libssh2 cannot read the key at all and the hop simply fails.
-            return .publicKey(privateKeyPEM: pem, passphrase: KeychainCrypto.passphrase(for: key))
+            return .publicKey(privateKeyPEM: pem)
         }
         return KeychainCrypto.password(for: host).map { SSHAuth.password($0) }
     }
@@ -121,11 +119,7 @@ struct ConnectionPlanner {
 
         return stored.compactMap { key in
             guard let pem = KeychainCrypto.privateKeyPEM(for: key) else { return nil }
-            return AgentIdentity(
-                privateKeyPEM: pem,
-                passphrase: KeychainCrypto.passphrase(for: key),
-                comment: key.label
-            )
+            return AgentIdentity(privateKeyPEM: pem, passphrase: nil, comment: key.label)
         }
     }
 }

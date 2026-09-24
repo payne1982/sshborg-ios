@@ -371,10 +371,11 @@ final class TerminalSession: Identifiable {
             guard let pem = KeychainCrypto.privateKeyPEM(for: key) else {
                 throw SSHError.keyUnreadable
             }
-            // An imported key is stored exactly as it arrived, so an encrypted
-            // one needs the passphrase kept beside it — nothing here can ask for
-            // one, and libssh2 refuses the key without it.
-            return .publicKey(privateKeyPEM: pem, passphrase: KeychainCrypto.passphrase(for: key))
+            // No passphrase: a key is unlocked when it is imported and stored
+            // unlocked, so there is never one to supply here. A key imported by
+            // a released version is still encrypted and cannot authenticate,
+            // which is what the warning in the key list is about.
+            return .publicKey(privateKeyPEM: pem)
         }
 
         return KeychainCrypto.password(for: host).map { SSHAuth.password($0) }

@@ -73,57 +73,6 @@ final class EncryptionMigrationTests: XCTestCase {
         return try await keys.save(key)
     }
 
-    /// An imported encrypted key: the material and the passphrase that opens it,
-    /// both in the clear, which is what the switch has to move.
-    private func makeKeyWithPlaintextPassphrase() async throws -> SSHKey {
-        var key = SSHKey(label: "work", keyType: "ed25519", publicKey: "ssh-ed25519 BBBB")
-        key.privateKeyPem = "-----BEGIN OPENSSH PRIVATE KEY-----\nencrypted really\n"
-        key.passphrase = "open-sesame"
-        return try await keys.save(key)
-    }
-
-    // MARK: - The passphrase of an imported key
-
-    /// It is a credential like the host passwords, so the switch has to carry it
-    /// both ways. Leaving it in the clear under a setting that says everything
-    /// is encrypted is exactly the defect this suite was written for.
-    func testEnablingEncryptsAKeysPassphrase() async throws {
-        let key = try await makeKeyWithPlaintextPassphrase()
-
-        try await enable()
-
-        let allKeys = try await keys.fetchAll()
-        let stored = try XCTUnwrap(allKeys.first { $0.id == key.id })
-        XCTAssertNil(stored.passphrase, "the passphrase was left in the clear")
-        let blob = try XCTUnwrap(stored.encryptedPassphrase)
-        XCTAssertEqual(try KeychainCrypto.open(blob, using: fixedKey), "open-sesame")
-    }
-
-    func testDisablingPutsAKeysPassphraseBackInTheClear() async throws {
-        let key = try await makeKeyWithPlaintextPassphrase()
-        try await enable()
-
-        try await disable()
-
-        let allKeys = try await keys.fetchAll()
-        let stored = try XCTUnwrap(allKeys.first { $0.id == key.id })
-        XCTAssertEqual(stored.passphrase, "open-sesame")
-        XCTAssertNil(stored.encryptedPassphrase)
-    }
-
-    /// A key that needs no passphrase must not gain an encrypted empty one: that
-    /// reads as a stored credential to everything that looks at the column.
-    func testKeysWithoutAPassphraseAreLeftAlone() async throws {
-        let key = try await makeKeyWithPlaintextPEM()
-
-        try await enable()
-
-        let allKeys = try await keys.fetchAll()
-        let stored = try XCTUnwrap(allKeys.first { $0.id == key.id })
-        XCTAssertNil(stored.encryptedPassphrase)
-        XCTAssertNil(stored.passphrase)
-    }
-
     func testEnablingEncryptsWhatWasAlreadySaved() async throws {
         let host = try await makeHostWithPlaintextPassword()
         let key = try await makeKeyWithPlaintextPEM()

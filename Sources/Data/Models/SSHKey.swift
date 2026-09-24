@@ -31,19 +31,6 @@ struct SSHKey: Identifiable, Equatable, Codable, FetchableRecord, MutablePersist
     /// is enabled. See ``KeychainCrypto``.
     var encryptedBlob: String?
 
-    /// The passphrase that unlocks an encrypted private key, in plain text.
-    /// `nil` when the key needs none, and `nil` when ``encryptedPassphrase``
-    /// holds it instead.
-    ///
-    /// The key itself is stored exactly as it was imported — still encrypted —
-    /// and its passphrase is kept beside it so a connection can open it without
-    /// asking again: nobody is there to ask when a session is being made, and
-    /// re-encoding a decrypted key is not something every format allows. Read it
-    /// through ``KeychainCrypto/passphrase(for:)``.
-    var passphrase: String?
-
-    /// AES-GCM blob of ``passphrase``, set when encryption is enabled.
-    var encryptedPassphrase: String?
 
     mutating func didInsert(_ inserted: InsertionSuccess) {
         id = inserted.rowID
@@ -86,12 +73,4 @@ extension SSHKey {
         encryptedBlob != nil
     }
 
-    /// True when nothing is stored that could unlock a passphrase-protected key.
-    ///
-    /// Says nothing about whether the key *has* a passphrase: only the key
-    /// material can answer that, which is what ``KeysModel/needsPassphrase(_:)``
-    /// reads. This is the cheap half of that question.
-    var hasStoredPassphrase: Bool {
-        encryptedPassphrase != nil || !(passphrase ?? "").isEmpty
-    }
 }

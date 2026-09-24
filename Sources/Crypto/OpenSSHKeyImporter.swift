@@ -19,11 +19,6 @@ enum OpenSSHKeyImporter {
         let publicKeyLine: String
         let type: SSHKey.KeyType
         let comment: String
-
-        /// True when the stored text is still encrypted, so the key is unusable
-        /// without the passphrase that was typed to import it. The caller has to
-        /// keep that passphrase; see ``SSHKey/passphrase``.
-        let isEncrypted: Bool
     }
 
     enum ImportError: LocalizedError, Equatable {
@@ -32,8 +27,15 @@ enum OpenSSHKeyImporter {
         case passphraseRequired
         /// A passphrase was supplied and it did not work.
         case wrongPassphrase
-        /// The older OpenSSL-encrypted PEM form, which is a different mechanism.
-        case legacyEncryptedPEM
+        /// Encrypted in a container this app cannot open: the older
+        /// OpenSSL-encrypted PEM, a PKCS#8 `ENCRYPTED PRIVATE KEY`, a PuTTY
+        /// `.ppk`. Each is a different mechanism from `openssh-key-v1`, and the
+        /// answer to all three is the same — decrypt it with the tool that wrote
+        /// it and import it again.
+        case unsupportedEncryption
+        /// The key was unlocked and what came back out was not the same key.
+        /// Nothing is stored: see ``verified(_:against:)``.
+        case reencodingFailed
         case unsupportedAlgorithm(String)
         case malformed
 
@@ -45,8 +47,10 @@ enum OpenSSHKeyImporter {
                 return "This key is protected by a passphrase. Enter it to import the key."
             case .wrongPassphrase:
                 return "That passphrase does not unlock this key."
-            case .legacyEncryptedPEM:
-                return "This key uses the older OpenSSL encryption, which is not supported. Convert it with: ssh-keygen -p -f <key>"
+            case .unsupportedEncryption:
+                return String(localized: .keysImportErrorEncryption)
+            case .reencodingFailed:
+                return "This key could not be unlocked. Import it again, or decrypt it with the tool that created it."
             case .unsupportedAlgorithm(let name):
                 return "Unsupported key algorithm: \(name)."
             case .malformed:
@@ -55,7 +59,9 @@ enum OpenSSHKeyImporter {
         }
     }
 
-    /// Whether a stored key is encrypted, and so unusable without a passphrase.
+    /// Whether a stored key is encrypted, and so unusable: nothing supplies a
+    /// passphrase at connection time, and nothing stores one. Only keys imported
+    /// by a released version are in this state.
     /// See ``OpenSSHPrivateKeyFile/isEncrypted(pem:)``.
     static func isEncrypted(_ pem: String) -> Bool {
         OpenSSHPrivateKeyFile.isEncrypted(pem: pem.replacingOccurrences(of: "\r\n", with: "\n").trimmed)
@@ -63,6 +69,8 @@ enum OpenSSHKeyImporter {
 
     private static let openSSHBegin = OpenSSHPrivateKeyFile.beginMarker
     private static let rsaBegin = "-----BEGIN RSA PRIVATE KEY-----"
+    private static let pkcs8EncryptedBegin = "-----BEGIN ENCRYPTED PRIVATE KEY-----"
+    private static let puttyMarker = "PuTTY-User-Key-File"
 
     /// Restates a parser failure in the words the key-import screen shows.
     ///
@@ -93,6 +101,13 @@ enum OpenSSHKeyImporter {
             // A public key was pasted by mistake — a common slip worth naming.
             throw ImportError.notAPrivateKey
         }
+        // Encrypted, but in a container with its own scheme: PKCS#8 wraps the
+        // key in DER with its own KDF, and PuTTY's format is PuTTY's own.
+        // Neither can be unlocked here, and saying "not a private key" about a
+        // file that plainly is one sends the user looking for the wrong problem.
+        if normalised.contains(pkcs8EncryptedBegin) || normalised.hasPrefix(puttyMarker) {
+            throw ImportError.unsupportedEncryption
+        }
         throw ImportError.notAPrivateKey
     }
 
@@ -106,19 +121,55 @@ enum OpenSSHKeyImporter {
             throw imported(error)
         }
 
-        return ImportedKey(
-            privateKeyPEM: pem + "\n",
-            publicKeyLine: SSHKeyGenerator.publicLine(
-                algorithm: contents.algorithm,
-                blob: contents.publicBlob,
-                comment: contents.comment
-            ),
-            type: try keyType(of: contents.algorithm),
-            comment: contents.comment,
-            // Read from the file rather than from "a passphrase was supplied":
-            // one typed for a key that turns out to need none must not be kept.
-            isEncrypted: OpenSSHPrivateKeyFile.isEncrypted(pem: pem)
+        let publicKeyLine = SSHKeyGenerator.publicLine(
+            algorithm: contents.algorithm,
+            blob: contents.publicBlob,
+            comment: contents.comment
         )
+
+        // Unlocked once, here, and stored unlocked. The passphrase is used and
+        // dropped — it is written nowhere — so a key protected by a passphrase
+        // ends up exactly as safe as one generated in the app, and no better:
+        // that is the whole trade, and it is the right way round, because the
+        // passphrase is usually a secret shared with other keys and other
+        // machines while the key is worth only itself.
+        //
+        // A key that arrived unencrypted is stored as it came, byte for byte.
+        let stored = OpenSSHPrivateKeyFile.isEncrypted(pem: pem)
+            ? try verified(contents.unencryptedPEM(), against: contents)
+            : pem + "\n"
+
+        return ImportedKey(
+            privateKeyPEM: stored,
+            publicKeyLine: publicKeyLine,
+            type: try keyType(of: contents.algorithm),
+            comment: contents.comment
+        )
+    }
+
+    /// Reads back what would be stored and refuses it unless it is the same
+    /// key, in the clear.
+    ///
+    /// Re-encoding is a small amount of code with a large blast radius: a
+    /// mistake would file something that looks like an imported key and is not,
+    /// and the user would find out at the first connection with the original
+    /// file possibly already deleted. So the result is parsed again from its own
+    /// text and compared field by field with what came out of the encrypted
+    /// original — the public blob, every private field, the algorithm — and the
+    /// import fails rather than storing anything that differs.
+    private static func verified(
+        _ pem: String,
+        against original: OpenSSHPrivateKeyFile.Contents
+    ) throws -> String {
+        guard !OpenSSHPrivateKeyFile.isEncrypted(pem: pem),
+              let reread = try? OpenSSHPrivateKeyFile.parse(pem: pem),
+              reread.algorithm == original.algorithm,
+              reread.publicBlob == original.publicBlob,
+              reread.privateFields == original.privateFields
+        else {
+            throw ImportError.reencodingFailed
+        }
+        return pem
     }
 
     private static func keyType(of algorithm: String) throws -> SSHKey.KeyType {
@@ -136,7 +187,7 @@ enum OpenSSHKeyImporter {
     private static func parsePKCS1RSA(_ pem: String) throws -> ImportedKey {
         // Legacy PEM encryption is announced in headers rather than in the body.
         guard !pem.contains("Proc-Type:"), !pem.contains("ENCRYPTED") else {
-            throw ImportError.legacyEncryptedPEM
+            throw ImportError.unsupportedEncryption
         }
 
         let der = try base64Body(of: pem)
@@ -161,10 +212,7 @@ enum OpenSSHKeyImporter {
                 comment: ""
             ),
             type: .rsa,
-            comment: "",
-            // The encrypted form of this container is refused above, so anything
-            // that reaches here is in the clear.
-            isEncrypted: false
+            comment: ""
         )
     }
 

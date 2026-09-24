@@ -24,6 +24,39 @@ enum OpenSSHPrivateKeyFile {
         /// Ed25519 has two, ECDSA three, RSA six — see ``fieldCount(for:)``.
         let privateFields: [Data]
         let comment: String
+
+        /// Writes these contents back out as an *unencrypted* `openssh-key-v1` file.
+        ///
+        /// This is what makes importing a passphrase-protected key possible without
+        /// keeping the passphrase: the key is unlocked once, here, and stored
+        /// unlocked. Android reached the same conclusion on 24/09/2026 after the
+        /// GitHub issue pointed out the obvious — a passphrase is a human secret,
+        /// usually reused elsewhere, while a private key is worth only itself, and a
+        /// key stored beside its own passphrase was never protected by it anyway.
+        /// Keeping the passphrase gave away a second secret for nothing.
+        ///
+        /// It is a re-encode, not a copy: the fields come out of the parser in the
+        /// order the format defines and go back in the same order, through the very
+        /// writer the key generator uses. Every algorithm this file can read can
+        /// therefore be written — which is why iOS needs none of the per-type
+        /// special cases JSch forced on the Android side.
+        ///
+        /// The result is verified by ``OpenSSHKeyImporter`` before it is stored.
+        func unencryptedPEM() -> String {
+            var fields = SSHWireEncoder()
+            fields.write(string: algorithm)
+            for field in privateFields {
+                fields.write(string: field)
+            }
+
+            return SSHKeyGenerator.armour(
+                SSHKeyGenerator.openSSHPrivateKey(
+                    publicBlob: publicBlob,
+                    privateFields: fields.data,
+                    comment: comment
+                )
+            )
+        }
     }
 
     enum ParseError: Error, Equatable {

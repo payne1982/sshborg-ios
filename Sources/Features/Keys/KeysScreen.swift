@@ -161,10 +161,10 @@ struct KeysScreen: View {
 private struct KeyRow: View {
     let key: SSHKey
 
-    /// The key is encrypted and its passphrase is not stored, so it cannot
-    /// authenticate. Nothing can be done about it from here — the passphrase is
-    /// only ever taken at import — so the row says what to do instead of
-    /// offering a repair.
+    /// The key is still encrypted, so it cannot authenticate — a key imported
+    /// before the app unlocked them. Nothing can be done about it from here, the
+    /// passphrase being asked for only at import, so the row says what to do
+    /// instead of offering a repair.
     let needsPassphrase: Bool
 
     var body: some View {
@@ -330,9 +330,9 @@ private struct KeyImportSheet: View {
                     SecureField(String(localized: .keysImportPassphraseLabel), text: $passphrase)
                         .plainTextEntry()
                 } footer: {
-                    // What becomes of it, because it is kept: the key is stored
-                    // as it arrived, still encrypted, and nothing can ask for a
-                    // passphrase while a connection is being made.
+                    // What becomes of it: it unlocks the key once and is then
+                    // dropped, which is the thing worth saying about a field
+                    // that asks for a secret.
                     Text(.keysPassphraseNote)
                 }
             }
