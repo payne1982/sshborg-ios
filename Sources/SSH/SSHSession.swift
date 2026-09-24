@@ -535,6 +535,7 @@ final class SSHSession: @unchecked Sendable {
                     let channel = try SSHShellChannel(
                         session: session,
                         queue: self.queue,
+                        owner: self,
                         term: term,
                         columns: columns,
                         rows: rows,
@@ -600,6 +601,20 @@ final class SSHSession: @unchecked Sendable {
                     continuation.resume(throwing: error)
                 }
             }
+        }
+    }
+
+    /// Frees a channel whose Swift object has gone without being closed.
+    ///
+    /// On the queue, like every other libssh2 call, and only while this session
+    /// is still alive: once `libssh2_session_free` has run it has already freed
+    /// every channel it owned, and freeing one again trips libssh2's own
+    /// assertion. The `nil` check is reliable precisely because both this and
+    /// the teardown run on the same serial queue.
+    func freeChannelOnQueue(_ channel: OpaquePointer) {
+        queue.async { [self] in
+            guard session != nil else { return }
+            libssh2_channel_free(channel)
         }
     }
 

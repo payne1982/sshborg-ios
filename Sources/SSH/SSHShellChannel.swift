@@ -30,6 +30,12 @@ final class SSHShellChannel {
 
     private let queue: DispatchQueue
     private let session: OpaquePointer
+
+    /// The session this channel belongs to, so a channel dropped without being
+    /// closed can be freed safely — and only while that session is still there.
+    /// Strong: the session's own reference back is weak, so there is no cycle,
+    /// and the session must outlive this object's `deinit`.
+    private let owner: SSHSession?
     private var channel: OpaquePointer?
     private let continuation: AsyncStream<Data>.Continuation
 
@@ -72,6 +78,7 @@ final class SSHShellChannel {
     init(
         session: OpaquePointer,
         queue: DispatchQueue,
+        owner: SSHSession? = nil,
         term: String,
         columns: Int,
         rows: Int,
@@ -79,6 +86,7 @@ final class SSHShellChannel {
     ) throws {
         self.session = session
         self.queue = queue
+        self.owner = owner
 
         var streamContinuation: AsyncStream<Data>.Continuation!
         self.output = AsyncStream { streamContinuation = $0 }
@@ -137,9 +145,19 @@ final class SSHShellChannel {
 
     deinit {
         continuation.finish()
-        if let channel {
-            libssh2_channel_free(channel)
-        }
+        guard let channel else { return }
+
+        // Through the session, which frees it on its own queue and only if it
+        // has not been torn down in the meantime. Two crashes on 24/09/2026 came
+        // from the two ways of doing this directly. Freeing here, on whichever
+        // thread dropped the last reference, races everything the session is
+        // doing — SIGSEGV inside `_libssh2_packet_ask`. Queueing the free
+        // unconditionally trades that for the opposite order: a channel whose
+        // Swift object has already gone is invisible to `teardownOnQueue`,
+        // whose reference to it is weak, so `libssh2_session_free` frees the
+        // channel itself and the queued call arrives at a dead pointer —
+        // `Assertion failed: (session), _libssh2_channel_free`.
+        owner?.freeChannelOnQueue(channel)
     }
 
     // MARK: - Pump

@@ -118,24 +118,6 @@ final class TerminalSession: Identifiable {
     /// separate, deliberate act in the host editor.
     @PerceptionIgnored private var passwordForThisAttempt: String?
 
-    /// The credential that just worked, kept only until the history has been
-    /// fetched and then dropped.
-    ///
-    /// History opens a second connection of its own, and by the time it runs the
-    /// typed password is already gone — `passwordForThisAttempt` is cleared the
-    /// instant the shell is up. So `resolveAuth(typedPassword: nil)` had nothing
-    /// left to return for a host whose password is typed rather than saved, and
-    /// the suggestion bar never appeared. Reported 05/09/2026 as working on
-    /// Android for the same host, which reuses `lastConnectParams` directly.
-    ///
-    /// Deliberately *not* the same thing as keeping the password for the session.
-    /// A typed password is still never reused to reconnect, and that stays
-    /// refused — `passwordForThisAttempt` is cleared the moment the shell comes
-    /// up, so there is nothing left to reuse. This is held for the seconds
-    /// between connecting and reading one file, and `loadHistory` clears it in a
-    /// `defer` whichever way it exits.
-    @PerceptionIgnored private var authForHistory: SSHAuth?
-
     /// The last size the view actually reported, as opposed to the one the
     /// terminal object carries before it has ever been laid out.
     @PerceptionIgnored private var measuredSize: (columns: Int, rows: Int)?
@@ -263,9 +245,8 @@ final class TerminalSession: Identifiable {
             self.sshSession = session
             self.channel = channel
             phase = .connected
-            // Handed to the history fetch, which runs next and cannot ask for a
-            // credential of its own; see `authForHistory`.
-            authForHistory = params.auth
+            // Nothing else needs the credential now: the history is read on this
+            // very session, so there is no second login to hold one for.
             passwordForThisAttempt = nil
 
             // Open a session and the keyboard is there, as on Android, where the
@@ -692,6 +673,13 @@ final class TerminalSession: Identifiable {
     /// Loads the shell history from the server so the bar has something to
     /// offer. Best effort and silent: a missing history file is normal, and it
     /// is not worth interrupting a working terminal over.
+    ///
+    /// On the terminal's own connection, which is the whole point. It used to
+    /// open a second one — a second handshake, a second authentication, the
+    /// whole jump-host chain again, one more attempt in `fail2ban`'s count, and
+    /// a second prompt for anyone whose server asks a question — to read three
+    /// small files that this session is already authorised to read. Android
+    /// removed the same second login on 19/09/2026.
     func loadHistory(preferences: AppPreferences) async {
         // ⚠️ Every exit below is silent, and that cost a day: "the suggestion
         // bar never appears" carried no information about which of five places
@@ -699,49 +687,20 @@ final class TerminalSession: Identifiable {
         // cause, which was none of them. If this needs debugging again, name the
         // exits again before guessing at them.
         guard preferences.historySuggestions else { return }
+        guard let session = sshSession else { return }
 
-        // The credential that just worked, not a fresh resolution: by now the
-        // typed password has been cleared, and asking again would come back
-        // empty for any host whose password is not saved.
-        defer { authForHistory = nil }
-        // Written out rather than with `??`: that operator takes an autoclosure,
-        // which cannot be async, so the fallback has to be a statement.
-        let resolved: SSHAuth?
-        if let working = authForHistory {
-            resolved = working
-        } else {
-            resolved = try? await resolveAuth(typedPassword: nil)
-        }
-        guard let auth = resolved else {
+        guard let files = try? await SFTPQuickRead.readFromHome(
+            CommandHistory.candidatePaths,
+            on: session
+        ) else {
             return
         }
 
-        // Same path as everything else, so a host behind a bastion gets its
-        // history too. `acceptOnce` is safe here and only here: the terminal
-        // session has already connected and had its key checked, so this is a
-        // second connection to a host just verified, not a first sight of it.
-        var params = await ConnectionPlanner(hosts: hosts, keys: keys).params(
-            for: host,
-            auth: auth,
-            hostKeyPolicy: .acceptOnce
-        )
-        // History is a background convenience; it must not open listeners.
-        params.portForwardings = []
-
-        guard let sftp = try? await SFTPSession.connect(params) else {
-            return
-        }
-        defer { sftp.disconnect() }
-
-        var loaded: [CommandHistory] = []
-        for name in CommandHistory.candidatePaths {
-            let path = sftp.homePath == "/" ? "/\(name)" : "\(sftp.homePath)/\(name)"
-            if let data = try? await sftp.readSmallFile(at: path) {
-                loaded.append(CommandHistory.parse(data))
+        history = CommandHistory.merging(
+            CommandHistory.candidatePaths.compactMap { name in
+                files[name].map(CommandHistory.parse)
             }
-        }
-
-        history = CommandHistory.merging(loaded)
+        )
 
         // Recompute now. Suggestions are otherwise driven only by `rangeChanged`,
         // and the history usually finishes loading a second or two after the
@@ -750,7 +709,6 @@ final class TerminalSession: Identifiable {
         // prompt with something already typed would show an empty bar for no
         // reason the user could see.
         refreshSuggestions()
-
     }
 }
 
