@@ -108,6 +108,9 @@ extension LocalizedStringResource {
     /// Trust
     static let actionTrust = LocalizedStringResource("action_trust")
 
+    /// Undo
+    static let actionUndo = LocalizedStringResource("action_undo")
+
     /// Add Host
     static let addHostTitle = LocalizedStringResource("add_host_title")
 
@@ -137,6 +140,66 @@ extension LocalizedStringResource {
 
     /// Edit Host
     static let editHostTitle = LocalizedStringResource("edit_host_title")
+
+    /// This file is not text, so it cannot be edited here.
+    static let editorBinary = LocalizedStringResource("editor_binary")
+
+    /// The text now holds characters that %1$@ cannot write. Pick another encoding to save it.
+    static let editorCannotEncode = LocalizedStringResource("editor_cannot_encode")
+
+    /// Encoding
+    static let editorCharset = LocalizedStringResource("editor_charset")
+
+    /// Reading the file another way replaces the text on screen. The changes you have not sa…
+    static let editorCharsetDiscard = LocalizedStringResource("editor_charset_discard")
+
+    /// Discard
+    static let editorDiscard = LocalizedStringResource("editor_discard")
+
+    /// Editor
+    static let editorFailed = LocalizedStringResource("editor_failed")
+
+    /// Hexadecimal
+    static let editorHex = LocalizedStringResource("editor_hex")
+
+    /// %1$d bytes · overwrite
+    static let editorHexSubtitle = LocalizedStringResource("editor_hex_subtitle")
+
+    /// Reading…
+    static let editorLoading = LocalizedStringResource("editor_loading")
+
+    /// mixed line endings
+    static let editorMixedEndings = LocalizedStringResource("editor_mixed_endings")
+
+    /// Open as text anyway
+    static let editorOpenAsText = LocalizedStringResource("editor_open_as_text")
+
+    /// Open in hex
+    static let editorOpenHex = LocalizedStringResource("editor_open_hex")
+
+    /// Not saved
+    static let editorSaveFailed = LocalizedStringResource("editor_save_failed")
+
+    /// saved
+    static let editorSaved = LocalizedStringResource("editor_saved")
+
+    /// Keyboard suggestions
+    static let editorSuggestions = LocalizedStringResource("editor_suggestions")
+
+    /// This file is %1$@, more than the %2$@ the editor can open.
+    static let editorTooLarge = LocalizedStringResource("editor_too_large")
+
+    /// unsaved
+    static let editorUnsaved = LocalizedStringResource("editor_unsaved")
+
+    /// Close the editor and lose the changes you made?
+    static let editorUnsavedMessage = LocalizedStringResource("editor_unsaved_message")
+
+    /// Unsaved changes
+    static let editorUnsavedTitle = LocalizedStringResource("editor_unsaved_title")
+
+    /// You can edit it on the server from a terminal session.
+    static let editorUseTerminal = LocalizedStringResource("editor_use_terminal")
 
     /// Cannot list directory
     static let errorCannotListDirectory = LocalizedStringResource("error_cannot_list_directory")
@@ -723,6 +786,12 @@ extension LocalizedStringResource {
     /// Import SSH Key
     static let keysImportTitle = LocalizedStringResource("keys_import_title")
 
+    /// Passphrase missing — import this key again
+    static let keysNeedsPassphrase = LocalizedStringResource("keys_needs_passphrase")
+
+    /// Saved with the key, so it is not asked at every connection. When hardware encryption …
+    static let keysPassphraseNote = LocalizedStringResource("keys_passphrase_note")
+
     /// Public key (add to ~/.ssh/authorized_keys):
     static let keysPublicKeyLabel = LocalizedStringResource("keys_public_key_label")
 
@@ -960,16 +1029,16 @@ extension LocalizedStringResource {
     /// Customise
     static let settingsExtraBarCustomizeTitle = LocalizedStringResource("settings_extra_bar_customize_title")
 
-    /// In use: %1$@
+    /// Current layout: %1$@
     static let settingsExtraBarInUse = LocalizedStringResource("settings_extra_bar_in_use")
 
-    /// Extra key bar layout
+    /// Keys and layout
     static let settingsExtraBarLayoutTitle = LocalizedStringResource("settings_extra_bar_layout_title")
 
-    /// Keep the extra key bar (Ctrl, arrows, F-keys…) visible even when the keyboard is clos…
+    /// Even with the keyboard closed. You can also toggle it with the pin on the bar.
     static let settingsExtraKeysBarSubtitle = LocalizedStringResource("settings_extra_keys_bar_subtitle")
 
-    /// Always-visible extra keys
+    /// Always visible
     static let settingsExtraKeysBarTitle = LocalizedStringResource("settings_extra_keys_bar_title")
 
     /// Default terminal text size (sp); pinch to zoom in a session
@@ -1052,6 +1121,9 @@ extension LocalizedStringResource {
 
     /// Backup
     static let settingsSectionBackup = LocalizedStringResource("settings_section_backup")
+
+    /// Extra key bar
+    static let settingsSectionExtraBar = LocalizedStringResource("settings_section_extra_bar")
 
     /// General
     static let settingsSectionGeneral = LocalizedStringResource("settings_section_general")
@@ -1200,6 +1272,12 @@ extension LocalizedStringResource {
     /// Download in background
     static let sftpMenuDownloadInBackground = LocalizedStringResource("sftp_menu_download_in_background")
 
+    /// Open in editor
+    static let sftpMenuEdit = LocalizedStringResource("sftp_menu_edit")
+
+    /// Open in hex
+    static let sftpMenuHex = LocalizedStringResource("sftp_menu_hex")
+
     /// Open
     static let sftpMenuOpen = LocalizedStringResource("sftp_menu_open")
 
@@ -1221,6 +1299,9 @@ extension LocalizedStringResource {
     /// Nothing to download
     static let sftpNothingToDownload = LocalizedStringResource("sftp_nothing_to_download")
 
+    /// Open the transfer in SSHBorg to see the errors.
+    static let sftpNotifySeeDetails = LocalizedStringResource("sftp_notify_see_details")
+
     /// Preparing…
     static let sftpPreparing = LocalizedStringResource("sftp_preparing")
 
@@ -1232,6 +1313,24 @@ extension LocalizedStringResource {
 
     /// Rename
     static let sftpRenameTitle = LocalizedStringResource("sftp_rename_title")
+
+    /// Downloaded %1$d of %2$d
+    static let sftpReportDownloadedNOfM = LocalizedStringResource("sftp_report_downloaded_n_of_m")
+
+    /// Could not create the file in Downloads
+    static let sftpReportLocalFileFailed = LocalizedStringResource("sftp_report_local_file_failed")
+
+    /// Not attempted: %1$@
+    static let sftpReportNotAttempted = LocalizedStringResource("sftp_report_not_attempted")
+
+    /// Show errors
+    static let sftpReportShowErrors = LocalizedStringResource("sftp_report_show_errors")
+
+    /// Tap to see the errors
+    static let sftpReportTapForDetails = LocalizedStringResource("sftp_report_tap_for_details")
+
+    /// Uploaded %1$d of %2$d
+    static let sftpReportUploadedNOfM = LocalizedStringResource("sftp_report_uploaded_n_of_m")
 
     /// Saved: %1$@
     static let sftpSavedToDownloads = LocalizedStringResource("sftp_saved_to_downloads")
@@ -1248,8 +1347,14 @@ extension LocalizedStringResource {
     /// Started: %1$@
     static let sftpStartedAt = LocalizedStringResource("sftp_started_at")
 
+    /// %1$d of %2$d files already exist in this folder on the server. What would you like to…
+    static let sftpUploadBatchConflictMessage = LocalizedStringResource("sftp_upload_batch_conflict_message")
+
     /// Upload complete
     static let sftpUploadComplete = LocalizedStringResource("sftp_upload_complete")
+
+    /// "%1$@" already exists in this folder on the server.
+    static let sftpUploadConflictMessage = LocalizedStringResource("sftp_upload_conflict_message")
 
     /// Upload file
     static let sftpUploadFileCd = LocalizedStringResource("sftp_upload_file_cd")

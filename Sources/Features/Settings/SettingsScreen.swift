@@ -38,6 +38,7 @@ struct SettingsScreen: View {
             Form {
                 generalSection
                 terminalSection
+                extraBarSection
                 sftpSection
                 securitySection
                 backupSection
@@ -158,12 +159,21 @@ struct SettingsScreen: View {
                     Text(.settingsSuggestionsBarStickySubtitle)
                 }
             }
+        }
+    }
 
-            Toggle(isOn: binding(\.extraKeysBarPinned)) {
-                Text(.settingsExtraKeysBarTitle)
-                Text(.settingsExtraKeysBarSubtitle)
-            }
+    // MARK: - Extra key bar
 
+    /// A section of its own, following Android, where the bar was the last of a
+    /// long run of terminal switches and read as a cosmetic option rather than
+    /// the way into the editor. Its heading carries the context the two rows
+    /// then leave out — "Always visible", not "Always-visible extra keys".
+    ///
+    /// A section rather than Android's grey in-place heading because that is the
+    /// same thing here: every header in a grouped form is grey, and the rows keep
+    /// following Terminal in the order they had.
+    private var extraBarSection: some View {
+        Section(String(localized: .settingsSectionExtraBar)) {
             // Which bar the terminal draws, and the way to the list and the
             // editor behind it. The name is read here so choosing another bar
             // — from this list or from the switch key on the bar itself —
@@ -177,6 +187,13 @@ struct SettingsScreen: View {
                         .font(.footnote)
                         .foregroundStyle(Color.secondary)
                 }
+            }
+
+            // The default for new sessions; the pin on the bar overrides it for
+            // the open ones, which is why it stays here and not in the editor.
+            Toggle(isOn: binding(\.extraKeysBarPinned)) {
+                Text(.settingsExtraKeysBarTitle)
+                Text(.settingsExtraKeysBarSubtitle)
             }
         }
     }

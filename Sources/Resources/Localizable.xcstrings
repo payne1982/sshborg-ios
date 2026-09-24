@@ -2147,6 +2147,71 @@
         }
       }
     },
+    "action_undo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rückgängig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deshacer"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulla modifica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元に戻す"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desfazer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скасувати"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销"
+          }
+        }
+      }
+    },
     "add_host_title": {
       "extractionState": "manual",
       "localizations": {
@@ -2739,6 +2804,1306 @@
           "stringUnit": {
             "state": "translated",
             "value": "编辑主机"
+          }
+        }
+      }
+    },
+    "editor_binary": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Datei ist kein Text und kann hier nicht bearbeitet werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file is not text, so it cannot be edited here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo no es texto, así que no se puede editar aquí."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier n'est pas du texte, il ne peut pas être modifié ici."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo file non è testo, quindi non si può modificare qui."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このファイルはテキストではないため、ここでは編集できません。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este ficheiro não é texto, por isso não pode ser editado aqui."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не текстовый файл, здесь его нельзя редактировать."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Це не текстовий файл, тож тут його не можна редагувати."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该文件不是文本，无法在此编辑。"
+          }
+        }
+      }
+    },
+    "editor_cannot_encode": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Text enthält Zeichen, die %1$@ nicht schreiben kann. Wähle zum Speichern eine andere Kodierung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The text now holds characters that %1$@ cannot write. Pick another encoding to save it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El texto contiene caracteres que %1$@ no puede escribir. Elige otra codificación para guardarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le texte contient des caractères que %1$@ ne peut pas écrire. Choisissez un autre encodage pour l'enregistrer."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il testo contiene caratteri che %1$@ non può scrivere. Scegli un'altra codifica per salvarlo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキストに %1$@ では書き出せない文字が含まれています。保存するには別の文字コードを選んでください。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O texto contém caracteres que %1$@ não consegue escrever. Escolha outra codificação para o guardar."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В тексте есть символы, которые %1$@ не может записать. Выберите другую кодировку, чтобы сохранить его."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У тексті є символи, які %1$@ не може записати. Виберіть інше кодування, щоб зберегти його."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文本中包含 %1$@ 无法写出的字符。请选择其他编码后保存。"
+          }
+        }
+      }
+    },
+    "editor_charset": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kodierung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encoding"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encodage"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codifica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字コード"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificação"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кодировка"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кодування"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编码"
+          }
+        }
+      }
+    },
+    "editor_charset_discard": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datei anders zu lesen ersetzt den Text auf dem Bildschirm. Nicht gespeicherte Änderungen gehen verloren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading the file another way replaces the text on screen. The changes you have not saved will be lost."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leer el archivo de otra forma sustituye el texto en pantalla. Se perderán los cambios sin guardar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relire le fichier autrement remplace le texte à l'écran. Les modifications non enregistrées seront perdues."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rileggere il file in un altro modo sostituisce il testo a schermo. Le modifiche non salvate andranno perse."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別の文字コードで読み直すと、画面のテキストが置き換わります。保存していない変更は失われます。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ler o ficheiro de outra forma substitui o texto no ecrã. As alterações não guardadas serão perdidas."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтение файла в другой кодировке заменит текст на экране. Несохранённые изменения будут потеряны."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читання файлу в іншому кодуванні замінить текст на екрані. Незбережені зміни буде втрачено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以另一种编码重新读取文件会替换屏幕上的文本，未保存的更改将丢失。"
+          }
+        }
+      }
+    },
+    "editor_discard": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verwerfen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abandonner"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scarta"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "破棄"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отбросить"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкинути"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "丢弃"
+          }
+        }
+      }
+    },
+    "editor_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éditeur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エディタ"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Редактор"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Редактор"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑器"
+          }
+        }
+      }
+    },
+    "editor_hex": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hexadezimal"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hexadecimal"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hexadecimal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hexadécimal"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esadecimale"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "16進数"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hexadecimal"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шестнадцатеричный"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шістнадцятковий"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "十六进制"
+          }
+        }
+      }
+    },
+    "editor_hex_subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d Bytes · Überschreiben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d bytes · overwrite"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d bytes · sobrescritura"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d octets · écrasement"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d byte · sovrascrittura"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d バイト · 上書き"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d bytes · substituição"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d байт · замена"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d байт · заміна"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d 字节 · 覆盖"
+          }
+        }
+      }
+    },
+    "editor_loading": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird gelesen…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leyendo…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lettura…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込み中…"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A ler…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтение…"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читання…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在读取…"
+          }
+        }
+      }
+    },
+    "editor_mixed_endings": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gemischte Zeilenenden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mixed line endings"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fin de línea mixto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fins de ligne mélangées"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fine riga mista"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "改行コード混在"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fins de linha misturados"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "смешанные переводы строк"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "мішані кінці рядків"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "换行符混用"
+          }
+        }
+      }
+    },
+    "editor_open_as_text": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trotzdem als Text öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open as text anyway"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir como texto igualmente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir quand même comme texte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri comunque come testo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "それでもテキストとして開く"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir como texto mesmo assim"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё равно открыть как текст"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Усе одно відкрити як текст"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仍以文本方式打开"
+          }
+        }
+      }
+    },
+    "editor_open_hex": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hexadezimal öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in hex"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir en hexadecimal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir en hexadécimal"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri in esadecimale"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "16進数で開く"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir em hexadecimal"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в HEX"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкрити в HEX"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以十六进制打开"
+          }
+        }
+      }
+    },
+    "editor_save_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht gespeichert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not saved"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin guardar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non enregistré"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non salvato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存できません"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não guardado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не сохранено"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не збережено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存"
+          }
+        }
+      }
+    },
+    "editor_saved": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gespeichert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "saved"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "guardado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "enregistré"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "salvato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済み"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "guardado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сохранено"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "збережено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存"
+          }
+        }
+      }
+    },
+    "editor_suggestions": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tastaturvorschläge"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyboard suggestions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerencias del teclado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestions du clavier"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggerimenti della tastiera"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーボードの予測変換"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugestões do teclado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказки клавиатуры"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Підказки клавіатури"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "键盘联想输入"
+          }
+        }
+      }
+    },
+    "editor_too_large": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Datei ist %1$@ groß, mehr als die %2$@, die der Editor öffnen kann."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file is %1$@, more than the %2$@ the editor can open."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo ocupa %1$@, más de los %2$@ que el editor puede abrir."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier fait %1$@, plus que les %2$@ que l'éditeur peut ouvrir."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo file è di %1$@, più dei %2$@ che l'editor può aprire."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このファイルは %1$@ で、エディタで開ける %2$@ を超えています。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este ficheiro tem %1$@, mais do que os %2$@ que o editor consegue abrir."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер файла %1$@ — больше, чем %2$@, которые может открыть редактор."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Розмір файлу %1$@ — більше, ніж %2$@, які може відкрити редактор."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该文件为 %1$@，超过编辑器可打开的 %2$@。"
+          }
+        }
+      }
+    },
+    "editor_unsaved": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nicht gespeichert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unsaved"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sin guardar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "non enregistré"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "non salvato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "não guardado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не сохранено"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не збережено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存"
+          }
+        }
+      }
+    },
+    "editor_unsaved_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor schließen und die Änderungen verwerfen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close the editor and lose the changes you made?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Cerrar el editor y perder los cambios hechos?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer l'éditeur et perdre les modifications ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiudere l'editor e perdere le modifiche fatte?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エディタを閉じて、変更を破棄しますか？"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fechar o editor e perder as alterações feitas?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть редактор и потерять сделанные изменения?"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрити редактор і втратити зроблені зміни?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭编辑器并丢弃所做的更改？"
+          }
+        }
+      }
+    },
+    "editor_unsaved_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungespeicherte Änderungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsaved changes"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambios sin guardar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifications non enregistrées"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifiche non salvate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存の変更"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alterações não guardadas"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Несохранённые изменения"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Незбережені зміни"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存的更改"
+          }
+        }
+      }
+    },
+    "editor_use_terminal": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du kannst sie auf dem Server in einer Terminal-Sitzung bearbeiten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can edit it on the server from a terminal session."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puedes editarlo en el servidor desde una sesión de terminal."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez le modifier sur le serveur depuis une session terminal."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puoi modificarlo sul server da una sessione terminale."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ターミナルのセッションからサーバー上で編集できます。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pode editá-lo no servidor a partir de uma sessão de terminal."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его можно отредактировать на сервере в сеансе терминала."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Його можна відредагувати на сервері в сеансі термінала."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以在终端会话中于服务器上编辑它。"
           }
         }
       }
@@ -15293,6 +16658,136 @@
         }
       }
     },
+    "keys_needs_passphrase": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passphrase fehlt — Schlüssel erneut importieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passphrase missing — import this key again"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falta la contraseña — importa esta clave de nuevo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phrase secrète manquante — réimportez cette clé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manca la passphrase — reimporta questa chiave"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスフレーズがありません — この鍵を再度インポートしてください"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falta a frase-passe — importe esta chave novamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет пароля ключа — импортируйте ключ заново"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Немає парольної фрази — імпортуйте ключ знову"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少密码短语 — 请重新导入此密钥"
+          }
+        }
+      }
+    },
+    "keys_passphrase_note": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird mit dem Schlüssel gespeichert, damit sie nicht bei jeder Verbindung verlangt wird. Ist in den Einstellungen die Hardware-Verschlüsselung aktiv, verschlüsselt das Gerät sie."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved with the key, so it is not asked at every connection. When hardware encryption is on in Settings, the device encrypts it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guarda con la clave, así no se pide en cada conexión. Si el cifrado por hardware está activado en los ajustes, el dispositivo la cifra."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elle est enregistrée avec la clé, pour ne pas être demandée à chaque connexion. Si le chiffrement matériel est activé dans les réglages, l'appareil la chiffre."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Viene salvata con la chiave, così non è richiesta a ogni collegamento. Se nelle impostazioni è attiva la cifratura hardware, la cifra il dispositivo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鍵と一緒に保存されるため、接続ごとに尋ねられません。設定でハードウェア暗号化を有効にしていると、端末が暗号化します。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "É guardada com a chave, para não ser pedida em cada ligação. Se a cifragem por hardware estiver ativa nas definições, o dispositivo cifra-a."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраняется вместе с ключом, чтобы его не запрашивали при каждом подключении. Если в настройках включено аппаратное шифрование, устройство его шифрует."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зберігається разом із ключем, щоб її не запитували під час кожного з'єднання. Якщо в налаштуваннях увімкнено апаратне шифрування, пристрій її шифрує."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会与密钥一起保存，这样每次连接时就不再询问。如果在设置中启用了硬件加密，设备会对其加密。"
+          }
+        }
+      }
+    },
     "keys_public_key_label": {
       "extractionState": "manual",
       "localizations": {
@@ -20698,61 +22193,61 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "In Verwendung: %1$@"
+            "value": "Aktives Layout: %1$@"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In use: %1$@"
+            "value": "Current layout: %1$@"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En uso: %1$@"
+            "value": "Diseño en uso: %1$@"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Utilisée : %1$@"
+            "value": "Disposition actuelle : %1$@"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "In uso: %1$@"
+            "value": "Layout in uso: %1$@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用中: %1$@"
+            "value": "使用中のレイアウト: %1$@"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Em uso: %1$@"
+            "value": "Disposição atual: %1$@"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Используется: %1$@"
+            "value": "Раскладка: %1$@"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Використовується: %1$@"
+            "value": "Розкладка: %1$@"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "当前：%1$@"
+            "value": "当前布局：%1$@"
           }
         }
       }
@@ -20763,61 +22258,61 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Layout der Zusatztastenleiste"
+            "value": "Tasten und Anordnung"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Extra key bar layout"
+            "value": "Keys and layout"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diseño de la barra de teclas extra"
+            "value": "Teclas y disposición"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disposition de la barre de touches"
+            "value": "Touches et disposition"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Layout barra tasti extra"
+            "value": "Tasti e disposizione"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "拡張キーバーのレイアウト"
+            "value": "キーとレイアウト"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disposição da barra de teclas extra"
+            "value": "Teclas e disposição"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Раскладка панели дополнительных клавиш"
+            "value": "Клавиши и раскладка"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Розкладка панелі додаткових клавіш"
+            "value": "Клавіші та розкладка"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "额外按键栏布局"
+            "value": "按键与布局"
           }
         }
       }
@@ -20828,61 +22323,61 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hält die Zusatztastenleiste (Strg, Pfeile, F-Tasten…) auch bei geschlossener Tastatur sichtbar. Auch über die Pinnadel auf der Leiste umschaltbar."
+            "value": "Auch bei geschlossener Tastatur. Auch über die Pinnadel auf der Leiste umschaltbar."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keep the extra key bar (Ctrl, arrows, F-keys…) visible even when the keyboard is closed. You can also toggle this with the pin on the bar."
+            "value": "Even with the keyboard closed. You can also toggle it with the pin on the bar."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mantiene visible la barra de teclas adicionales (Ctrl, flechas, teclas F…) incluso con el teclado cerrado. También puedes cambiarlo con el pin de la barra."
+            "value": "Incluso con el teclado cerrado. También puedes cambiarlo con el pin de la barra."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Garde la barre de touches supplémentaires (Ctrl, flèches, touches F…) visible même clavier fermé. Réglable aussi avec l'épingle sur la barre."
+            "value": "Même clavier fermé. Réglable aussi avec l'épingle sur la barre."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mantiene visibile la barra dei tasti extra (Ctrl, frecce, tasti F…) anche a tastiera chiusa. Puoi cambiarlo anche con il pin sulla barra."
+            "value": "Anche a tastiera chiusa. Puoi cambiarlo anche con il pin sulla barra."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "キーボードを閉じていても追加キーバー（Ctrl、矢印、Fキーなど）を表示したままにします。バー上のピンでも切り替えられます。"
+            "value": "キーボードを閉じていても表示します。バー上のピンでも切り替えられます。"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mantém a barra de teclas extra (Ctrl, setas, teclas F…) visível mesmo com o teclado fechado. Também pode alterná-la com o pin na barra."
+            "value": "Mesmo com o teclado fechado. Também pode alternar com o pin na barra."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Держать панель дополнительных клавиш (Ctrl, стрелки, F-клавиши…) видимой даже при закрытой клавиатуре. Переключается также булавкой на панели."
+            "value": "Даже при закрытой клавиатуре. Переключается также булавкой на панели."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Тримає панель додаткових клавіш (Ctrl, стрілки, клавіші F…) видимою навіть із закритою клавіатурою. Це також можна перемкнути шпилькою на панелі."
+            "value": "Навіть із закритою клавіатурою. Це також можна перемкнути шпилькою на панелі."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "即使键盘关闭，也保持额外按键栏（Ctrl、方向键、F 键…）可见。也可通过按键栏上的图钉切换。"
+            "value": "即使键盘关闭也显示。也可通过按键栏上的图钉切换。"
           }
         }
       }
@@ -20893,61 +22388,61 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zusatztasten immer sichtbar"
+            "value": "Immer sichtbar"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Always-visible extra keys"
+            "value": "Always visible"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Teclas adicionales siempre visibles"
+            "value": "Siempre visible"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Touches supplémentaires toujours visibles"
+            "value": "Toujours visible"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tasti extra sempre visibili"
+            "value": "Sempre visibile"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "追加キーを常に表示"
+            "value": "常に表示"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Teclas extra sempre visíveis"
+            "value": "Sempre visível"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Дополнительные клавиши всегда видимы"
+            "value": "Всегда видима"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Додаткові клавіші завжди видимі"
+            "value": "Завжди видима"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "始终显示额外按键"
+            "value": "始终显示"
           }
         }
       }
@@ -22703,6 +24198,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "备份"
+          }
+        }
+      }
+    },
+    "settings_section_extra_bar": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zusatztastenleiste"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extra key bar"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barra de teclas extra"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barre de touches"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barra tasti extra"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡張キーバー"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barra de teclas extra"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панель дополнительных клавиш"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панель додаткових клавіш"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "额外按键栏"
           }
         }
       }
@@ -25892,6 +27452,136 @@
         }
       }
     },
+    "sftp_menu_edit": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Editor öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in editor"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir en el editor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir dans l'éditeur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri nell'editor"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エディタで開く"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir no editor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в редакторе"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкрити в редакторі"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在编辑器中打开"
+          }
+        }
+      }
+    },
+    "sftp_menu_hex": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hexadezimal öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in hex"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir en hexadecimal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir en hexadécimal"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri in esadecimale"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "16進数で開く"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir em hexadecimal"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в HEX"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкрити в HEX"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以十六进制打开"
+          }
+        }
+      }
+    },
     "sftp_menu_open": {
       "extractionState": "manual",
       "localizations": {
@@ -26347,6 +28037,71 @@
         }
       }
     },
+    "sftp_notify_see_details": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffne die Übertragung in SSHBorg, um die Fehler zu sehen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the transfer in SSHBorg to see the errors."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre la transferencia en SSHBorg para ver los errores."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez le transfert dans SSHBorg pour voir les erreurs."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri il trasferimento in SSHBorg per vedere gli errori."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSHBorg で転送を開くとエラーを確認できます。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abra a transferência no SSHBorg para ver os erros."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте передачу в SSHBorg, чтобы увидеть ошибки."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкрийте передавання в SSHBorg, щоб побачити помилки."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 SSHBorg 中打开此传输以查看错误。"
+          }
+        }
+      }
+    },
     "sftp_preparing": {
       "extractionState": "manual",
       "localizations": {
@@ -26603,6 +28358,396 @@
           "stringUnit": {
             "state": "translated",
             "value": "重命名"
+          }
+        }
+      }
+    },
+    "sftp_report_downloaded_n_of_m": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d von %2$d heruntergeladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloaded %1$d of %2$d"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descargados %1$d de %2$d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d sur %2$d téléchargés"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scaricati %1$d di %2$d"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$d 件中 %1$d 件をダウンロードしました"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transferidos %1$d de %2$d"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачано %1$d из %2$d"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завантажено %1$d з %2$d"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已下载 %1$d / %2$d"
+          }
+        }
+      }
+    },
+    "sftp_report_local_file_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei konnte in Downloads nicht angelegt werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not create the file in Downloads"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo crear el archivo en Descargas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de créer le fichier dans Téléchargements"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile creare il file in Download"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロードフォルダにファイルを作成できませんでした"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível criar o ficheiro em Transferências"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось создать файл в «Загрузках»"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося створити файл у «Завантаженнях»"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法在“下载”中创建文件"
+          }
+        }
+      }
+    },
+    "sftp_report_not_attempted": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht versucht: %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not attempted: %1$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No intentados: %1$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non tentés : %1$@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non tentati: %1$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未処理：%1$@"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não tentados: %1$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не обработаны: %1$@"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не оброблено: %1$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未处理：%1$@"
+          }
+        }
+      }
+    },
+    "sftp_report_show_errors": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehler anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show errors"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver errores"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir les erreurs"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra errori"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エラーを表示"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver erros"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать ошибки"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показати помилки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看错误"
+          }
+        }
+      }
+    },
+    "sftp_report_tap_for_details": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen, um die Fehler zu sehen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to see the errors"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para ver los errores"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez pour voir les erreurs"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca per vedere gli errori"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タップしてエラーを表示"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque para ver os erros"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите, чтобы увидеть ошибки"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Торкніться, щоб побачити помилки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点按查看错误"
+          }
+        }
+      }
+    },
+    "sftp_report_uploaded_n_of_m": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d von %2$d hochgeladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploaded %1$d of %2$d"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subidos %1$d de %2$d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d sur %2$d envoyés"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caricati %1$d di %2$d"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$d 件中 %1$d 件をアップロードしました"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviados %1$d de %2$d"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загружено %1$d из %2$d"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вивантажено %1$d з %2$d"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已上传 %1$d / %2$d"
           }
         }
       }
@@ -26932,6 +29077,71 @@
         }
       }
     },
+    "sftp_upload_batch_conflict_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d von %2$d Dateien existieren bereits in diesem Ordner auf dem Server. Was möchten Sie tun?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d files already exist in this folder on the server. What would you like to do?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d de %2$d archivos ya existen en esta carpeta del servidor. ¿Qué deseas hacer?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d fichier(s) sur %2$d existent déjà dans ce dossier sur le serveur. Que souhaitez-vous faire ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d di %2$d file esistono già in questa cartella sul server. Come vuoi procedere?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$d 件中 %1$d 件のファイルがサーバーのこのフォルダに既に存在します。どうしますか？"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d de %2$d ficheiros já existem nesta pasta do servidor. O que pretende fazer?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d из %2$d файлов уже есть в этой папке на сервере. Что сделать?"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d з %2$d файлів вже є в цій папці на сервері. Що ви хочете зробити?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$d 个文件中有 %1$d 个已存在于服务器上的此文件夹中。请选择操作："
+          }
+        }
+      }
+    },
     "sftp_upload_complete": {
       "extractionState": "manual",
       "localizations": {
@@ -26993,6 +29203,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "上传完成"
+          }
+        }
+      }
+    },
+    "sftp_upload_conflict_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\" existiert bereits in diesem Ordner auf dem Server."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\" already exists in this folder on the server."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\" ya existe en esta carpeta del servidor."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\" existe déjà dans ce dossier sur le serveur."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\" esiste già in questa cartella sul server."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\" はサーバーのこのフォルダに既に存在します。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\" já existe nesta pasta do servidor."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%1$@» уже есть в этой папке на сервере."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%1$@» вже є в цій папці на сервері."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\"已存在于服务器上的此文件夹中。"
           }
         }
       }

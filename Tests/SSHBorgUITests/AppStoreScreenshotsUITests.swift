@@ -183,7 +183,7 @@ final class AppStoreScreenshotsUITests: XCTestCase {
         waitForHostList()
         app.buttons["Settings"].firstMatch.tap()
 
-        let layoutRow = button(startingWith: "Extra key bar layout")
+        let layoutRow = button(startingWith: "Keys and layout")
         var swipes = 0
         while !layoutRow.isHittable && swipes < 8 {
             app.swipeUp()

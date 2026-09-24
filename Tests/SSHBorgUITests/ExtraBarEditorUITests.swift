@@ -24,7 +24,7 @@ final class ExtraBarEditorUITests: XCTestCase {
 
     /// Matches on a label that *starts with* the text, because a row built from
     /// a title and a subtitle is exposed as one element whose label is the two
-    /// joined — "Extra key bar layout, In use: Standard". Querying for the
+    /// joined — "Keys and layout, Current layout: Standard". Querying for the
     /// title alone finds nothing, which is how this test failed first.
     private func button(startingWith text: String) -> XCUIElement {
         app.buttons
@@ -39,13 +39,13 @@ final class ExtraBarEditorUITests: XCTestCase {
         add(shot)
     }
 
-    /// Settings → Extra key bar layout → duplicate `preset` → the editor.
+    /// Settings → Keys and layout → duplicate `preset` → the editor.
     private func openEditor(duplicating preset: String) {
         let gear = app.buttons["Settings"].firstMatch
         XCTAssertTrue(gear.waitForExistence(timeout: 10), "no Settings button in the toolbar")
         gear.tap()
 
-        let layoutRow = button(startingWith: "Extra key bar layout")
+        let layoutRow = button(startingWith: "Keys and layout")
         var swipes = 0
         while !layoutRow.isHittable && swipes < 8 {
             app.swipeUp()
@@ -106,7 +106,7 @@ final class ExtraBarEditorUITests: XCTestCase {
         // scrolling to. Swiping until it arrives rather than a fixed number of
         // times: how far a swipe carries depends on the momentum the simulator
         // gives it, which is a lesson this suite already paid for once.
-        let layoutRow = button(startingWith: "Extra key bar layout")
+        let layoutRow = button(startingWith: "Keys and layout")
         var swipes = 0
         while !layoutRow.isHittable && swipes < 8 {
             app.swipeUp()
