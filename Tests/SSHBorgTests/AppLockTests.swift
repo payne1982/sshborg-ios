@@ -27,18 +27,27 @@ final class AppLockTests: XCTestCase {
         }
     }
 
+    /// A clock the test moves by hand, so an absence of any length can be
+    /// staged without waiting for one.
+    private final class Clock {
+        var now = Date(timeIntervalSince1970: 1_700_000_000)
+        func advance(_ seconds: TimeInterval) { now += seconds }
+    }
+
     private func makeLock(
         mode: AppPreferences.LockMode,
         timeout: Int = 60,
         answer: Bool = true,
-        possible: Bool = true
+        possible: Bool = true,
+        clock: Clock? = nil
     ) -> (AppLock, Asker) {
         let asker = Asker(answer: answer)
         let lock = AppLock(
             preferences: preferences(mode: mode, timeout: timeout),
             ask: { await asker.ask($0) },
             isAuthenticationPossible: { possible },
-            center: NotificationCenter()
+            center: NotificationCenter(),
+            now: { clock?.now ?? Date() }
         )
         return (lock, asker)
     }
@@ -223,6 +232,46 @@ final class AppLockTests: XCTestCase {
         await lock.didBecomeActive()
 
         XCTAssertEqual(asker.count, 2, "a real absence went unchallenged")
+    }
+
+    /// The timeout runs from leaving the app, not from the last unlock.
+    ///
+    /// Reported on Android and true here: after working in the app for longer
+    /// than the timeout, any brief trip out — the file picker for an upload,
+    /// opening a download — asked again on return, while the same trip taken
+    /// right after unlocking did not.
+    func testWorkingLongerThanTheTimeoutThenLeavingBrieflyDoesNotAsk() async {
+        let clock = Clock()
+        let (lock, asker) = makeLock(mode: .biometric, timeout: 60, clock: clock)
+        await lock.didBecomeActive()
+        XCTAssertEqual(asker.count, 1)
+
+        // An hour of work, then ten seconds away.
+        clock.advance(3600)
+        lock.willResignActive()
+        clock.advance(10)
+        await lock.didBecomeActive()
+
+        XCTAssertFalse(lock.isLocked)
+        XCTAssertEqual(asker.count, 1, "a ten-second absence was treated as an hour")
+    }
+
+    /// And the stamp is only earned by an app that was actually unlocked, or
+    /// backing out of the prompt and returning would be a way around it.
+    func testLeavingWhileTheCoverIsUpDoesNotRestartTheTimeout() async {
+        let clock = Clock()
+        let (lock, asker) = makeLock(mode: .biometric, timeout: 60, answer: false, clock: clock)
+        await lock.didBecomeActive()
+        XCTAssertEqual(asker.count, 1, "the cold launch did not ask")
+        XCTAssertTrue(lock.isLocked, "a refusal left the app open")
+
+        // Away and straight back, with the cover still up.
+        lock.willResignActive()
+        clock.advance(5)
+        await lock.didBecomeActive()
+
+        XCTAssertTrue(lock.isLocked)
+        XCTAssertEqual(asker.count, 2, "the prompt was waited out by leaving and returning")
     }
 
     /// With nothing on the device able to answer, the app must not lock at all:

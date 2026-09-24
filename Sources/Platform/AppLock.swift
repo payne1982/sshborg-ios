@@ -16,8 +16,9 @@ import UIKit
 ///   iOS takes that snapshot as the app leaves the foreground, which is why the
 ///   cover goes up on `inactive` rather than waiting for `background`.
 /// - **A timeout**, so glancing at a notification and coming straight back does
-///   not mean authenticating again. Android compares against `lastAuthTime`;
-///   this compares against ``lastAuthenticated``.
+///   not mean authenticating again. It runs from the moment the app was left —
+///   or from the unlock, when that came later — which is what Android's
+///   `lastAuthTime` now measures too.
 /// - **The prompt itself**, once the timeout has passed.
 ///
 /// One place where the platforms cannot agree: Android calls `finish()` when
@@ -39,8 +40,16 @@ final class AppLock {
     /// Android guards with its own `isAuthenticating` flag, for the same reason.
     @PerceptionIgnored private var isAuthenticating = false
 
-    /// When the user last got in. `nil` means never, so a cold launch always
-    /// asks however short the timeout is.
+    /// When the timeout last started running: the moment the user got in, and
+    /// then the moment an unlocked app was left. `nil` means never, so a cold
+    /// launch always asks however short the timeout is.
+    ///
+    /// Counting from the unlock alone was wrong, and Android fixed the same
+    /// thing on 19/09/2026: after working in the app for longer than the
+    /// timeout, *any* brief trip out — the file picker for an upload, opening a
+    /// download — asked again on return, while the same trip taken right after
+    /// unlocking did not. Only an app that was actually unlocked restamps it, so
+    /// walking away from the cover and coming back still asks.
     @PerceptionIgnored private var lastAuthenticated: Date?
 
     /// Whether the prompt has already been raised for the cover currently up.
@@ -66,6 +75,11 @@ final class AppLock {
     @PerceptionIgnored private let ask: (AppPreferences.LockMode) async -> Bool
     @PerceptionIgnored private let isAuthenticationPossible: () -> Bool
 
+    /// The clock the timeout is measured on. Injected for the same reason as
+    /// ``ask``: a test cannot wait fifteen minutes to find out whether an
+    /// absence was long enough, and the arithmetic is where the mistakes are.
+    @PerceptionIgnored private let now: () -> Date
+
     init(
         preferences: AppPreferences,
         ask: @escaping (AppPreferences.LockMode) async -> Bool = { mode in
@@ -75,11 +89,13 @@ final class AppLock {
             )
         },
         isAuthenticationPossible: @escaping () -> Bool = BiometricLock.canAuthenticate,
-        center: NotificationCenter = .default
+        center: NotificationCenter = .default,
+        now: @escaping () -> Date = Date.init
     ) {
         self.preferences = preferences
         self.ask = ask
         self.isAuthenticationPossible = isAuthenticationPossible
+        self.now = now
         // Locked from the very first frame when the lock is on, rather than
         // showing the host list and covering it a moment later.
         self.isLocked = Self.shouldLock(preferences, isAuthenticationPossible)
@@ -158,6 +174,13 @@ final class AppLock {
     func willResignActive() {
         guard shouldLock, !isAuthenticating else { return }
 
+        // Leaving an unlocked app is where the timeout starts counting. Not
+        // leaving a locked one: that stamp would be a way of waiting out the
+        // prompt by backing out of it and returning.
+        if !isLocked {
+            lastAuthenticated = now()
+        }
+
         // Only re-lock once the timeout has expired... except there is no way to
         // know the future here, so the cover goes up immediately and
         // `didBecomeActive` decides whether it was a real absence. Covering is
@@ -191,8 +214,9 @@ final class AppLock {
         // re-entrancy is real and fixed; do not read the symptom into it.
         guard isLocked, !isAuthenticating else { return }
 
+        // Against the moment the app was left, not the moment it was unlocked.
         if let lastAuthenticated,
-           Date().timeIntervalSince(lastAuthenticated) <= Double(preferences.lockTimeoutSeconds) {
+           now().timeIntervalSince(lastAuthenticated) <= Double(preferences.lockTimeoutSeconds) {
             isLocked = false
             return
         }
@@ -211,7 +235,7 @@ final class AppLock {
 
         let granted = await ask(preferences.lockMode)
         if granted {
-            lastAuthenticated = Date()
+            lastAuthenticated = now()
             isLocked = false
         }
     }
