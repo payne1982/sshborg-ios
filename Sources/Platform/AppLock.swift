@@ -134,6 +134,23 @@ final class AppLock {
         }
     }
 
+    /// One line per transition, in debug builds only.
+    ///
+    /// Android logs the same decisions under the tag `AppLock`, for the same
+    /// reason: what the lock does depends on callbacks nobody can single-step,
+    /// and the only way to find out whether a trip to a system picker even
+    /// reaches this class is to watch it happen. Read it back with
+    ///
+    ///     xcrun simctl spawn <udid> log show --last 2m \
+    ///         --predicate 'process == "SSHBorg"' | grep AppLock
+    ///
+    /// `#if DEBUG`: a shipped app says nothing about its lock.
+    private static func trace(_ message: @autoclosure () -> String) {
+        #if DEBUG
+        NSLog("AppLock: %@", message())
+        #endif
+    }
+
     /// Whether the gate can be raised at all.
     ///
     /// A lock nobody can open is not security, it is a brick. If the device has
@@ -172,6 +189,7 @@ final class AppLock {
     /// The app is going away. Covers up unless the system prompt is what took
     /// the foreground.
     func willResignActive() {
+        Self.trace("willResignActive locked=\(isLocked) authenticating=\(isAuthenticating) shouldLock=\(shouldLock)")
         guard shouldLock, !isAuthenticating else { return }
 
         // Leaving an unlocked app is where the timeout starts counting. Not
@@ -192,6 +210,7 @@ final class AppLock {
     /// The app is back. Lets it through when the lock is off or the absence was
     /// short, and asks otherwise.
     func didBecomeActive() async {
+        Self.trace("didBecomeActive locked=\(isLocked) authenticating=\(isAuthenticating) shouldLock=\(shouldLock)")
         guard shouldLock else {
             isLocked = false
             return
