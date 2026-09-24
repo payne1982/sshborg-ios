@@ -184,6 +184,17 @@ enum KeychainCrypto {
         return key.privateKeyPem.isEmpty ? nil : key.privateKeyPem
     }
 
+    /// Returns the passphrase that unlocks `key`'s private half, decrypting it
+    /// when necessary, or `nil` for a key that needs none — or one imported
+    /// before the app kept it. Mirrors `KeystoreManager.getPassphrase`.
+    static func passphrase(for key: SSHKey) -> String? {
+        if let blob = key.encryptedPassphrase {
+            return try? decrypt(blob)
+        }
+        guard let passphrase = key.passphrase, !passphrase.isEmpty else { return nil }
+        return passphrase
+    }
+
     /// Returns the password for `host`, decrypting when necessary.
     static func password(for host: Host) -> String? {
         if let blob = host.encryptedPassword {

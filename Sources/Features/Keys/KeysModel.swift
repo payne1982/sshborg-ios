@@ -11,6 +11,11 @@ final class KeysModel {
 
     private(set) var keys: [SSHKey] = []
 
+    /// The keys that cannot authenticate as they stand: encrypted, with no
+    /// passphrase stored. Recomputed whenever the list changes, which is how the
+    /// warning disappears the moment such a key is imported again.
+    private(set) var keysNeedingPassphrase: Set<Int64> = []
+
     @PerceptionIgnored private let repository: SSHKeyRepository
     @PerceptionIgnored private let preferences: AppPreferences
 
@@ -23,6 +28,9 @@ final class KeysModel {
         do {
             for try await value in repository.observeAll() {
                 keys = value
+                keysNeedingPassphrase = Set(
+                    value.compactMap { key in needsPassphrase(key) ? key.id : nil }
+                )
             }
         } catch {
             // The stream ended; the list keeps showing what it last had rather
@@ -39,7 +47,11 @@ final class KeysModel {
             label: label,
             type: generated.type,
             privateKeyPEM: generated.privateKeyPEM,
-            publicKeyLine: generated.publicKeyLine
+            publicKeyLine: generated.publicKeyLine,
+            // The generator writes an unencrypted key, so there is nothing to
+            // unlock; the app has never offered to protect one with a
+            // passphrase, on either platform.
+            passphrase: nil
         )
     }
 
@@ -52,8 +64,25 @@ final class KeysModel {
             label: label.trimmed.isEmpty ? fallbackLabel(for: imported) : label.trimmed,
             type: imported.type,
             privateKeyPEM: imported.privateKeyPEM,
-            publicKeyLine: imported.publicKeyLine
+            publicKeyLine: imported.publicKeyLine,
+            // The key is filed exactly as it arrived, so an encrypted one is
+            // only usable if its passphrase is kept with it: at connection time
+            // there is nobody to ask. A passphrase typed for a key that turns
+            // out not to need one is dropped rather than stored for nothing.
+            passphrase: imported.isEncrypted ? passphrase.flatMap({ $0.isEmpty ? nil : $0 }) : nil
         )
+    }
+
+    /// Whether `key` cannot authenticate as it stands: encrypted, with no
+    /// passphrase stored — which is every encrypted key imported before the app
+    /// began keeping one.
+    ///
+    /// The passphrase is only ever taken at import, so there is nothing to
+    /// repair from the list; this is what the warning beside such a key is for.
+    func needsPassphrase(_ key: SSHKey) -> Bool {
+        guard !key.hasStoredPassphrase else { return false }
+        guard let pem = KeychainCrypto.privateKeyPEM(for: key) else { return false }
+        return OpenSSHKeyImporter.isEncrypted(pem)
     }
 
     private func fallbackLabel(for imported: OpenSSHKeyImporter.ImportedKey) -> String {
@@ -66,12 +95,15 @@ final class KeysModel {
     ///
     /// The two fields are mutually exclusive, exactly as on Android: either the
     /// PEM sits in `privateKeyPem` or its ciphertext sits in `encryptedBlob`,
-    /// never both, so there is never a stale plaintext copy left behind.
+    /// never both, so there is never a stale plaintext copy left behind. The
+    /// passphrase, when there is one, is stored the same way in its own pair of
+    /// columns.
     private func store(
         label: String,
         type: SSHKey.KeyType,
         privateKeyPEM: String,
-        publicKeyLine: String
+        publicKeyLine: String,
+        passphrase: String?
     ) async throws {
         var key = SSHKey(
             label: label.trimmed,
@@ -82,9 +114,15 @@ final class KeysModel {
         if preferences.keychainEncryption {
             key.encryptedBlob = try KeychainCrypto.encrypt(privateKeyPEM)
             key.privateKeyPem = ""
+            // A credential of its own, and treated like the host passwords: the
+            // setting that encrypts the key material encrypts this too.
+            key.encryptedPassphrase = try passphrase.map { try KeychainCrypto.encrypt($0) }
+            key.passphrase = nil
         } else {
             key.privateKeyPem = privateKeyPEM
             key.encryptedBlob = nil
+            key.passphrase = passphrase
+            key.encryptedPassphrase = nil
         }
 
         try await repository.save(key)

@@ -59,10 +59,23 @@ enum EncryptionMigration {
     ) async throws {
         _ = try cipher.seal("sshborg-probe")
 
-        for var key in try await keys.fetchAll() where key.encryptedBlob == nil {
-            guard !key.privateKeyPem.isEmpty else { continue }
-            key.encryptedBlob = try cipher.seal(key.privateKeyPem)
-            key.privateKeyPem = ""
+        // A key's passphrase is a credential of its own and moves with the key,
+        // but they live in separate columns and either may already be sealed:
+        // a key imported while the setting was on has an encrypted blob and an
+        // encrypted passphrase, one imported while it was off has neither.
+        for var key in try await keys.fetchAll() {
+            let pem = key.encryptedBlob == nil && !key.privateKeyPem.isEmpty ? key.privateKeyPem : nil
+            let secret = key.encryptedPassphrase == nil ? key.passphrase?.nilIfEmpty : nil
+            guard pem != nil || secret != nil else { continue }
+
+            if let pem {
+                key.encryptedBlob = try cipher.seal(pem)
+                key.privateKeyPem = ""
+            }
+            if let secret {
+                key.encryptedPassphrase = try cipher.seal(secret)
+                key.passphrase = nil
+            }
             _ = try await keys.save(key)
         }
 
@@ -85,9 +98,16 @@ enum EncryptionMigration {
         deleteKey: () throws -> Void = KeychainCrypto.deleteKey
     ) async throws {
         for var key in try await keys.fetchAll() {
-            guard let blob = key.encryptedBlob else { continue }
-            key.privateKeyPem = try cipher.open(blob)
-            key.encryptedBlob = nil
+            guard key.encryptedBlob != nil || key.encryptedPassphrase != nil else { continue }
+            // Both are read before the Keychain key is deleted at the end.
+            if let blob = key.encryptedBlob {
+                key.privateKeyPem = try cipher.open(blob)
+                key.encryptedBlob = nil
+            }
+            if let blob = key.encryptedPassphrase {
+                key.passphrase = try cipher.open(blob)
+                key.encryptedPassphrase = nil
+            }
             _ = try await keys.save(key)
         }
 

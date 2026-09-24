@@ -135,6 +135,19 @@ final class AppDatabase: Sendable {
             }
         }
 
+        // Android's Room migration 13 -> 14: the passphrase of an imported key
+        // (#18).
+        //
+        // Both nullable, and only ever one of them set — the blob when Keychain
+        // encryption is on, the plain column when it is off — exactly as
+        // `privateKeyPem` and `encryptedBlob` already work.
+        migrator.registerMigration("v4") { db in
+            try db.alter(table: "ssh_keys") { t in
+                t.add(column: "passphrase", .text)
+                t.add(column: "encryptedPassphrase", .text)
+            }
+        }
+
         return migrator
     }
 }

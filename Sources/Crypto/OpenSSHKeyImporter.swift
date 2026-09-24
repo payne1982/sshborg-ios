@@ -19,6 +19,11 @@ enum OpenSSHKeyImporter {
         let publicKeyLine: String
         let type: SSHKey.KeyType
         let comment: String
+
+        /// True when the stored text is still encrypted, so the key is unusable
+        /// without the passphrase that was typed to import it. The caller has to
+        /// keep that passphrase; see ``SSHKey/passphrase``.
+        let isEncrypted: Bool
     }
 
     enum ImportError: LocalizedError, Equatable {
@@ -48,6 +53,12 @@ enum OpenSSHKeyImporter {
                 return "The key file is damaged or incomplete."
             }
         }
+    }
+
+    /// Whether a stored key is encrypted, and so unusable without a passphrase.
+    /// See ``OpenSSHPrivateKeyFile/isEncrypted(pem:)``.
+    static func isEncrypted(_ pem: String) -> Bool {
+        OpenSSHPrivateKeyFile.isEncrypted(pem: pem.replacingOccurrences(of: "\r\n", with: "\n").trimmed)
     }
 
     private static let openSSHBegin = OpenSSHPrivateKeyFile.beginMarker
@@ -103,7 +114,10 @@ enum OpenSSHKeyImporter {
                 comment: contents.comment
             ),
             type: try keyType(of: contents.algorithm),
-            comment: contents.comment
+            comment: contents.comment,
+            // Read from the file rather than from "a passphrase was supplied":
+            // one typed for a key that turns out to need none must not be kept.
+            isEncrypted: OpenSSHPrivateKeyFile.isEncrypted(pem: pem)
         )
     }
 
@@ -147,7 +161,10 @@ enum OpenSSHKeyImporter {
                 comment: ""
             ),
             type: .rsa,
-            comment: ""
+            comment: "",
+            // The encrypted form of this container is refused above, so anything
+            // that reaches here is in the clear.
+            isEncrypted: false
         )
     }
 

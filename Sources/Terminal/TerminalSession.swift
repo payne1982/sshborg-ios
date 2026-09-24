@@ -390,7 +390,10 @@ final class TerminalSession: Identifiable {
             guard let pem = KeychainCrypto.privateKeyPEM(for: key) else {
                 throw SSHError.keyUnreadable
             }
-            return .publicKey(privateKeyPEM: pem)
+            // An imported key is stored exactly as it arrived, so an encrypted
+            // one needs the passphrase kept beside it — nothing here can ask for
+            // one, and libssh2 refuses the key without it.
+            return .publicKey(privateKeyPEM: pem, passphrase: KeychainCrypto.passphrase(for: key))
         }
 
         return KeychainCrypto.password(for: host).map { SSHAuth.password($0) }

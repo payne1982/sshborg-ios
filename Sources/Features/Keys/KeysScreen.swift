@@ -128,7 +128,12 @@ struct KeysScreen: View {
         } else {
             List {
                 ForEach(model.keys) { key in
-                    Button { inspecting = key } label: { KeyRow(key: key) }
+                    Button { inspecting = key } label: {
+                        KeyRow(
+                            key: key,
+                            needsPassphrase: key.id.map(model.keysNeedingPassphrase.contains) ?? false
+                        )
+                    }
                         .buttonStyle(.plain)
                         .contextMenu {
                             Button(String(localized: .keysShowPublicKeyCd), systemImage: "doc.on.doc") {
@@ -156,6 +161,12 @@ struct KeysScreen: View {
 private struct KeyRow: View {
     let key: SSHKey
 
+    /// The key is encrypted and its passphrase is not stored, so it cannot
+    /// authenticate. Nothing can be done about it from here — the passphrase is
+    /// only ever taken at import — so the row says what to do instead of
+    /// offering a repair.
+    let needsPassphrase: Bool
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: key.isEncrypted ? "key.fill" : "key")
@@ -172,6 +183,15 @@ private struct KeyRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                }
+                if needsPassphrase {
+                    Label {
+                        Text(.keysNeedsPassphrase)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.red)
                 }
             }
         }
@@ -310,7 +330,10 @@ private struct KeyImportSheet: View {
                     SecureField(String(localized: .keysImportPassphraseLabel), text: $passphrase)
                         .plainTextEntry()
                 } footer: {
-                    Text(.keysImportPassphraseLabel)
+                    // What becomes of it, because it is kept: the key is stored
+                    // as it arrived, still encrypted, and nothing can ask for a
+                    // passphrase while a connection is being made.
+                    Text(.keysPassphraseNote)
                 }
             }
             .navigationTitle(Text(.keysImportTitle))

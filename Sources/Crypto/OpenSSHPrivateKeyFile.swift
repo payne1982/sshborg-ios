@@ -98,6 +98,32 @@ enum OpenSSHPrivateKeyFile {
         )
     }
 
+    /// Whether the file's private half is encrypted, read from the header alone.
+    ///
+    /// Cheap on purpose: no key derivation, no decryption, nothing that needs a
+    /// passphrase. It answers the one question the key list asks about a key it
+    /// already holds — can this key be used at all, or is its passphrase missing
+    /// — for which parsing the whole thing would be both slower and impossible
+    /// without the very passphrase in question.
+    ///
+    /// A file this cannot read at all counts as not encrypted: the failure to
+    /// report about such a key is "unreadable", which the import path already
+    /// words for itself, and claiming a missing passphrase would be a guess.
+    static func isEncrypted(pem: String) -> Bool {
+        guard pem.contains(beginMarker),
+              let blob = try? base64Body(of: pem),
+              blob.count > magic.count,
+              blob.prefix(magic.count) == magic
+        else { return false }
+
+        var decoder = SSHWireDecoder(blob.dropFirst(magic.count))
+        guard let cipher = try? decoder.readStringAsText(),
+              let kdf = try? decoder.readStringAsText()
+        else { return false }
+
+        return cipher != "none" || kdf != "none"
+    }
+
     /// Number of wire strings the private half carries for an algorithm.
     ///
     /// RSA's six are `n, e, d, iqmp, p, q` — note that this is not the order
