@@ -37,6 +37,49 @@ final class TransferManager {
         /// Where a finished download ended up, so the UI can offer to share it.
         var localURL: URL?
 
+        /// Files inside this transfer that did not make it, with the reason.
+        ///
+        /// A folder of two hundred files is one row in the bar, and until now a
+        /// single unreadable file among them ended the whole download with one
+        /// line of text. The rest of the folder is worth having, so the walk
+        /// carries on and the ones it could not fetch are collected here.
+        var failures: [FileFailure] = []
+
+        /// Files the walk never reached, because the connection went first.
+        var notAttempted: [String] = []
+
+        /// How many files this transfer covers: one, unless it is a folder,
+        /// in which case it is known once the tree has been listed.
+        var fileCount = 1
+
+        /// How many of them arrived.
+        var doneCount: Int { max(0, fileCount - failures.count - notAttempted.count) }
+
+        var totalCount: Int { fileCount }
+
+        /// Finished, but not with everything: the row says so and opens the
+        /// report, rather than reading as a clean success.
+        var isPartial: Bool {
+            status == .finished && !(failures.isEmpty && notAttempted.isEmpty)
+        }
+
+        /// What went wrong here, or `nil` when nothing did — and nothing did
+        /// when the user stopped it themselves.
+        var report: ErrorReport? {
+            if status == .cancelled { return nil }
+            var collected = failures
+            if case .failed(let message) = status, collected.isEmpty {
+                collected = [FileFailure(name: name, message: message, detail: "")]
+            }
+            guard !collected.isEmpty || !notAttempted.isEmpty else { return nil }
+
+            return ErrorReport(
+                title: String(localized: kind == .download ? .errorDownloadFailed : .errorUploadFailed),
+                failures: collected,
+                notAttempted: notAttempted
+            )
+        }
+
         /// `nil` when the size is unknown, which uploads never are and
         /// downloads only are for odd server replies.
         var fraction: Double? {
@@ -129,29 +172,56 @@ final class TransferManager {
                 }
 
                 let total = files.reduce(UInt64(0)) { $0 + $1.size }
-                update(id) { $0.totalBytes = total }
+                update(id) {
+                    $0.totalBytes = total
+                    $0.fileCount = files.count
+                }
 
                 var completed: UInt64 = 0
-                for file in files {
+                for (index, file) in files.enumerated() {
                     if registry.isCancelled(id) { throw SSHError.cancelled }
 
-                    let destination = localRoot.appending(path: file.relativePath)
-                    try FileManager.default.createDirectory(
-                        at: destination.deletingLastPathComponent(),
-                        withIntermediateDirectories: true
-                    )
+                    do {
+                        let destination = localRoot.appending(path: file.relativePath)
+                        try FileManager.default.createDirectory(
+                            at: destination.deletingLastPathComponent(),
+                            withIntermediateDirectories: true
+                        )
 
-                    let alreadyDone = completed
-                    try await session.download(
-                        from: file.remotePath,
-                        to: destination,
-                        isCancelled: { registry.isCancelled(id) },
-                        onProgress: { bytes in
-                            Task { @MainActor in
-                                self.update(id) { $0.transferred = alreadyDone + bytes }
+                        let alreadyDone = completed
+                        try await session.download(
+                            from: file.remotePath,
+                            to: destination,
+                            isCancelled: { registry.isCancelled(id) },
+                            onProgress: { bytes in
+                                Task { @MainActor in
+                                    self.update(id) { $0.transferred = alreadyDone + bytes }
+                                }
                             }
+                        )
+                    } catch where Self.isCancellation(error) {
+                        // The user's own doing: no failure, no report.
+                        throw error
+                    } catch where Self.endsTheRun(error) {
+                        // The connection, not the file. Whatever is left was
+                        // never tried, and saying so is the difference between a
+                        // batch that stopped and one that finished.
+                        update(id) {
+                            $0.failures.append(FileFailure(name: file.relativePath, error: error))
+                            $0.notAttempted = files.dropFirst(index + 1).map(\.relativePath)
                         }
-                    )
+                        throw error
+                    } catch {
+                        // One file the server would not give us, or one the
+                        // local filesystem would not take. The other hundred and
+                        // ninety-nine are still worth having.
+                        update(id) {
+                            $0.failures.append(FileFailure(name: file.relativePath, error: error))
+                        }
+                    }
+
+                    // Counted whether or not it arrived, so the bar keeps moving
+                    // and still reaches the end.
                     completed += file.size
                     update(id) { $0.transferred = completed }
                 }
@@ -162,6 +232,24 @@ final class TransferManager {
         }
 
         return id
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        (error as? SSHError) == .cancelled
+    }
+
+    /// Whether an error ends the whole transfer rather than one file in it.
+    ///
+    /// A server refusing one file says nothing about the next; a connection that
+    /// has gone says everything about all of them.
+    private static func endsTheRun(_ error: Error) -> Bool {
+        guard let error = error as? SSHError else { return false }
+        switch error {
+        case .notConnected, .connectionFailed, .timedOut, .cancelled:
+            return true
+        default:
+            return false
+        }
     }
 
     private struct RemoteFile {

@@ -51,6 +51,7 @@ private struct TransferRow: View {
     let manager: TransferManager
 
     @State private var previewURL: URL?
+    @State private var showingReport = false
 
     /// The file to open, or `nil` when there is nothing openable: an upload
     /// points at a file the user already has, and a download that failed or was
@@ -109,6 +110,24 @@ private struct TransferRow: View {
                     Text(subtitle)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+
+                    // A row that ended with anything unfinished in it says so
+                    // and opens the report. Before this a folder download that
+                    // skipped three files was indistinguishable from one that
+                    // did not, and the errors were gone by then anyway.
+                    if transfer.report != nil {
+                        Button {
+                            showingReport = true
+                        } label: {
+                            Label(
+                                String(localized: .sftpReportShowErrors),
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                            .font(.caption2)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(transfer.isPartial ? .orange : .red)
+                    }
                 }
 
                 Spacer()
@@ -116,6 +135,11 @@ private struct TransferRow: View {
                 trailingControl
             }
             .quickLookPreview($previewURL)
+            .sheet(isPresented: $showingReport) {
+                if let report = transfer.report {
+                    ErrorReportSheet(report: report) { showingReport = false }
+                }
+            }
         }
     }
 
@@ -150,11 +174,15 @@ private struct TransferRow: View {
     }
 
     private var tint: Color {
+        // Partly done is its own state, and orange is what says so: green over a
+        // download that left three files behind would be a lie told in colour.
+        if transfer.isPartial { return .orange }
+
         switch transfer.status {
-        case .running: .accentColor
-        case .finished: .green
-        case .failed: .red
-        case .cancelled: .secondary
+        case .running: return .accentColor
+        case .finished: return .green
+        case .failed: return .red
+        case .cancelled: return .secondary
         }
     }
 
@@ -165,6 +193,18 @@ private struct TransferRow: View {
             guard let total = transfer.totalBytes else { return done }
             return "\(done) of \(total.formatted(.byteCount(style: .file)))"
         case .finished:
+            if transfer.isPartial {
+                let done = transfer.doneCount
+                let total = transfer.totalCount
+                let template = String(
+                    localized: transfer.kind == .download
+                        ? .sftpReportDownloadedNOfM
+                        : .sftpReportUploadedNOfM
+                )
+                return template
+                    .replacingOccurrences(of: "%1$d", with: "\(done)")
+                    .replacingOccurrences(of: "%2$d", with: "\(total)")
+            }
             return transfer.kind == .download
                 ? "Saved to the Files app, under SSHBorg"
                 : "Uploaded"

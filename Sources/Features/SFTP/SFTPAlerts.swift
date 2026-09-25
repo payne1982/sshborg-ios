@@ -9,7 +9,7 @@ import Perception
 // not look like two different things depending on which screen asked it.
 
 /// The prompts the browser raises: creating a folder, renaming, deleting, and
-/// reporting an action that failed without losing the connection.
+/// reporting what failed without losing the connection.
 struct FileAlerts: ViewModifier {
 
     @Perception.Bindable var model: SFTPModel
@@ -75,10 +75,11 @@ struct FileAlerts: ViewModifier {
                             .replacingOccurrences(of: "%1$@", with: entry.name)
                     )
                 }
-                .alert(String(localized: .errorUnknown), isPresented: hasActionError) {
-                    Button(String(localized: .actionDone), role: .cancel) { model.actionError = nil }
-                } message: {
-                    Text(model.actionError ?? "")
+                // A sheet that stays, not a message that goes: an operation
+                // over several files has several things to say, and the one line
+                // that used to appear here said the first of them and vanished.
+                .sheet(item: $model.report) { report in
+                    ErrorReportSheet(report: report) { model.report = nil }
                 }
         }
     }
@@ -91,7 +92,4 @@ struct FileAlerts: ViewModifier {
         Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })
     }
 
-    private var hasActionError: Binding<Bool> {
-        Binding(get: { model.actionError != nil }, set: { if !$0 { model.actionError = nil } })
-    }
 }

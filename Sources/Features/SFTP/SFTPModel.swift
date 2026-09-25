@@ -31,8 +31,10 @@ final class SFTPModel {
     private(set) var isLoading = false
 
     /// Set when an action fails but the connection survives — a rename onto an
-    /// existing name, say. The browser stays usable and just reports it.
-    var actionError: String?
+    /// existing name, a folder that could not be emptied. The browser stays
+    /// usable and reports it, in full: which files, what the server said, and
+    /// which ones were never reached. Cleared when the report is closed.
+    var report: ErrorReport?
 
     @PerceptionIgnored private let hosts: HostRepository
     @PerceptionIgnored private let keys: SSHKeyRepository
@@ -267,20 +269,24 @@ final class SFTPModel {
         } catch {
             // A listing that fails leaves the previous contents on screen: an
             // empty list would suggest an empty directory, which is a lie.
-            actionError = error.localizedDescription
+            report = ErrorReport(
+                title: String(localized: .errorCannotListDirectory),
+                name: (path as NSString).lastPathComponent,
+                error: error
+            )
         }
     }
 
     // MARK: - Acting
 
     func createDirectory(named name: String) async {
-        await perform { session in
+        await perform(.errorCreateDirectoryFailed, naming: name) { session in
             try await session.createDirectory(at: self.join(self.path, name))
         }
     }
 
     func rename(_ entry: SFTPEntry, to newName: String) async {
-        await perform { session in
+        await perform(.errorRenameFailed, naming: entry.name) { session in
             try await session.rename(
                 from: self.join(self.path, entry.name),
                 to: self.join(self.path, newName)
@@ -301,16 +307,62 @@ final class SFTPModel {
     ///
     /// A symlinked directory is unlinked, not descended into: following it would
     /// delete whatever it points at, which is emphatically not what was asked.
+    /// Deletes entries, emptying folders first — and does not stop at the first
+    /// one that refuses.
+    ///
+    /// A permission denied on the third of ten files used to end the whole
+    /// operation, leaving seven files the user had asked about untouched and
+    /// unmentioned. Now every entry is attempted, each failure is collected with
+    /// its own name, and only a lost connection stops the run: what is left then
+    /// is listed as not attempted, because a batch that stopped halfway must not
+    /// look like one that finished.
     func delete(_ entries: [SFTPEntry]) async {
-        await perform { session in
-            for entry in entries {
-                let target = self.join(self.path, entry.name)
+        guard let session else { return }
+
+        var failures: [FileFailure] = []
+        var notAttempted: [String] = []
+
+        for (index, entry) in entries.enumerated() {
+            let target = join(path, entry.name)
+            do {
                 if entry.isDirectory && !entry.isSymlink {
                     try await Self.removeTree(at: target, using: session)
                 } else {
                     try await session.removeFile(at: target)
                 }
+            } catch {
+                failures.append(FileFailure(name: entry.name, error: error))
+
+                if Self.endsTheRun(error) {
+                    notAttempted = entries.dropFirst(index + 1).map(\.name)
+                    break
+                }
             }
+        }
+
+        await refresh()
+
+        if !failures.isEmpty || !notAttempted.isEmpty {
+            report = ErrorReport(
+                title: String(localized: .errorDeleteFailed),
+                failures: failures,
+                notAttempted: notAttempted
+            )
+        }
+    }
+
+    /// Whether there is any point in trying the next file.
+    ///
+    /// A server refusing one file says nothing about the next one; a connection
+    /// that has gone says everything about all of them, and hammering a dead
+    /// session with the rest of the batch only delays the report.
+    private static func endsTheRun(_ error: Error) -> Bool {
+        guard let error = error as? SSHError else { return false }
+        switch error {
+        case .notConnected, .connectionFailed, .timedOut, .cancelled:
+            return true
+        default:
+            return false
         }
     }
 
@@ -328,13 +380,17 @@ final class SFTPModel {
 
     /// Runs an action and refreshes, reporting failure without tearing the
     /// browser down.
-    private func perform(_ action: @escaping (SFTPSession) async throws -> Void) async {
+    private func perform(
+        _ title: LocalizedStringResource,
+        naming name: String,
+        _ action: @escaping (SFTPSession) async throws -> Void
+    ) async {
         guard let session else { return }
         do {
             try await action(session)
             await refresh()
         } catch {
-            actionError = error.localizedDescription
+            report = ErrorReport(title: String(localized: title), name: name, error: error)
         }
     }
 
