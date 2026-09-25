@@ -84,11 +84,38 @@ struct ExtraKeyBar: View {
 
     var body: some View {
         ZStack {
-            VStack(spacing: 2) {
-                ForEach(Array(bar.rows.enumerated()), id: \.offset) { index, row in
-                    rowView(row, at: index)
+            HStack(spacing: 1) {
+                // Beside the rows, not inside one of them.
+                //
+                // It used to ride in front of the first row, and on a two-row
+                // bar that put ten cells in the top row against nine in the
+                // bottom one. A `fit` row divides the width by its own key
+                // count, so the columns stopped lining up and the arrow cross —
+                // the whole point of that layout, "nine columns in each row, so
+                // the cross lines up" — had its ↑ sitting between the ← and the
+                // ↓. Reported from the phone on 25/09/2026 with a photograph.
+                //
+                // Moving it to the end of the row would not have helped: ten
+                // cells against nine misalign wherever the tenth is put. Out
+                // here it spans the whole bar, every row keeps its own grid,
+                // and on a one-row bar it looks exactly as it did.
+                if needsKeyboardKey {
+                    keyboardKey()
+                        .frame(width: Self.keyboardKeyWidth)
+                        .frame(maxHeight: .infinity)
+                }
+
+                VStack(spacing: 2) {
+                    ForEach(Array(bar.rows.enumerated()), id: \.offset) { index, row in
+                        rowView(row, at: index)
+                    }
                 }
             }
+            // The keyboard key asks for all the height there is so that it
+            // matches the rows beside it; this is what stops that greed
+            // travelling up and making the whole bar as tall as the screen,
+            // which is exactly what it did on the first attempt.
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 2)
             .padding(.vertical, 3)
             .opacity(isChoosingBar ? 0 : 1)
@@ -108,15 +135,8 @@ struct ExtraKeyBar: View {
 
     @ViewBuilder
     private func rowView(_ row: ExtraBarRow, at rowIndex: Int) -> some View {
-        // The keyboard key rides in front of the first row and outside the
-        // model, so it is never something the editor can move or delete.
-        let leading = rowIndex == 0 && needsKeyboardKey
-
         if row.fit {
             HStack(spacing: 1) {
-                if leading {
-                    keyboardKey(fit: true)
-                }
                 ForEach(Array(row.keys.enumerated()), id: \.offset) { index, key in
                     keyView(key, at: KeyPosition(row: rowIndex, index: index), fit: true)
                 }
@@ -124,9 +144,6 @@ struct ExtraKeyBar: View {
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 1) {
-                    if leading {
-                        keyboardKey(fit: false)
-                    }
                     ForEach(Array(row.keys.enumerated()), id: \.offset) { index, key in
                         keyView(key, at: KeyPosition(row: rowIndex, index: index), fit: false)
                     }
@@ -246,16 +263,21 @@ struct ExtraKeyBar: View {
         }
     }
 
+    /// As wide as a comfortable key and no wider: what is left goes to the rows,
+    /// which is where the keys the user chose live.
+    private static let keyboardKeyWidth: CGFloat = 36
+
     /// The iPhone-only dismiss key. Always the "down" glyph: it is only ever
     /// shown to close a keyboard that is up, unlike the `keyboard` action key,
     /// which does both jobs and says which one it is about to do.
-    private func keyboardKey(fit: Bool) -> some View {
+    private func keyboardKey() -> some View {
         IconKey(
             systemImage: "keyboard.chevron.compact.down",
             label: String(localized: .iosHideKeyboard),
             fontSize: bar.fontScale.pointSize,
-            fit: fit,
+            fit: true,
             isActive: false,
+            fillsHeight: true,
             action: state.onKeyboardToggle
         )
     }
@@ -356,6 +378,13 @@ private struct IconKey: View {
     let fontSize: CGFloat
     var fit = false
     var isActive = false
+
+    /// Stretches the face to whatever height it is given, rather than the one
+    /// row it needs. The keyboard key stands beside a bar of one, two or three
+    /// rows and looks like a stray button floating in the margin unless it is
+    /// as tall as what it stands beside.
+    var fillsHeight = false
+
     let action: () -> Void
 
     var body: some View {
@@ -366,6 +395,7 @@ private struct IconKey: View {
                 .padding(.horizontal, fit ? 2 : 8)
                 .frame(minWidth: fit ? 0 : 34, minHeight: 30)
                 .frame(maxWidth: fit ? .infinity : nil)
+                .frame(maxHeight: fillsHeight ? .infinity : nil)
                 .background(
                     isActive
                         ? Color.accentColor
