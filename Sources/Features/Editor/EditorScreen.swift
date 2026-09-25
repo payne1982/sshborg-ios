@@ -17,6 +17,9 @@ struct EditorScreen: View {
     let path: String
     let session: SFTPSession
 
+    /// Opened for its bytes, from the browser's "Open in hex".
+    var asHex = false
+
     @State private var model: EditorModel?
     @State private var text = ""
     @State private var isDirty = false
@@ -41,7 +44,7 @@ struct EditorScreen: View {
                 guard model == nil else { return }
                 let model = EditorModel(path: path, session: session)
                 self.model = model
-                await model.load()
+                await model.load(asHex: asHex)
                 if case .ready(let decoded) = model.phase {
                     text = decoded.text
                 }

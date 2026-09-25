@@ -35,6 +35,9 @@ struct SFTPScreen: View {
     /// The remote path being edited, which is also what presents the editor.
     @State private var editing: String?
 
+    /// Whether that path was opened for its bytes rather than its text.
+    @State private var editingAsHex = false
+
     @State private var renaming: SFTPEntry?
     @State private var renameInput = ""
     @State private var deleting: SFTPEntry?
@@ -157,8 +160,12 @@ struct SFTPScreen: View {
                 set: { if !$0 { editing = nil } }
             )) {
                 if let editing, let session = model.activeSession {
-                    EditorScreen(path: editing, session: session)
+                    EditorScreen(path: editing, session: session, asHex: editingAsHex)
                 }
+            }
+            .onValueChange(of: editing) { path in
+                // The next file opens as text unless it asks not to.
+                if path == nil { editingAsHex = false }
             }
             .modifier(FileAlerts(
                 model: model,
@@ -492,6 +499,13 @@ struct SFTPScreen: View {
                         // editor onto something that is not a file.
                         if !entry.isDirectory {
                             Button(String(localized: .sftpMenuEdit), systemImage: "square.and.pencil") {
+                                editing = model.join(model.path, entry.name)
+                            }
+                            // The hex view is offered outright as well as after
+                            // a refusal: a file the text test accepts may still
+                            // be one you want to see the bytes of.
+                            Button(String(localized: .sftpMenuHex), systemImage: "number") {
+                                editingAsHex = true
                                 editing = model.join(model.path, entry.name)
                             }
                         }
