@@ -1,40 +1,90 @@
 <en-US>
+• SFTP: a built-in editor for the files on your server — text files are edited in place and keep their encoding and line endings, configuration files are syntax coloured, and anything that is not text opens in a hex editor
+• SSH keys: a key with a passphrase now works — the passphrase is asked once when you import the key and is not stored anywhere. Keys imported earlier must be imported again; the list marks them.
 • Fixed scrolling inside tmux and other full-screen apps with the mouse on: a swipe now scrolls their history instead of selecting text
 • Fixed text selection: a long press now selects straight away, the selection no longer disappears when new output arrives, and its handles can be dragged
+• SFTP: errors stay on screen and say which file failed; an operation over several files keeps going and lists the ones it could not do
+• Terminal: command history is read without a second login
+• App lock: the timeout counts from leaving the app, not from the last unlock
 </en-US>
 <it-IT>
+• SFTP: editor integrato per i file sul server — i file di testo si modificano sul posto e mantengono codifica e fine riga, i file di configurazione vengono colorati, e ciò che non è testo si apre in un editor esadecimale
+• Chiavi SSH: una chiave con passphrase ora funziona — la passphrase viene chiesta una volta sola all'importazione e non viene salvata da nessuna parte. Le chiavi importate prima vanno reimportate; la lista le segnala.
 • Sistemato lo scorrimento in tmux e nelle altre app a tutto schermo con il mouse attivo: lo swipe ora scorre la loro cronologia invece di selezionare il testo
 • Sistemata la selezione del testo: la pressione prolungata ora seleziona subito, la selezione non sparisce più quando arriva nuovo output e le maniglie si possono trascinare
+• SFTP: gli errori restano a schermo e dicono quale file è fallito; un'operazione su più file prosegue ed elenca quelli che non è riuscita a fare
+• Terminale: la cronologia dei comandi si legge senza un secondo login
+• Blocco app: il timeout parte da quando esci dall'app, non dall'ultimo sblocco
 </it-IT>
 <de-DE>
+• SFTP: eingebauter Editor für die Dateien auf dem Server — Textdateien werden direkt dort bearbeitet und behalten Kodierung und Zeilenenden, Konfigurationsdateien werden farbig hervorgehoben, und alles, was kein Text ist, öffnet im Hex-Editor
+• SSH-Schlüssel: ein Schlüssel mit Passphrase funktioniert jetzt — die Passphrase wird beim Import einmal verlangt und nirgends gespeichert. Früher importierte Schlüssel neu importieren; die Liste zeigt sie.
 • Scrollen in tmux und anderen Vollbild-Apps mit aktivierter Maus korrigiert: Eine Wischgeste scrollt jetzt deren Verlauf, statt Text auszuwählen
 • Textauswahl korrigiert: Langes Drücken wählt jetzt sofort aus, die Auswahl verschwindet nicht mehr bei neuer Ausgabe, und ihre Griffe lassen sich ziehen
+• SFTP: Fehler bleiben sichtbar und nennen die fehlgeschlagene Datei; eine Aktion über mehrere Dateien läuft weiter und listet auf, was nicht ging
+• Terminal: Befehlsverlauf wird ohne zweite Anmeldung gelesen
+• App-Sperre: die Zeit zählt ab dem Verlassen der App, nicht ab dem letzten Entsperren
 </de-DE>
 <es-ES>
+• SFTP: editor integrado para los archivos del servidor — los de texto se editan allí mismo y conservan codificación y fin de línea, los de configuración se colorean, y lo que no es texto se abre en un editor hexadecimal
+• Claves SSH: una clave con contraseña ya funciona — la contraseña se pide una sola vez al importarla y no se guarda en ningún sitio. Las claves importadas antes hay que importarlas de nuevo; la lista las marca.
 • Corregido el desplazamiento en tmux y otras apps a pantalla completa con el ratón activo: deslizar ahora recorre su historial en lugar de seleccionar texto
 • Corregida la selección de texto: una pulsación larga ahora selecciona al instante, la selección ya no desaparece cuando llega nueva salida y sus tiradores se pueden arrastrar
+• SFTP: los errores quedan en pantalla y dicen qué archivo falló; una operación sobre varios archivos continúa y enumera los que no pudo hacer
+• Terminal: el historial de comandos se lee sin un segundo inicio de sesión
+• Bloqueo: el tiempo cuenta desde que sales de la app, no desde el último desbloqueo
 </es-ES>
 <fr-FR>
+• SFTP : éditeur intégré pour les fichiers du serveur — les fichiers texte se modifient sur place en conservant encodage et fins de ligne, les fichiers de configuration sont colorés, et ce qui n'est pas du texte s'ouvre dans un éditeur hexadécimal
+• Clés SSH : une clé avec phrase secrète fonctionne enfin — la phrase est demandée une fois à l'import et n'est enregistrée nulle part. Les clés importées avant doivent être réimportées ; la liste les signale.
 • Correction du défilement dans tmux et les autres applications plein écran avec la souris activée : un glissement fait désormais défiler leur historique au lieu de sélectionner du texte
 • Correction de la sélection de texte : un appui long sélectionne désormais immédiatement, la sélection ne disparaît plus à l'arrivée de nouvelles sorties et ses poignées peuvent être déplacées
+• SFTP : les erreurs restent à l'écran et nomment le fichier en échec ; une opération sur plusieurs fichiers continue et liste ce qu'elle n'a pas pu faire
+• Terminal : l'historique des commandes est lu sans seconde connexion
+• Verrouillage : le délai est compté depuis la sortie de l'app, pas depuis le dernier déverrouillage
 </fr-FR>
 <pt-PT>
+• SFTP: editor integrado para os ficheiros no servidor — os de texto são editados no próprio servidor e mantêm codificação e fins de linha, os de configuração são coloridos, e o que não é texto abre num editor hexadecimal
+• Chaves SSH: uma chave com frase-passe já funciona — a frase-passe é pedida uma vez ao importar e não é guardada em lado nenhum. As chaves importadas antes têm de ser importadas de novo; a lista assinala-as.
 • Corrigido o deslocamento no tmux e noutras apps de ecrã inteiro com o rato ativo: deslizar agora percorre o seu histórico em vez de selecionar texto
 • Corrigida a seleção de texto: um toque longo agora seleciona de imediato, a seleção já não desaparece quando chega nova saída e as suas pegas podem ser arrastadas
+• SFTP: os erros ficam no ecrã e dizem que ficheiro falhou; uma operação sobre vários ficheiros continua e lista os que não conseguiu fazer
+• Terminal: o histórico de comandos é lido sem um segundo login
+• Bloqueio: o tempo conta desde que sai da app, não desde o último desbloqueio
 </pt-PT>
 <uk>
+• SFTP: вбудований редактор для файлів на сервері — текстові файли редагуються на місці й зберігають кодування та кінці рядків, файли налаштувань підсвічуються, а все, що не є текстом, відкривається в шістнадцятковому редакторі
+• Ключі SSH: ключ із парольною фразою тепер працює — фразу запитують один раз під час імпорту й ніде не зберігають. Раніше імпортовані ключі потрібно імпортувати знову; список їх позначає.
 • Виправлено прокручування в tmux та інших повноекранних програмах з увімкненою мишею: свайп тепер гортає їхню історію, а не виділяє текст
 • Виправлено виділення тексту: довге натискання тепер одразу виділяє, виділення більше не зникає, коли надходить новий вивід, а його маркери можна перетягувати
+• SFTP: помилки лишаються на екрані й називають файл, що не вдався; операція над кількома файлами триває далі й показує списком те, чого не змогла зробити
+• Термінал: історія команд читається без повторного входу
+• Блокування: час рахується від виходу з програми, а не від останнього розблокування
 </uk>
 <ru-RU>
+• SFTP: встроенный редактор для файлов на сервере — текстовые файлы правятся прямо там и сохраняют кодировку и переводы строк, файлы настроек подсвечиваются, а всё нетекстовое открывается в шестнадцатеричном редакторе
+• Ключи SSH: ключ с паролем теперь работает — пароль спрашивают один раз при импорте и нигде не сохраняют. Ранее импортированные ключи нужно импортировать заново; список их отмечает.
 • Исправлена прокрутка в tmux и других полноэкранных программах с включённой мышью: свайп теперь листает их историю, а не выделяет текст
 • Исправлено выделение текста: долгое нажатие теперь сразу выделяет, выделение больше не пропадает при поступлении нового вывода, а его маркеры можно перетаскивать
+• SFTP: ошибки остаются на экране и называют файл, на котором не получилось; операция над несколькими файлами продолжается и выводит списком то, что не удалось
+• Терминал: история команд читается без повторного входа
+• Блокировка: время считается с выхода из приложения, а не с последней разблокировки
 </ru-RU>
 <zh-CN>
+• SFTP：内置编辑器，可直接编辑服务器上的文件——文本文件就地修改，编码和换行符保持不变；配置文件带语法着色；非文本文件在十六进制编辑器中打开
+• SSH 密钥：带密码短语的密钥现在可以使用——导入时只询问一次密码短语，且不会保存在任何地方。此前导入的密钥需要重新导入，密钥列表会标出。
 • 修复了在开启鼠标的 tmux 等全屏程序中的滚动：滑动现在会翻阅其历史，而不是选择文本
 • 修复了文本选择：长按现在会立即选中，新的输出到来时选区不再消失，并且可以拖动选区手柄
+• SFTP：错误会保留在屏幕上并指出是哪个文件失败；多个文件的操作会继续进行，并列出未能完成的文件
+• 终端：读取命令历史不再需要第二次登录
+• 应用锁：超时从离开应用时开始计算，而不是从上次解锁开始
 </zh-CN>
 <ja-JP>
+• SFTP: サーバー上のファイルを直接編集できるエディタを内蔵しました。テキストファイルは文字コードと改行コードをそのままに編集でき、設定ファイルは色分け表示され、テキストでないファイルは16進エディタで開きます
+• SSH鍵: パスフレーズ付きの鍵が使えるようになりました。パスフレーズはインポート時に一度だけ尋ね、保存しません。以前にインポートした鍵は再インポートが必要で、一覧に印が付きます。
 • マウスを有効にした tmux などの全画面アプリでのスクロールを修正：スワイプでテキストを選択せず、履歴をスクロールするようになりました
 • テキスト選択を修正：長押しですぐに選択され、新しい出力が届いても選択が消えず、ハンドルをドラッグできるようになりました
+• SFTP: エラーは画面に残り、どのファイルで失敗したかを示します。複数ファイルの操作は続行し、できなかったものを一覧表示します
+• ターミナル: コマンド履歴の読み込みで二度目のログインが不要になりました
+• アプリロック: タイムアウトは最後の解除時ではなく、アプリを離れた時点から計算します
 </ja-JP>
