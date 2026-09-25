@@ -6,6 +6,7 @@
 • SFTP: errors stay on screen and say which file failed; an operation over several files keeps going and lists the ones it could not do
 • Terminal: command history is read without a second login
 • App lock: the timeout counts from leaving the app, not from the last unlock
+• Extra key bar: on the two-row layout the arrows line up again — the keyboard key no longer shifts the top row
 </en-US>
 <it-IT>
 • SFTP: editor integrato per i file sul server — i file di testo si modificano sul posto e mantengono codifica e fine riga, i file di configurazione vengono colorati, e ciò che non è testo si apre in un editor esadecimale
@@ -15,6 +16,7 @@
 • SFTP: gli errori restano a schermo e dicono quale file è fallito; un'operazione su più file prosegue ed elenca quelli che non è riuscita a fare
 • Terminale: la cronologia dei comandi si legge senza un secondo login
 • Blocco app: il timeout parte da quando esci dall'app, non dall'ultimo sblocco
+• Barra tasti extra: nel layout a due righe le frecce sono di nuovo allineate — il tasto tastiera non sposta più la riga superiore
 </it-IT>
 <de-DE>
 • SFTP: eingebauter Editor für die Dateien auf dem Server — Textdateien werden direkt dort bearbeitet und behalten Kodierung und Zeilenenden, Konfigurationsdateien werden farbig hervorgehoben, und alles, was kein Text ist, öffnet im Hex-Editor
@@ -24,6 +26,7 @@
 • SFTP: Fehler bleiben sichtbar und nennen die fehlgeschlagene Datei; eine Aktion über mehrere Dateien läuft weiter und listet auf, was nicht ging
 • Terminal: Befehlsverlauf wird ohne zweite Anmeldung gelesen
 • App-Sperre: die Zeit zählt ab dem Verlassen der App, nicht ab dem letzten Entsperren
+• Zusatztastenleiste: im zweizeiligen Layout stehen die Pfeile wieder untereinander — die Tastaturtaste verschiebt die obere Zeile nicht mehr
 </de-DE>
 <es-ES>
 • SFTP: editor integrado para los archivos del servidor — los de texto se editan allí mismo y conservan codificación y fin de línea, los de configuración se colorean, y lo que no es texto se abre en un editor hexadecimal
@@ -33,6 +36,7 @@
 • SFTP: los errores quedan en pantalla y dicen qué archivo falló; una operación sobre varios archivos continúa y enumera los que no pudo hacer
 • Terminal: el historial de comandos se lee sin un segundo inicio de sesión
 • Bloqueo: el tiempo cuenta desde que sales de la app, no desde el último desbloqueo
+• Barra de teclas extra: en el diseño de dos filas las flechas vuelven a estar alineadas — la tecla de teclado ya no desplaza la fila superior
 </es-ES>
 <fr-FR>
 • SFTP : éditeur intégré pour les fichiers du serveur — les fichiers texte se modifient sur place en conservant encodage et fins de ligne, les fichiers de configuration sont colorés, et ce qui n'est pas du texte s'ouvre dans un éditeur hexadécimal
@@ -42,6 +46,7 @@
 • SFTP : les erreurs restent à l'écran et nomment le fichier en échec ; une opération sur plusieurs fichiers continue et liste ce qu'elle n'a pas pu faire
 • Terminal : l'historique des commandes est lu sans seconde connexion
 • Verrouillage : le délai est compté depuis la sortie de l'app, pas depuis le dernier déverrouillage
+• Barre de touches : dans la disposition à deux rangées les flèches sont de nouveau alignées — la touche clavier ne décale plus la rangée du haut
 </fr-FR>
 <pt-PT>
 • SFTP: editor integrado para os ficheiros no servidor — os de texto são editados no próprio servidor e mantêm codificação e fins de linha, os de configuração são coloridos, e o que não é texto abre num editor hexadecimal
@@ -51,6 +56,7 @@
 • SFTP: os erros ficam no ecrã e dizem que ficheiro falhou; uma operação sobre vários ficheiros continua e lista os que não conseguiu fazer
 • Terminal: o histórico de comandos é lido sem um segundo login
 • Bloqueio: o tempo conta desde que sai da app, não desde o último desbloqueio
+• Barra de teclas extra: na disposição de duas linhas as setas voltam a ficar alinhadas — a tecla do teclado já não desloca a linha de cima
 </pt-PT>
 <uk>
 • SFTP: вбудований редактор для файлів на сервері — текстові файли редагуються на місці й зберігають кодування та кінці рядків, файли налаштувань підсвічуються, а все, що не є текстом, відкривається в шістнадцятковому редакторі
@@ -60,6 +66,7 @@
 • SFTP: помилки лишаються на екрані й називають файл, що не вдався; операція над кількома файлами триває далі й показує списком те, чого не змогла зробити
 • Термінал: історія команд читається без повторного входу
 • Блокування: час рахується від виходу з програми, а не від останнього розблокування
+• Панель додаткових клавіш: у розкладці на два рядки стрілки знову вирівняні — клавіша клавіатури більше не зсуває верхній рядок
 </uk>
 <ru-RU>
 • SFTP: встроенный редактор для файлов на сервере — текстовые файлы правятся прямо там и сохраняют кодировку и переводы строк, файлы настроек подсвечиваются, а всё нетекстовое открывается в шестнадцатеричном редакторе
@@ -69,6 +76,7 @@
 • SFTP: ошибки остаются на экране и называют файл, на котором не получилось; операция над несколькими файлами продолжается и выводит списком то, что не удалось
 • Терминал: история команд читается без повторного входа
 • Блокировка: время считается с выхода из приложения, а не с последней разблокировки
+• Панель дополнительных клавиш: в раскладке из двух рядов стрелки снова выровнены — клавиша клавиатуры больше не сдвигает верхний ряд
 </ru-RU>
 <zh-CN>
 • SFTP：内置编辑器，可直接编辑服务器上的文件——文本文件就地修改，编码和换行符保持不变；配置文件带语法着色；非文本文件在十六进制编辑器中打开
@@ -78,6 +86,7 @@
 • SFTP：错误会保留在屏幕上并指出是哪个文件失败；多个文件的操作会继续进行，并列出未能完成的文件
 • 终端：读取命令历史不再需要第二次登录
 • 应用锁：超时从离开应用时开始计算，而不是从上次解锁开始
+• 额外按键栏：双行布局中方向键重新对齐——键盘键不再让上面一行错位
 </zh-CN>
 <ja-JP>
 • SFTP: サーバー上のファイルを直接編集できるエディタを内蔵しました。テキストファイルは文字コードと改行コードをそのままに編集でき、設定ファイルは色分け表示され、テキストでないファイルは16進エディタで開きます
@@ -87,4 +96,5 @@
 • SFTP: エラーは画面に残り、どのファイルで失敗したかを示します。複数ファイルの操作は続行し、できなかったものを一覧表示します
 • ターミナル: コマンド履歴の読み込みで二度目のログインが不要になりました
 • アプリロック: タイムアウトは最後の解除時ではなく、アプリを離れた時点から計算します
+• 拡張キーバー: 2段レイアウトで矢印キーの位置が揃うようになりました。キーボードキーが上の段をずらさなくなりました
 </ja-JP>
