@@ -32,6 +32,9 @@ struct SFTPScreen: View {
     @FocusState private var isPasswordFocused: Bool
     @State private var newFolderName = ""
     @State private var isCreatingFolder = false
+    /// The remote path being edited, which is also what presents the editor.
+    @State private var editing: String?
+
     @State private var renaming: SFTPEntry?
     @State private var renameInput = ""
     @State private var deleting: SFTPEntry?
@@ -145,6 +148,17 @@ struct SFTPScreen: View {
                         .replacingOccurrences(of: "%1$@", with: conflict.localURL.lastPathComponent)
                         .replacingOccurrences(of: "%2$@", with: conflict.suggestedName)
                 )
+            }
+            // A full-screen push rather than a sheet: the editor is a place you
+            // go, with a keyboard in it, and a sheet would leave the file list
+            // peeping out above the thing being typed into.
+            .navigationDestination(isPresented: Binding(
+                get: { editing != nil },
+                set: { if !$0 { editing = nil } }
+            )) {
+                if let editing, let session = model.activeSession {
+                    EditorScreen(path: editing, session: session)
+                }
             }
             .modifier(FileAlerts(
                 model: model,
@@ -472,6 +486,14 @@ struct SFTPScreen: View {
                     .contextMenu {
                         Button(String(localized: .sftpDownloadCd), systemImage: "arrow.down.circle") {
                             download(entry, model: model)
+                        }
+                        // Not for folders, and not for a symlink whose target
+                        // the listing does not describe: both would open an
+                        // editor onto something that is not a file.
+                        if !entry.isDirectory {
+                            Button(String(localized: .sftpMenuEdit), systemImage: "square.and.pencil") {
+                                editing = model.join(model.path, entry.name)
+                            }
                         }
                         Button(String(localized: .sftpMenuRename), systemImage: "pencil") {
                             renameInput = entry.name
