@@ -31,6 +31,10 @@ final class TerminalTouchHandling: NSObject {
     private let wheelPan = UIPanGestureRecognizer()
     private let pinch = UIPinchGestureRecognizer()
 
+    /// The menu the long press puts up. Held here rather than made on demand:
+    /// an interaction has to be attached to the view before it can present.
+    private var editMenu: UIEditMenuInteraction!
+
     /// Points dragged but not yet worth a whole line. Carried across events,
     /// as Android's `scrollRemainderY` is, or a slow drag never moves at all.
     private var remainder: CGFloat = 0
@@ -73,6 +77,9 @@ final class TerminalTouchHandling: NSObject {
 
         pinch.addTarget(self, action: #selector(handlePinch(_:)))
         terminal.addGestureRecognizer(pinch)
+
+        editMenu = UIEditMenuInteraction(delegate: self)
+        terminal.addInteraction(editMenu)
     }
 
     // MARK: - Double tap
@@ -106,6 +113,7 @@ final class TerminalTouchHandling: NSObject {
 
         let ownsSwiftTermHandler = terminal.responds(to: Self.swiftTermDoubleTap)
         recognizer.removeTarget(self, action: #selector(handleDoubleTap(_:)))
+        recognizer.removeTarget(self, action: #selector(handleDoubleTapMenu(_:)))
         if ownsSwiftTermHandler {
             recognizer.removeTarget(terminal, action: Self.swiftTermDoubleTap)
         }
@@ -113,6 +121,11 @@ final class TerminalTouchHandling: NSObject {
         if action == .none {
             if ownsSwiftTermHandler {
                 recognizer.addTarget(terminal, action: Self.swiftTermDoubleTap)
+                // SwiftTerm selects the word and then asks the menu that no
+                // longer appears; the same defect as the long press, through the
+                // other door. Without this a double tap leaves a selection with
+                // no way to copy it.
+                recognizer.addTarget(self, action: #selector(handleDoubleTapMenu(_:)))
             }
         } else {
             recognizer.addTarget(self, action: #selector(handleDoubleTap(_:)))
@@ -128,6 +141,13 @@ final class TerminalTouchHandling: NSObject {
         send(bytes)
     }
 
+    /// The menu for the word SwiftTerm's own double tap has just selected.
+    @objc private func handleDoubleTapMenu(_ tap: UITapGestureRecognizer) {
+        guard tap.state == .ended, let terminal else { return }
+        let point = tap.location(in: terminal)
+        DispatchQueue.main.async { [weak self] in self?.presentMenu(at: point) }
+    }
+
     // MARK: - Long press
 
     /// Every long-press recogniser on the view, SwiftTerm's among them.
@@ -140,26 +160,51 @@ final class TerminalTouchHandling: NSObject {
         (terminal.gestureRecognizers ?? []).compactMap { $0 as? UILongPressGestureRecognizer }
     }
 
-    /// Selects straight away, as Android does.
+    /// Selects straight away and puts the menu up, as Android does.
+    ///
+    /// Two defects, a fortnight apart, both land here.
     ///
     /// SwiftTerm's long press only opens the edit menu, and a selection begins
     /// from its Select item — a step nobody looks for, which on the phone read
     /// as "the copy and paste menu comes up, but nothing can be selected"
     /// (14/09/2026). This chooses that item for the user: SwiftTerm's own
     /// handler has just recorded where the finger is, and `select(_:)` selects
-    /// the word there and brings the menu back with Copy in it.
+    /// the word there.
+    ///
+    /// Then, on 26/09/2026, the menu itself stopped appearing — on the iOS 26.5
+    /// simulator nothing came up at all, and with no menu there is no way to
+    /// copy. SwiftTerm still asks `UIMenuController`, deprecated since iOS 16,
+    /// and on this system it shows nothing: traced on the simulator, the long
+    /// press fires and the selection is made (`selectionActive` is true), and
+    /// the menu is simply absent from the hierarchy. `UIEditMenuInteraction`,
+    /// its replacement, is asked here instead, with the two items this app
+    /// needs — see the delegate at the foot of this file for why they are ours
+    /// and not the system's.
     @objc private func handleLongPress(_ press: UILongPressGestureRecognizer) {
-        guard press.state == .began else { return }
+        guard press.state == .began, let terminal else { return }
+        let point = press.location(in: terminal)
         // On the next turn, so SwiftTerm's handler for the same recogniser has
-        // run whichever of the two targets is called first.
+        // run whichever of the two targets is called first: it is the one that
+        // records the position `select(_:)` reads, and that takes first
+        // responder, without which the menu would have no actions to offer.
         DispatchQueue.main.async { [weak self] in
-            guard let terminal = self?.terminal, !terminal.selectionActive else { return }
-            // The menu SwiftTerm has just opened lists Select, not Copy, and a
-            // menu already on screen is not asked again. Closed here,
-            // `select(_:)` reopens it with the items a selection offers.
-            UIMenuController.shared.hideMenu()
-            terminal.select(nil)
+            guard let self, let terminal = self.terminal else { return }
+            if !terminal.selectionActive {
+                terminal.select(nil)
+            }
+            guard terminal.selectionActive else { return }
+            // One turn later again: `select(_:)` schedules SwiftTerm's own
+            // attempt at `UIMenuController`, and presenting over the top of it
+            // while it runs took the whole automation session down with it.
+            DispatchQueue.main.async { self.presentMenu(at: point) }
         }
+    }
+
+    /// Puts the edit menu up at `point`, in the terminal's coordinates.
+    private func presentMenu(at point: CGPoint) {
+        guard terminal?.selectionActive == true else { return }
+        editMenu.dismissMenu()
+        editMenu.presentEditMenu(with: UIEditMenuConfiguration(identifier: nil, sourcePoint: point))
     }
 
     // MARK: - Scrollback
@@ -406,6 +451,38 @@ extension TerminalTouchHandling: UIGestureRecognizerDelegate {
         if terminal.selectionActive { return false }
         if recognizer === wheelPan { return Self.reportsWheel(terminal.getTerminal()) }
         return true
+    }
+}
+
+extension TerminalTouchHandling: UIEditMenuInteractionDelegate {
+
+    /// Copy and Paste, and nothing else.
+    ///
+    /// Deliberately not the system's suggested actions. Left to itself UIKit
+    /// fills an edit menu from the responder chain — Writing Tools, Translate,
+    /// Look Up — and every one of those interrogates the `UITextInput` the
+    /// terminal only pretends to be. SwiftTerm already carries a defensive fix
+    /// for Writing Tools handing it text ranges it never made, and the first
+    /// attempt here, with the suggested actions, killed the automation session
+    /// the moment the menu went up. Two items we implement ourselves ask the
+    /// terminal nothing it cannot answer.
+    func editMenuInteraction(
+        _ interaction: UIEditMenuInteraction,
+        menuFor configuration: UIEditMenuConfiguration,
+        suggestedActions: [UIMenuElement]
+    ) -> UIMenu? {
+        var items: [UIMenuElement] = []
+        if terminal?.selectionActive == true {
+            items.append(UIAction(title: String(localized: .actionCopy)) { [weak self] _ in
+                self?.terminal?.copy(nil)
+            })
+        }
+        if UIPasteboard.general.hasStrings {
+            items.append(UIAction(title: String(localized: .extraKeyActionPaste)) { [weak self] _ in
+                self?.terminal?.paste(nil)
+            })
+        }
+        return items.isEmpty ? nil : UIMenu(children: items)
     }
 }
 
