@@ -114,20 +114,18 @@ packages:
   # On iOS 17+ the macro emits real Observable conformance and
   # WithPerceptionTracking is a passthrough, so nothing is paid on new devices.
   #
-  # Pinned exactly, not `from:` — and the pin is about the Xcode installed here,
-  # not about the library. 2.0.12 raised its own manifest to
-  # swift-tools-version 6.4; Xcode 26.6 ships Swift 6.3.3 and will not read a
-  # 6.4 manifest at all, so the build dies at package resolution before
-  # compiling a line. `from:` would resolve straight past 2.0.11 into it.
+  # Held at exactly 2.0.11 from 30/08/2026 to 26/09/2026, because 2.0.12 raised
+  # its manifest to swift-tools-version 6.4 and a 6.3 toolchain will not read a
+  # 6.4 manifest at all — the build died at package resolution, before compiling
+  # a line. Xcode 27 ships Swift 6.4, so the pin is gone and the tripwire that
+  # watched for it (StackCheckTests.testPerceptionPinIsStillNeeded) with it.
   #
-  # Nothing is being given up: 2.0.12 is a bump for IssueReporting 2.1 and a
-  # documentation link.
-  #
-  # The pin expires by itself. StackCheckTests.testPerceptionPinIsStillNeeded
-  # fails the moment the toolchain reaches Swift 6.4, and says what to do.
+  # ⚠️ This is therefore a floor on the toolchain, not only on the library: the
+  # build machine needs Xcode 27 or newer. The fallback VM, at Xcode 26.3, can no
+  # longer resolve this package — see BUILD-VM.md.
   Perception:
     url: https://github.com/pointfreeco/swift-perception
-    exactVersion: 2.0.11
+    from: 2.0.0
 
 targets:
   SSHBorg:
