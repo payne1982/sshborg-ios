@@ -2,6 +2,7 @@
 
 import XCTest
 import SwiftTerm
+import UIKit
 
 @testable import SSHBorg
 
@@ -154,6 +155,36 @@ final class TerminalTouchSettingsTests: XCTestCase {
 
         terminal.selectNone()
         XCTAssertTrue(terminal.allowMouseReporting, "a tap is no longer a click for tmux")
+    }
+
+    /// The blue flash of 26/09/2026: SwiftTerm tells UIKit that any range of
+    /// text covers the whole view, so the keyboard highlighting the word it is
+    /// composing painted the entire terminal. Nothing UIKit draws here belongs
+    /// on screen — the selection the user sees is the terminal's own.
+    ///
+    /// Called through the protocol, which is how UIKit calls it: a direct Swift
+    /// call would be dispatched straight to SwiftTerm's own method and would
+    /// pass whether or not the replacement took.
+    func testUIKitIsGivenNothingToPaintOverTheTerminal() throws {
+        let input: UITextInput = session.terminalView
+        session.terminalView.insertText("ls -la")
+
+        let range = try XCTUnwrap(input.textRange(from: input.beginningOfDocument, to: input.endOfDocument))
+        XCTAssertTrue(input.selectionRects(for: range).isEmpty, "UIKit was handed a rectangle to fill")
+    }
+
+    /// The other half of the same stub: the floating cursor the space bar opens
+    /// draws its caret where the text input says the caret is, and `bounds`
+    /// would be the whole screen.
+    func testTheCaretRectIsOneCell() {
+        let input: UITextInput = session.terminalView
+        let emulator = session.terminalView.getTerminal()
+        let bounds = session.terminalView.bounds
+        let rect = input.caretRect(for: input.endOfDocument)
+
+        XCTAssertEqual(rect.width, bounds.width / CGFloat(emulator.cols), accuracy: 0.01)
+        XCTAssertEqual(rect.height, bounds.height / CGFloat(emulator.rows), accuracy: 0.01)
+        XCTAssertNotEqual(rect, bounds, "the caret is the size of the terminal")
     }
 
     // MARK: - Pinch to zoom
