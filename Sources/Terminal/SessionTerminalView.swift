@@ -75,11 +75,20 @@ final class SessionTerminalView: TerminalView {
     /// then the flash is gone" was, reported from an iPhone 18 Pro on
     /// 26/09/2026. Swipe-typing keeps the word being drawn as *marked text*
     /// while the finger is down: UIKit asks where that text is, is told the
-    /// whole terminal, paints its selection over it, and drops it again when the
-    /// word is committed. Holding the space bar opens the keyboard's trackpad
-    /// and reaches the same stub through `caretRect`. Harmless — no selection is
-    /// made and the characters arrive intact — but it looks exactly like an
+    /// whole terminal, paints over it, and drops it again when the word is
+    /// committed. Holding the space bar opens the keyboard's trackpad and
+    /// reaches the same stubs through the caret. Harmless — no selection is made
+    /// and the characters arrive intact — but it looks exactly like an
     /// accidental select-all.
+    ///
+    /// **All three**, and that took two goes. Build 5 answered for the selection
+    /// rects and the caret, and the flash came back unchanged: one wash of
+    /// 0.43 s in the nineteen seconds filmed on the phone, over the terminal and
+    /// nowhere else. Measured off that video it adds (0, +39, +72) to the black
+    /// background — green to blue of 0.54, which is the system tint
+    /// `rgb(0, 122, 255)` and not SwiftTerm's own teal `rgb(0, 166, 178)`. So it
+    /// is UIKit painting, and `firstRect(for:)`, left alone the first time
+    /// because it only places popovers, was the one still answering `bounds`.
     ///
     /// Nothing is given up by answering nothing. UIKit's document here is a
     /// scratch buffer of the few characters typed since the last reset, kept so
@@ -90,20 +99,21 @@ final class SessionTerminalView: TerminalView {
     ///
     /// ## Why this is not an `override`
     ///
-    /// Both methods are `public`, not `open`, and live in SwiftTerm's
+    /// All three are `public`, not `open`, and live in SwiftTerm's
     /// `extension TerminalView: UITextInput`, so the compiler refuses:
     /// *overriding non-open instance method outside of its defining module*.
     /// They are `@objc` — they must be, UIKit calls them by selector — so they
     /// are added to **this** class at runtime instead. Nothing of SwiftTerm's is
     /// swizzled: the class given a method is ours, the inherited implementation
-    /// stays exactly where it is, and the two selectors are public UIKit API,
-    /// not private ones.
+    /// stays exactly where it is, and the selectors are public UIKit API, not
+    /// private ones.
     private static let installedGeometry: Void = {
         let noRects: @convention(block) (SessionTerminalView, AnyObject) -> [UITextSelectionRect] = { _, _ in [] }
         install("selectionRectsForRange:", imp_implementationWithBlock(noRects))
 
-        let caret: @convention(block) (SessionTerminalView, AnyObject) -> CGRect = { view, _ in view.cursorCell }
-        install("caretRectForPosition:", imp_implementationWithBlock(caret))
+        let cell: @convention(block) (SessionTerminalView, AnyObject) -> CGRect = { view, _ in view.cursorCell }
+        install("caretRectForPosition:", imp_implementationWithBlock(cell))
+        install("firstRectForRange:", imp_implementationWithBlock(cell))
     }()
 
     /// Builds a terminal with those answers in place. A factory rather than an

@@ -173,18 +173,27 @@ final class TerminalTouchSettingsTests: XCTestCase {
         XCTAssertTrue(input.selectionRects(for: range).isEmpty, "UIKit was handed a rectangle to fill")
     }
 
-    /// The other half of the same stub: the floating cursor the space bar opens
-    /// draws its caret where the text input says the caret is, and `bounds`
-    /// would be the whole screen.
-    func testTheCaretRectIsOneCell() {
+    /// The other two thirds of the same stub. `caretRect` is what the space
+    /// bar's floating cursor draws, `firstRect` is what places anything UIKit
+    /// wants beside the text; both answered `bounds`, the whole screen.
+    ///
+    /// `firstRect` was left alone in the first attempt because it only
+    /// positions popovers. The flash survived build 5 because of it.
+    func testTheTextRectsAreOneCell() throws {
         let input: UITextInput = session.terminalView
         let emulator = session.terminalView.getTerminal()
         let bounds = session.terminalView.bounds
-        let rect = input.caretRect(for: input.endOfDocument)
+        let cell = CGSize(
+            width: bounds.width / CGFloat(emulator.cols),
+            height: bounds.height / CGFloat(emulator.rows)
+        )
 
-        XCTAssertEqual(rect.width, bounds.width / CGFloat(emulator.cols), accuracy: 0.01)
-        XCTAssertEqual(rect.height, bounds.height / CGFloat(emulator.rows), accuracy: 0.01)
-        XCTAssertNotEqual(rect, bounds, "the caret is the size of the terminal")
+        let whole = try XCTUnwrap(input.textRange(from: input.beginningOfDocument, to: input.endOfDocument))
+        for rect in [input.caretRect(for: input.endOfDocument), input.firstRect(for: whole)] {
+            XCTAssertEqual(rect.width, cell.width, accuracy: 0.01)
+            XCTAssertEqual(rect.height, cell.height, accuracy: 0.01)
+            XCTAssertNotEqual(rect, bounds, "UIKit was told the text fills the terminal")
+        }
     }
 
     // MARK: - Pinch to zoom
