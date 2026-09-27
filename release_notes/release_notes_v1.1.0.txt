@@ -7,6 +7,8 @@
 • Terminal: command history is read without a second login
 • App lock: the timeout counts from leaving the app, not from the last unlock
 • Extra key bar: on the two-row layout the arrows line up again — the keyboard key no longer shifts the top row
+• Terminal: copying works again on the newest iOS — a long press, or a double tap on a word, now offers Copy; before, no menu appeared at all
+• Terminal: no more blue flash over the whole screen while typing quickly with word suggestions on
 </en-US>
 <it-IT>
 • SFTP: editor integrato per i file sul server — i file di testo si modificano sul posto e mantengono codifica e fine riga, i file di configurazione vengono colorati, e ciò che non è testo si apre in un editor esadecimale
@@ -17,6 +19,8 @@
 • Terminale: la cronologia dei comandi si legge senza un secondo login
 • Blocco app: il timeout parte da quando esci dall'app, non dall'ultimo sblocco
 • Barra tasti extra: nel layout a due righe le frecce sono di nuovo allineate — il tasto tastiera non sposta più la riga superiore
+• Terminale: si torna a copiare sugli iOS più recenti — la pressione prolungata, o il doppio tocco su una parola, ora offre Copia; prima non compariva alcun menu
+• Terminale: niente più lampo blu su tutto lo schermo mentre si scrive in fretta con i suggerimenti attivi
 </it-IT>
 <de-DE>
 • SFTP: eingebauter Editor für die Dateien auf dem Server — Textdateien werden direkt dort bearbeitet und behalten Kodierung und Zeilenenden, Konfigurationsdateien werden farbig hervorgehoben, und alles, was kein Text ist, öffnet im Hex-Editor
@@ -27,6 +31,8 @@
 • Terminal: Befehlsverlauf wird ohne zweite Anmeldung gelesen
 • App-Sperre: die Zeit zählt ab dem Verlassen der App, nicht ab dem letzten Entsperren
 • Zusatztastenleiste: im zweizeiligen Layout stehen die Pfeile wieder untereinander — die Tastaturtaste verschiebt die obere Zeile nicht mehr
+• Terminal: Kopieren funktioniert auf neueren iOS-Versionen wieder — langes Drücken oder ein Doppeltippen auf ein Wort bietet jetzt Kopieren an; vorher erschien überhaupt kein Menü
+• Terminal: kein blaues Aufblitzen mehr über den ganzen Bildschirm beim schnellen Tippen mit eingeschalteten Wortvorschlägen
 </de-DE>
 <es-ES>
 • SFTP: editor integrado para los archivos del servidor — los de texto se editan allí mismo y conservan codificación y fin de línea, los de configuración se colorean, y lo que no es texto se abre en un editor hexadecimal
@@ -37,6 +43,8 @@
 • Terminal: el historial de comandos se lee sin un segundo inicio de sesión
 • Bloqueo: el tiempo cuenta desde que sales de la app, no desde el último desbloqueo
 • Barra de teclas extra: en el diseño de dos filas las flechas vuelven a estar alineadas — la tecla de teclado ya no desplaza la fila superior
+• Terminal: se vuelve a copiar en las versiones más recientes de iOS — una pulsación larga, o un doble toque sobre una palabra, ahora ofrece Copiar; antes no aparecía ningún menú
+• Terminal: se acabó el destello azul sobre toda la pantalla al escribir rápido con las sugerencias activadas
 </es-ES>
 <fr-FR>
 • SFTP : éditeur intégré pour les fichiers du serveur — les fichiers texte se modifient sur place en conservant encodage et fins de ligne, les fichiers de configuration sont colorés, et ce qui n'est pas du texte s'ouvre dans un éditeur hexadécimal
@@ -47,6 +55,8 @@
 • Terminal : l'historique des commandes est lu sans seconde connexion
 • Verrouillage : le délai est compté depuis la sortie de l'app, pas depuis le dernier déverrouillage
 • Barre de touches : dans la disposition à deux rangées les flèches sont de nouveau alignées — la touche clavier ne décale plus la rangée du haut
+• Terminal : la copie fonctionne de nouveau sur les dernières versions d'iOS — un appui long, ou un double appui sur un mot, propose désormais Copier ; auparavant aucun menu n'apparaissait
+• Terminal : plus de flash bleu sur tout l'écran en tapant vite avec les suggestions activées
 </fr-FR>
 <pt-PT>
 • SFTP: editor integrado para os ficheiros no servidor — os de texto são editados no próprio servidor e mantêm codificação e fins de linha, os de configuração são coloridos, e o que não é texto abre num editor hexadecimal
@@ -57,6 +67,8 @@
 • Terminal: o histórico de comandos é lido sem um segundo login
 • Bloqueio: o tempo conta desde que sai da app, não desde o último desbloqueio
 • Barra de teclas extra: na disposição de duas linhas as setas voltam a ficar alinhadas — a tecla do teclado já não desloca a linha de cima
+• Terminal: volta a copiar-se nas versões mais recentes do iOS — um toque longo, ou um toque duplo numa palavra, oferece agora Copiar; antes não aparecia menu nenhum
+• Terminal: acabou o clarão azul sobre todo o ecrã ao escrever depressa com as sugestões ativadas
 </pt-PT>
 <uk>
 • SFTP: вбудований редактор для файлів на сервері — текстові файли редагуються на місці й зберігають кодування та кінці рядків, файли налаштувань підсвічуються, а все, що не є текстом, відкривається в шістнадцятковому редакторі
@@ -67,6 +79,8 @@
 • Термінал: історія команд читається без повторного входу
 • Блокування: час рахується від виходу з програми, а не від останнього розблокування
 • Панель додаткових клавіш: у розкладці на два рядки стрілки знову вирівняні — клавіша клавіатури більше не зсуває верхній рядок
+• Термінал: копіювання знову працює на найновіших iOS — довге натискання або подвійний дотик до слова тепер пропонує «Копіювати»; раніше меню взагалі не з'являлося
+• Термінал: більше немає синього спалаху на весь екран під час швидкого набору з увімкненими підказками
 </uk>
 <ru-RU>
 • SFTP: встроенный редактор для файлов на сервере — текстовые файлы правятся прямо там и сохраняют кодировку и переводы строк, файлы настроек подсвечиваются, а всё нетекстовое открывается в шестнадцатеричном редакторе
@@ -77,6 +91,8 @@
 • Терминал: история команд читается без повторного входа
 • Блокировка: время считается с выхода из приложения, а не с последней разблокировки
 • Панель дополнительных клавиш: в раскладке из двух рядов стрелки снова выровнены — клавиша клавиатуры больше не сдвигает верхний ряд
+• Терминал: копирование снова работает на новейших iOS — долгое нажатие или двойное касание слова теперь предлагает «Копировать»; раньше меню не появлялось вовсе
+• Терминал: больше нет синей вспышки на весь экран при быстром наборе с включёнными подсказками
 </ru-RU>
 <zh-CN>
 • SFTP：内置编辑器，可直接编辑服务器上的文件——文本文件就地修改，编码和换行符保持不变；配置文件带语法着色；非文本文件在十六进制编辑器中打开
@@ -87,6 +103,8 @@
 • 终端：读取命令历史不再需要第二次登录
 • 应用锁：超时从离开应用时开始计算，而不是从上次解锁开始
 • 额外按键栏：双行布局中方向键重新对齐——键盘键不再让上面一行错位
+• 终端：在较新的 iOS 上又能复制了——长按或双击某个词现在会出现拷贝，之前根本不弹菜单
+• 终端：开启输入建议后快速打字时，整屏不再蓝色闪烁
 </zh-CN>
 <ja-JP>
 • SFTP: サーバー上のファイルを直接編集できるエディタを内蔵しました。テキストファイルは文字コードと改行コードをそのままに編集でき、設定ファイルは色分け表示され、テキストでないファイルは16進エディタで開きます
@@ -97,4 +115,6 @@
 • ターミナル: コマンド履歴の読み込みで二度目のログインが不要になりました
 • アプリロック: タイムアウトは最後の解除時ではなく、アプリを離れた時点から計算します
 • 拡張キーバー: 2段レイアウトで矢印キーの位置が揃うようになりました。キーボードキーが上の段をずらさなくなりました
+• ターミナル: 新しい iOS でもコピーできるようになりました。長押し、または単語のダブルタップでコピーが表示されます（以前はメニューが出ませんでした）
+• ターミナル: 入力候補を有効にして速く入力したときに画面全体が青く光る現象を修正しました
 </ja-JP>
