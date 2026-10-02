@@ -182,6 +182,22 @@ final class TerminalSession: Identifiable {
         touch?.apply(scrollback: scrollback)
     }
 
+    /// What to do when the terminal is tapped, once the tap is confirmed as a
+    /// single one. The screen hands in the handler that brings the auto-hiding
+    /// title bar back; nil while the bar is fixed.
+    func setTapHandler(_ handler: (() -> Void)?) {
+        touch?.onTap = handler
+    }
+
+    #if DEBUG
+    /// The gesture arbitration behind the auto-hiding title bar, for the tests
+    /// that pin it. Nothing outside them reads this.
+    var tapGesturesForTesting: (tap: UITapGestureRecognizer, waitsFor: UIGestureRecognizer?)? {
+        guard let touch else { return nil }
+        return (touch.tapRecognizer, touch.tapWaitsFor)
+    }
+    #endif
+
     /// Sets this tab's text size, as a pinch does.
     func zoom(to size: CGFloat) {
         zoomedFontSize = size

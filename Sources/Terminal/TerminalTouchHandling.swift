@@ -28,6 +28,7 @@ final class TerminalTouchHandling: NSObject {
     private var appliedScrollback: Int?
 
     private let invertedPan = UIPanGestureRecognizer()
+    private let singleTap = UITapGestureRecognizer()
     private let wheelPan = UIPanGestureRecognizer()
     private let pinch = UIPinchGestureRecognizer()
 
@@ -48,6 +49,14 @@ final class TerminalTouchHandling: NSObject {
     private var coastWheelPoint: CGPoint?
 
     private var pinchStartSize: CGFloat = 0
+
+    /// Called when a tap on the terminal has been confirmed as a single one.
+    ///
+    /// The screen uses it to bring the auto-hiding title bar back (#19). Held
+    /// here rather than reached for from the view because the recogniser is
+    /// SwiftTerm's neighbour, and every other gesture on this view is arbitrated
+    /// in this file.
+    var onTap: (() -> Void)?
 
     init(terminal: TerminalView, send: @escaping (Data) -> Void, zoom: @escaping (CGFloat) -> Void) {
         self.terminal = terminal
@@ -80,6 +89,46 @@ final class TerminalTouchHandling: NSObject {
 
         editMenu = UIEditMenuInteraction(delegate: self)
         terminal.addInteraction(editMenu)
+
+        // A tap of our own rather than a target on SwiftTerm's, because what
+        // matters here is the *confirmation*: with the double tap bound to Tab,
+        // a handler that ran on the first half of one would flash the title bar
+        // on every completion. Android hangs the same callback on
+        // `onSingleTapConfirmed` for exactly that reason. Waiting for the two-
+        // tap recogniser to fail is what buys the confirmation, and it is a
+        // promise we can only make about a recogniser we own.
+        //
+        // It takes nothing away from the view: `cancelsTouchesInView` off and
+        // simultaneous recognition allowed, so SwiftTerm's own tap still raises
+        // the keyboard. During a selection it does not begin at all — see
+        // `gestureRecognizerShouldBegin` — which is Android's rule too, where a
+        // tap in selection mode means "dismiss the selection".
+        singleTap.addTarget(self, action: #selector(handleSingleTap(_:)))
+        singleTap.cancelsTouchesInView = false
+        singleTap.delaysTouchesEnded = false
+        singleTap.delegate = self
+        if let doubleTap = Self.doubleTapRecognizer(on: terminal) {
+            singleTap.require(toFail: doubleTap)
+            tapWaitsFor = doubleTap
+        }
+        terminal.addGestureRecognizer(singleTap)
+    }
+
+    /// The recogniser that reports a confirmed single tap.
+    var tapRecognizer: UITapGestureRecognizer { singleTap }
+
+    /// What that tap waits for before it counts as single.
+    ///
+    /// Recorded rather than inferred: UIKit offers no way to read a failure
+    /// requirement back, and the `if let` that installs it would skip in
+    /// silence if SwiftTerm ever stopped shipping a two-tap recogniser. Then
+    /// the title bar would start flashing on the first half of every Tab, and
+    /// nothing would say why.
+    private(set) var tapWaitsFor: UIGestureRecognizer?
+
+    @objc private func handleSingleTap(_ tap: UITapGestureRecognizer) {
+        guard tap.state == .ended else { return }
+        onTap?()
     }
 
     // MARK: - Double tap
@@ -451,6 +500,20 @@ extension TerminalTouchHandling: UIGestureRecognizerDelegate {
         if terminal.selectionActive { return false }
         if recognizer === wheelPan { return Self.reportsWheel(terminal.getTerminal()) }
         return true
+    }
+
+    /// Only ever about ``singleTap``, and always yes for it.
+    ///
+    /// Two tap recognisers that both want one tap are rivals by default: the
+    /// first to recognise cancels the other. Ours must not be the one that
+    /// wins, because the tap SwiftTerm installs is what raises the keyboard.
+    /// Every other pairing is left to the arbitration the rest of this file
+    /// sets up by hand.
+    func gestureRecognizer(
+        _ recognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+    ) -> Bool {
+        recognizer === singleTap || other === singleTap
     }
 }
 

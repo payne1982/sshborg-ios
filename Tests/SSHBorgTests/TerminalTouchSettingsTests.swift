@@ -44,6 +44,39 @@ final class TerminalTouchSettingsTests: XCTestCase {
         XCTAssertTrue(session.terminalView.responds(to: TerminalTouchHandling.swiftTermDoubleTap))
     }
 
+    // MARK: - The tap that calls the title bar back (#19)
+
+    /// The tap has to be a *confirmed* single one: with the double tap bound to
+    /// Tab, a handler that ran on the first half of one would flash the title
+    /// bar on every completion. The failure requirement is what buys that, and
+    /// it is the part a finger on a phone cannot tell you is missing.
+    func testTheTapWaitsForTheDoubleTapToFail() throws {
+        let gestures = try XCTUnwrap(session.tapGesturesForTesting)
+        let doubleTap = try XCTUnwrap(TerminalTouchHandling.doubleTapRecognizer(on: session.terminalView))
+
+        XCTAssertEqual(gestures.tap.numberOfTapsRequired, 1)
+        XCTAssertTrue(gestures.tap.view === session.terminalView)
+        XCTAssertTrue(gestures.waitsFor === doubleTap, "the single tap no longer waits for the double tap")
+    }
+
+    /// And it must not be the recogniser that wins: SwiftTerm's own tap is what
+    /// raises the keyboard, and two rivals wanting one tap cancel each other.
+    func testTheTapLetsSwiftTermsOwnTapThrough() throws {
+        let tap = try XCTUnwrap(session.tapGesturesForTesting).tap
+        let delegate = try XCTUnwrap(tap.delegate)
+        let swiftTermTap = try XCTUnwrap(
+            session.terminalView.gestureRecognizers?
+                .compactMap { $0 as? UITapGestureRecognizer }
+                .first { $0 !== tap && $0.numberOfTapsRequired == 1 },
+            "SwiftTerm no longer installs a single tap of its own"
+        )
+
+        XCTAssertFalse(tap.cancelsTouchesInView)
+        XCTAssertTrue(
+            delegate.gestureRecognizer?(tap, shouldRecognizeSimultaneouslyWith: swiftTermTap) ?? false
+        )
+    }
+
     // MARK: - Scrollback
 
     func testTheScrollbackSettingReachesTheTerminal() {

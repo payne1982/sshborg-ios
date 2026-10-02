@@ -39,6 +39,11 @@ struct TerminalHostView: UIViewRepresentable {
     var invertsScroll: Bool
     var scrollbackLines: Int
 
+    /// What a confirmed single tap on the terminal does, over and above raising
+    /// the keyboard: it calls the auto-hiding title bar back (#19). Nil while
+    /// the bar is fixed, so nothing is listening when there is nothing to call.
+    var onTap: (() -> Void)?
+
     func makeUIView(context: Context) -> UIView {
         let container = UIView()
         // Matches the terminal underneath it, so a resize never flashes the
@@ -104,6 +109,11 @@ struct TerminalHostView: UIViewRepresentable {
             invertedScroll: invertsScroll,
             scrollback: scrollbackLines
         )
+
+        // Replaced on every pass, like the settings above: the closure carries
+        // the screen's state with it, and the one from the previous pass is
+        // reading state that has already moved on.
+        session.setTapHandler(onTap)
 
         // A pinched tab keeps its own size; the Settings value is the default
         // for tabs nobody has zoomed.

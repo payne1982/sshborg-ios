@@ -24852,6 +24852,136 @@
         }
       }
     },
+    "settings_terminal_bar_autohide_subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Terminal fährt die Leiste ein und kommt zurück, wenn du den Bildschirm antippst. Aus: sie bleibt immer sichtbar."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the terminal, the bar slides away and comes back when you tap the screen. Off keeps it always visible."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En el terminal la barra se retira y vuelve al tocar la pantalla. Desactívalo para tenerla siempre visible."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dans le terminal, la barre se retire et revient quand vous touchez l'écran. Désactivé, elle reste toujours visible."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nel terminale la barra si ritrae e torna quando tocchi lo schermo. Disattiva per tenerla sempre visibile."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ターミナルでバーが引っ込み、画面をタップすると戻ります。オフにすると常に表示されます。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No terminal, a barra recolhe e volta quando toca no ecrã. Desligado, fica sempre visível."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В терминале строка убирается и возвращается при касании экрана. Выключено — остаётся всегда видимой."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У терміналі смужка ховається й повертається, коли торкнутися екрана. Виключено — вона завжди видима."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在终端中，标题栏会收起，轻触屏幕时返回。关闭则始终显示。"
+          }
+        }
+      }
+    },
+    "settings_terminal_bar_autohide_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titelleiste automatisch ausblenden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-hide the title bar"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar la barra de título automáticamente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer automatiquement la barre de titre"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barra del titolo a scomparsa"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タイトルバーを自動で隠す"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar a barra de título automaticamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически скрывать строку заголовка"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматично ховати смужку заголовка"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动隐藏标题栏"
+          }
+        }
+      }
+    },
     "settings_terminal_colors_follow_app": {
       "extractionState": "manual",
       "localizations": {

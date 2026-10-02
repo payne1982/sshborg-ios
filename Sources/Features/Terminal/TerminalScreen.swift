@@ -19,9 +19,26 @@ struct TerminalScreen: View {
 
     @Perception.Bindable var manager: SessionManager
 
+    /// The way back to the host list, which the title bar carries once it is
+    /// ours and not the system's.
+    @Environment(\.dismiss) private var dismiss
+
     @State private var passwordInput = ""
     @State private var keyboard = KeyboardVisibility()
     @FocusState private var isPasswordFocused: Bool
+
+    /// Whether the overlay title bar is down. True to begin with: it arrives
+    /// with the screen, which teaches the gesture without a word, and then it
+    /// goes.
+    @State private var isBarShown = true
+
+    /// True while a finger is on the bar, which suspends the countdown —
+    /// reaching for the close button must not lose the bar half way there.
+    @State private var isBarHeld = false
+
+    /// Bumped by every tap on the terminal, to re-arm the wait even when the
+    /// bar is already down.
+    @State private var barTick = 0
 
     var body: some View {
         WithPerceptionTracking {
@@ -50,7 +67,148 @@ struct TerminalScreen: View {
                     }
                 }
             }
+            // Hidden for the whole screen, not toggled as the bar comes and
+            // goes. That is the point of the design and not a shortcut: the
+            // system bar lives *outside* the safe area the terminal is laid out
+            // in, so showing and hiding it would resize the grid three seconds
+            // after every tap, and the remote program would see a SIGWINCH each
+            // time. An overlay drawn over the top rows costs the terminal
+            // nothing, which is what #19 asked for. Android reached the same
+            // conclusion from the other side — "an auto-hiding bar that
+            // reflowed vim every three seconds would have been worse than the
+            // bar".
+            .toolbar(autoHidesBar ? .hidden : .visible, for: .navigationBar)
+            // And the swipe back, which hiding that bar takes away. See the
+            // file for the measurement that says so.
+            .background(autoHidesBar ? InteractivePopGesture() : nil)
         }
+    }
+
+    // MARK: - The title bar that gets out of the way (#19)
+
+    /// How long the bar stays down after the tap that called it, in seconds.
+    /// Android's `TITLE_BAR_LINGER_MS`, and the same three seconds.
+    ///
+    /// Overridable in debug builds, and that is not a convenience. A UI test
+    /// waits for the app to go idle before every query, a terminal with a
+    /// blinking caret is never reliably idle, and the bar's whole life is three
+    /// seconds plus the 0.7 it takes to leave: the same assertion passed twice
+    /// and failed twice here, on unchanged code, depending on how busy the
+    /// screen happened to be. Lengthening the wait is what makes "a tap brings
+    /// it back" a question about the app instead of a question about the
+    /// harness. The retraction itself is still measured at the real three
+    /// seconds, from the other side.
+    ///
+    /// `#if DEBUG`, like the lock's own test hook: nothing shipped reads it.
+    private static var barLinger: Double {
+        #if DEBUG
+        let override = UserDefaults.standard.double(forKey: "SSHBorgBarLingerSeconds")
+        if override > 0 { return override }
+        #endif
+        return 3
+    }
+
+    /// How long it takes to leave, in seconds.
+    ///
+    /// Coming down it is answering a tap, so quick is right; going away it acts
+    /// on its own, and something that leaves the screen abruptly reads as a
+    /// glitch rather than as a retreat. Android settled on the same 700ms after
+    /// looking at it on a phone, and it has the second use they found: the bar
+    /// stays reachable a moment longer, and a tap during the animation reverses
+    /// it.
+    private static let barExit: Double = 0.7
+
+    /// Whether the title bar is ours and retracts, or the system's and stays.
+    private var autoHidesBar: Bool {
+        environment.preferences.terminalBarAutoHide
+    }
+
+    /// The identity of the current wait. Changing any part of it starts the
+    /// countdown again from the beginning.
+    private struct BarWait: Equatable {
+        let enabled: Bool
+        let shown: Bool
+        let held: Bool
+        let tick: Int
+    }
+
+    /// Calls the bar back and re-arms the wait. The tap that does this is a
+    /// *confirmed* single tap — see `TerminalTouchHandling` for why that
+    /// matters when the double tap is bound to Tab.
+    private func showBar() {
+        barTick += 1
+        guard !isBarShown else { return }
+        withAnimation(.easeOut(duration: 0.2)) { isBarShown = true }
+    }
+
+    /// What the navigation bar would have drawn, drawn by us: the way back, the
+    /// title, and the way to close the session.
+    ///
+    /// Opaque on purpose. Over a terminal a translucent bar makes both itself
+    /// and the text under it unreadable — the one piece of the Android design
+    /// that is about the pixels rather than the layout.
+    @ViewBuilder
+    private func titleBar(for session: TerminalSession) -> some View {
+        let title = manager.selected?.title ?? String(localized: .terminalTitleDefault)
+
+        HStack(spacing: 0) {
+            Button {
+                // The same thing the chevron did when the bar was the system's:
+                // leave the terminal. `RootView` is what turns that into
+                // deselecting the session.
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.backward")
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, 16)
+                    .frame(maxHeight: .infinity)
+            }
+            .accessibilityLabel(Text(.actionBack))
+            .accessibilityIdentifier("terminal-bar-back")
+
+            Spacer(minLength: 0)
+
+            Button {
+                manager.close(session)
+            } label: {
+                Image(systemName: "xmark.circle")
+                    .font(.body)
+                    .padding(.horizontal, 16)
+                    .frame(maxHeight: .infinity)
+            }
+            .accessibilityLabel(Text(.actionClose))
+            .accessibilityIdentifier("terminal-bar-close")
+        }
+        // In an overlay rather than between the two buttons: as a third item in
+        // the row it would centre between them, and they are not the same
+        // width, so the title would sit off-centre by half the difference.
+        .overlay {
+            Text(title)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, 56)
+                .allowsHitTesting(false)
+        }
+        .frame(height: 44)
+        .frame(maxWidth: .infinity)
+        .background(Color(uiColor: .systemBackground))
+        .overlay(alignment: .bottom) { Divider() }
+        // A finger anywhere on the bar holds it there. Simultaneous, so the two
+        // buttons still get their taps; the gesture only stops the clock.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isBarHeld = true }
+                .onEnded { _ in
+                    isBarHeld = false
+                    barTick += 1
+                }
+        )
+        // No identifier on the bar itself. One here is handed down to
+        // everything inside it and overwrites the identifiers the two buttons
+        // set for themselves, so the tree came back with three elements all
+        // called `terminal-title-bar` and the UI test could find neither
+        // button. Seen in the tree, not deduced.
     }
 
     /// Height of the margin below the terminal. See its use site.
@@ -89,7 +247,8 @@ struct TerminalScreen: View {
                 palette: palette,
                 doubleTapAction: environment.preferences.doubleTapAction,
                 invertsScroll: environment.preferences.invertTerminalScroll,
-                scrollbackLines: environment.preferences.scrollbackLines
+                scrollbackLines: environment.preferences.scrollbackLines,
+                onTap: autoHidesBar ? { showBar() } : nil
             )
                 // No `ignoresSafeArea(.container, edges: .bottom)` here, though
                 // there was from the first terminal commit until 03/09/2026.
@@ -119,6 +278,34 @@ struct TerminalScreen: View {
                 // would drop every time. See TerminalHostView.
 
             overlay(for: session)
+
+            // Drawn over the terminal's first rows rather than above them, so
+            // the grid underneath never changes size. Last in the stack, so it
+            // is over the status overlays too — they are the ones that cover
+            // the whole terminal, and the way out of a failed connection has to
+            // stay reachable.
+            if autoHidesBar {
+                VStack(spacing: 0) {
+                    if isBarShown {
+                        titleBar(for: session)
+                            .transition(.move(edge: .top))
+                    }
+                    Spacer(minLength: 0)
+                }
+                // So the bar leaves at the top edge of the terminal instead of
+                // sliding up over whatever the system draws above it.
+                .clipped()
+            }
+        }
+        // The countdown. Restarted from scratch whenever any of these moves,
+        // which is what `task(id:)` is for: a tap that arrives while the bar is
+        // already down must push the moment it goes away, and a finger on the
+        // bar must stop the clock rather than pause it.
+        .task(id: BarWait(enabled: autoHidesBar, shown: isBarShown, held: isBarHeld, tick: barTick)) {
+            guard autoHidesBar, isBarShown, !isBarHeld else { return }
+            try? await Task.sleep(nanoseconds: UInt64(Self.barLinger * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: Self.barExit)) { isBarShown = false }
         }
         // Every bar lives in the bottom inset, tabs closest to the terminal —
         // the Android order, and the reason is the thumb: the tab strip is the

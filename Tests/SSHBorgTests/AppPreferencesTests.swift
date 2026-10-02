@@ -20,6 +20,18 @@ final class AppPreferencesTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    /// The auto-hiding title bar is stored, read and honoured, but it is
+    /// deliberately absent from the settings backup, because Android's backup
+    /// does not carry it either. A file written on one phone has to mean the
+    /// same thing on the other; this fails if someone adds it on one side only.
+    func testTheTitleBarSettingIsNotInTheBackup() {
+        preferences.terminalBarAutoHide = false
+        XCTAssertNil(preferences.exportSettings()["terminal_bar_auto_hide"])
+
+        preferences.importSettings(["terminal_bar_auto_hide": true])
+        XCTAssertFalse(preferences.terminalBarAutoHide)
+    }
+
     /// These defaults are part of the cross-platform contract: a fresh install
     /// must behave identically on both platforms.
     func testDefaultsMatchAndroid() {
@@ -34,6 +46,7 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(preferences.scrollbackLines, 2000)
         XCTAssertEqual(preferences.terminalFontSize, 13)
         XCTAssertFalse(preferences.keepScreenOn)
+        XCTAssertTrue(preferences.terminalBarAutoHide)
         XCTAssertEqual(preferences.terminalColorScheme, .dark)
         XCTAssertEqual(preferences.doubleTapAction, .none)
         XCTAssertTrue(preferences.historySuggestions)

@@ -1,0 +1,30 @@
+<en-US>
+• More room in the terminal: the title bar hides itself and comes back when you tap the screen, so the text takes the whole height (it can be kept fixed in Settings)
+</en-US>
+<it-IT>
+• Più spazio nel terminale: la barra del titolo si nasconde da sola e torna quando tocchi lo schermo, così il testo occupa tutta l'altezza (si può tenerla fissa nelle impostazioni)
+</it-IT>
+<de-DE>
+• Mehr Platz im Terminal: die Titelleiste blendet sich selbst aus und kommt beim Antippen des Bildschirms zurück, sodass der Text die volle Höhe nutzt (sie lässt sich in den Einstellungen fest einblenden)
+</de-DE>
+<es-ES>
+• Más espacio en el terminal: la barra de título se oculta sola y vuelve al tocar la pantalla, de modo que el texto ocupa toda la altura (se puede dejar fija en los ajustes)
+</es-ES>
+<fr-FR>
+• Plus de place dans le terminal : la barre de titre se masque d'elle-même et revient quand vous touchez l'écran, si bien que le texte occupe toute la hauteur (elle peut rester fixe dans les réglages)
+</fr-FR>
+<pt-PT>
+• Mais espaço no terminal: a barra de título esconde-se sozinha e volta quando toca no ecrã, pelo que o texto ocupa toda a altura (pode mantê-la fixa nas definições)
+</pt-PT>
+<uk>
+• Більше місця в терміналі: смужка заголовка ховається сама й повертається, коли торкнутися екрана, тож текст займає всю висоту (її можна залишити завжди видимою в налаштуваннях)
+</uk>
+<ru-RU>
+• Больше места в терминале: строка заголовка скрывается сама и возвращается при касании экрана, так что текст занимает всю высоту (её можно оставить всегда видимой в настройках)
+</ru-RU>
+<zh-CN>
+• 终端空间更大：标题栏会自动收起，轻触屏幕时返回，文本可以占满整个高度（可在设置中让它始终显示）
+</zh-CN>
+<ja-JP>
+• ターミナルが広くなりました: タイトルバーが自動で隠れ、画面をタップすると戻るので、文字が画面の高さをすべて使えます（設定で常に表示したままにもできます）
+</ja-JP>

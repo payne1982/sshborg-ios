@@ -146,6 +146,18 @@ struct SettingsScreen: View {
                 Text(.settingsKeepScreenOnSubtitle)
             }
 
+            // Android offers a second switch next to this one, for hiding the
+            // system status bar as well. Not here, and the reason is the notch:
+            // with the status bar hidden the top safe area still stops below the
+            // sensor housing, so the terminal would gain nothing in portrait and
+            // nothing at all in landscape, where that inset moves to the sides.
+            // A switch that frees no rows is a switch that promises what it
+            // cannot pay.
+            Toggle(isOn: binding(\.terminalBarAutoHide)) {
+                Text(.settingsTerminalBarAutohideTitle)
+                Text(.settingsTerminalBarAutohideSubtitle)
+            }
+
             Toggle(isOn: binding(\.historySuggestions)) {
                 Text(.settingsHistorySuggestionsTitle)
                 Text(.settingsHistorySuggestionsSubtitle)

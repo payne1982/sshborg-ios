@@ -39,6 +39,7 @@ final class AppPreferences {
         static let scrollbackLines = "scrollback_lines"
         static let terminalFontSize = "terminal_font_size"
         static let keepScreenOn = "keep_screen_on"
+        static let terminalBarAutoHide = "terminal_bar_auto_hide"
         static let terminalColorScheme = "terminal_color_scheme"
         static let doubleTapAction = "double_tap_action"
         static let hostSortMode = "host_sort_mode"
@@ -62,6 +63,7 @@ final class AppPreferences {
         Key.doubleTapAction: DoubleTapAction.none.rawValue,
         Key.hostSortMode: HostSort.alphabetical.rawValue,
         Key.historySuggestions: true,
+        Key.terminalBarAutoHide: true,
         Key.sftpSortDirsFirst: true,
         Key.extraBarSelected: ExtraBarPresets.standardID,
     ]
@@ -207,6 +209,22 @@ final class AppPreferences {
     var keepScreenOn: Bool {
         get { read(Key.keepScreenOn, keyPath: \.keepScreenOn) }
         set { write(newValue, Key.keepScreenOn, keyPath: \.keepScreenOn) }
+    }
+
+    /// Whether the terminal's title bar retracts by itself (#19).
+    ///
+    /// Default on, as on Android: a fixed bar costs the terminal about three
+    /// lines for good, and as an overlay it costs none — it draws over the top
+    /// rows instead of pushing them down, so the grid never changes size and the
+    /// remote program never sees a resize.
+    ///
+    /// Deliberately **not** in ``exportSettings()``: Android does not carry it
+    /// in its own settings backup either, and the two files have to describe the
+    /// same set of keys or a restore means something different depending on
+    /// which phone wrote it. If Android adds it, this follows.
+    var terminalBarAutoHide: Bool {
+        get { read(Key.terminalBarAutoHide, keyPath: \.terminalBarAutoHide) }
+        set { write(newValue, Key.terminalBarAutoHide, keyPath: \.terminalBarAutoHide) }
     }
 
     var terminalColorScheme: TerminalColorScheme {

@@ -1152,6 +1152,12 @@ extension LocalizedStringResource {
     /// Always-visible suggestion bar
     static let settingsSuggestionsBarStickyTitle = LocalizedStringResource("settings_suggestions_bar_sticky_title")
 
+    /// In the terminal, the bar slides away and comes back when you tap the screen. Off keeps it always visible.
+    static let settingsTerminalBarAutohideSubtitle = LocalizedStringResource("settings_terminal_bar_autohide_subtitle")
+
+    /// Auto-hide the title bar
+    static let settingsTerminalBarAutohideTitle = LocalizedStringResource("settings_terminal_bar_autohide_title")
+
     /// Match app theme
     static let settingsTerminalColorsFollowApp = LocalizedStringResource("settings_terminal_colors_follow_app")
 
