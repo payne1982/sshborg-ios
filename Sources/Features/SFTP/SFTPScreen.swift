@@ -466,6 +466,81 @@ struct SFTPScreen: View {
 
     // MARK: - Pieces
 
+    /// The menu an entry offers, from a tap on a file or a long press on
+    /// either. One builder, used in both places, because two copies of a menu
+    /// are two menus that drift apart.
+    ///
+    /// Download is first for everyone, not only where a tap cannot reach it:
+    /// the tap used to download, this menu is what the tap now opens, and so
+    /// the old habit costs one extra tap instead of becoming a dead end.
+    @ViewBuilder
+    private func entryMenu(_ entry: SFTPEntry, model: SFTPModel) -> some View {
+        Button(String(localized: .sftpDownloadCd), systemImage: "arrow.down.circle") {
+            download(entry, model: model)
+        }
+        // Not for folders, and not for a symlink whose target the listing does
+        // not describe: both would open an editor onto something that is not a
+        // file.
+        if !entry.isDirectory {
+            Button(String(localized: .sftpMenuEdit), systemImage: "square.and.pencil") {
+                editing = model.join(model.path, entry.name)
+            }
+            // The hex view is offered outright as well as after a refusal: a
+            // file the text test accepts may still be one you want to see the
+            // bytes of.
+            Button(String(localized: .sftpMenuHex), systemImage: "number") {
+                editingAsHex = true
+                editing = model.join(model.path, entry.name)
+            }
+        }
+        // With Rename rather than with the download actions: both are things
+        // done to the entry where it lives, and neither moves a byte over the
+        // network.
+        Button(String(localized: .sftpMenuCut), systemImage: "scissors") {
+            model.cut([entry])
+        }
+        Button(String(localized: .sftpMenuRename), systemImage: "pencil") {
+            renameInput = entry.name
+            renaming = entry
+        }
+        Button(String(localized: .sftpMenuDelete), systemImage: "trash", role: .destructive) {
+            deleting = entry
+        }
+    }
+
+    /// The download control at the end of a row — a real button on a file as
+    /// well as on a folder.
+    ///
+    /// On a file it used to be a bare glyph: decoration standing for what a tap
+    /// on the row would do. Android's reporter wrote "since you already added a
+    /// download button on the right of the list", and he was reading it the way
+    /// it looks. Same glyph, same place, two behaviours was the defect.
+    ///
+    /// 44 by 40 rather than 44 square, and that is Android's reasoning after the
+    /// same change grew its folder rows: width is the dimension in which a
+    /// neighbouring target actually exists, while the vertical slop lands on the
+    /// row's own padding, which opens the menu — a harmless neighbour to miss
+    /// into. Nothing is given up by being generous in the other direction,
+    /// because the dangerous thing the row could do by accident is the thing
+    /// this commit chain removed.
+    @ViewBuilder
+    private func downloadButton(_ entry: SFTPEntry, model: SFTPModel) -> some View {
+        // A link to a directory is not walked — following it could turn the
+        // walk into an endless one — so there is nothing to offer here.
+        if !(entry.isDirectory && entry.isSymlink) {
+            Button {
+                download(entry, model: model)
+            } label: {
+                Image(systemName: "arrow.down.circle")
+                    .font(.body)
+                    .frame(width: 44, height: 40)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text(entry.isDirectory ? .sftpDownloadFolderCd : .sftpDownloadCd))
+        }
+    }
+
     /// The pending cut, above the listing: what is waiting, where it came from,
     /// and the two ways out of it.
     ///
@@ -570,79 +645,63 @@ struct SFTPScreen: View {
                 }
 
                 ForEach(entries) { entry in
-                    // While selecting, the row is not a button at all.
+                    // While selecting, the row is content and nothing else.
                     //
-                    // It was one, and it swallowed the tap: a `List` with a
-                    // selection binding ticks a row when the row's own content
-                    // does not take the touch first, and ours did. So in
-                    // selection mode a tap on a file **started a download**
-                    // instead of selecting it — seen in a screenshot, with the
-                    // file in the transfers bar and the circle still empty — and
-                    // the only thing that selected anything was the small circle
-                    // at the leading edge. Which made selecting several files,
-                    // the whole point of the mode, something close to
-                    // unreachable. Android hides the download control in
-                    // selection mode for the same reason: there, the row's job
-                    // is to tick a box.
+                    // It used to be a `Button`, and it swallowed the tap: a
+                    // `List` with a selection binding ticks a row when the row's
+                    // own content does not take the touch first, and ours did.
+                    // So in selection mode a tap on a file **started a
+                    // download** instead of selecting it — seen in a screenshot,
+                    // with the file in the transfers bar and the circle still
+                    // empty — and the only thing that selected anything was the
+                    // small circle at the leading edge. Which made selecting
+                    // several files, the whole point of the mode, close to
+                    // unreachable. The download control is left out here for the
+                    // same reason Android leaves it out: the row has one job.
                     if editMode.isEditing {
-                        EntryRow(entry: entry, showsDownload: false) {}
+                        EntryRow(entry: entry)
                             .tag(entry.id)
                     } else {
-                    Button {
-                        // A folder opens, a file downloads — the Android rule.
-                        // The row used to be `.disabled` for files, so tapping
-                        // one did nothing at all and the only way down was the
-                        // long-press menu.
-                        if entry.isDirectory {
-                            Task { await model.navigate(into: entry) }
-                        } else {
-                            download(entry, model: model)
-                        }
-                    } label: {
-                        EntryRow(entry: entry) {
-                            // Folders need a control of their own precisely
-                            // because their tap is taken: it opens them. Files
-                            // get the same glyph without a button behind it —
-                            // an affordance saying "this comes down if you tap
-                            // it", which is what Android draws too.
-                            download(entry, model: model)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .tag(entry.id)
-                    .contextMenu {
-                        Button(String(localized: .sftpDownloadCd), systemImage: "arrow.down.circle") {
-                            download(entry, model: model)
-                        }
-                        // Not for folders, and not for a symlink whose target
-                        // the listing does not describe: both would open an
-                        // editor onto something that is not a file.
-                        if !entry.isDirectory {
-                            Button(String(localized: .sftpMenuEdit), systemImage: "square.and.pencil") {
-                                editing = model.join(model.path, entry.name)
+                        HStack(spacing: 0) {
+                            // A tap on a folder opens it — the one gesture
+                            // nobody doubts in a file browser, and a menu there
+                            // would make browsing twice as slow. A tap on a file
+                            // opens its menu (#17).
+                            //
+                            // It used to download, straight away and at any
+                            // size. Android had the same two reports from one
+                            // user: the editor was reachable only by a long
+                            // press that nothing announces, and a tap on a row
+                            // was the most consequential thing the screen could
+                            // do by accident. Download is still one tap away —
+                            // it is the first item of the menu, and the button
+                            // to the right is the other way.
+                            if entry.isDirectory {
+                                Button {
+                                    Task { await model.navigate(into: entry) }
+                                } label: {
+                                    EntryRow(entry: entry)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Menu {
+                                    entryMenu(entry, model: model)
+                                } label: {
+                                    EntryRow(entry: entry)
+                                }
+                                // Without this the name takes the accent colour
+                                // from the menu it now opens, and a listing of
+                                // blue filenames reads as a page of links.
+                                .foregroundStyle(Color.primary)
                             }
-                            // The hex view is offered outright as well as after
-                            // a refusal: a file the text test accepts may still
-                            // be one you want to see the bytes of.
-                            Button(String(localized: .sftpMenuHex), systemImage: "number") {
-                                editingAsHex = true
-                                editing = model.join(model.path, entry.name)
-                            }
+
+                            downloadButton(entry, model: model)
                         }
-                        // With Rename rather than with the download actions:
-                        // both are things done to the entry where it lives, and
-                        // neither moves a byte over the network.
-                        Button(String(localized: .sftpMenuCut), systemImage: "scissors") {
-                            model.cut([entry])
-                        }
-                        Button(String(localized: .sftpMenuRename), systemImage: "pencil") {
-                            renameInput = entry.name
-                            renaming = entry
-                        }
-                        Button(String(localized: .sftpMenuDelete), systemImage: "trash", role: .destructive) {
-                            deleting = entry
-                        }
-                    }
+                        .tag(entry.id)
+                        // The long press keeps opening the same menu, on files
+                        // and folders alike. On a folder it is the only way to
+                        // one; on a file it is now the second.
+                        .contextMenu { entryMenu(entry, model: model) }
                     }
                 }
             }
@@ -669,15 +728,6 @@ struct SFTPScreen: View {
 private struct EntryRow: View {
     let entry: SFTPEntry
 
-    /// Whether to draw the download control at all. False while selecting,
-    /// where the row has one job — being ticked — and a second target in it is
-    /// a way to miss.
-    var showsDownload = true
-
-    /// Called by the folder's own download button. Files draw the same glyph
-    /// without a button behind it: their row tap already downloads, so a second
-    /// tappable thing in the same row would be two ways to do one job.
-    let onDownload: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -704,27 +754,10 @@ private struct EntryRow: View {
 
             Spacer()
 
-            // A folder's tap is spoken for — it opens it — so downloading one
-            // needs a control of its own. A file's does not, and gets the glyph
-            // alone as a hint that a tap brings it down. Android draws exactly
-            // this asymmetry: `IconButton` for a directory, bare `Icon` for a
-            // file.
-            if !showsDownload {
-                EmptyView()
-            } else if entry.isDirectory && !entry.isSymlink {
-                Button(action: onDownload) {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.body)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(String(localized: .sftpDownloadFolderCd))
-            } else if !entry.isDirectory {
-                Image(systemName: "arrow.down.circle")
-                    .font(.body)
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            }
-
+            // The download control is not here. It is a button in the row
+            // above this view, so that it is one on a file as well as on a
+            // folder — see `downloadButton` — and so that selection mode can
+            // leave it out without this view knowing anything about selection.
             if entry.isDirectory {
                 Image(systemName: "chevron.right")
                     .font(.caption2)
@@ -732,6 +765,10 @@ private struct EntryRow: View {
             }
         }
         .padding(.vertical, 2)
+        // The name and the space beside it are one target: without this the
+        // menu would open only from the glyphs and the text, and the gap after
+        // a short filename would do nothing at all.
+        .contentShape(Rectangle())
     }
 
     private var icon: String {
