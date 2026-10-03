@@ -227,6 +227,111 @@ final class SFTPIntegrationTests: XCTestCase {
         try await session.removeDirectory(at: "\(workingDirectory!)/full")
     }
 
+    // MARK: - Moving, and the rename rule behind it
+
+    /// The claim the whole move feature rests on, measured against a real
+    /// OpenSSH server rather than taken from the specification: a rename onto a
+    /// name that is already taken **fails** here.
+    ///
+    /// It is the opposite of what the Android app gets from JSch, which uses
+    /// `posix-rename@openssh.com` and overwrites silently, and the reason both
+    /// apps check the destination themselves. If this ever starts passing — a
+    /// libssh2 that negotiates version 5, or one that adopts the extension in
+    /// `rename` — then the iOS half of `docs/sftp-move.md` is out of date and
+    /// the app is quietly destroying files.
+    func testARenameOntoAnExistingNameIsRefused() async throws {
+        try await upload(text: "one", named: "a.txt")
+        try await upload(text: "two", named: "b.txt")
+
+        do {
+            try await session.rename(
+                from: "\(workingDirectory!)/a.txt",
+                to: "\(workingDirectory!)/b.txt"
+            )
+            XCTFail("the rename overwrote b.txt — libssh2 now replaces an existing destination")
+        } catch {
+            // And nothing moved: both names are still there, with their own
+            // contents. A failure that half-happened would be worse than either
+            // behaviour.
+            let names = try await session.list(workingDirectory).map(\.name).sorted()
+            XCTAssertEqual(names, ["a.txt", "b.txt"])
+        }
+    }
+
+    /// `lstat` is what the destination is checked with, and this is why: a
+    /// symbolic link whose target is gone still owns its name, and `stat` — which
+    /// follows it — reports nothing at all. Checking with `stat` would call the
+    /// name free and the rename would then be refused by the server.
+    func testADanglingSymlinkStillOwnsItsName() async throws {
+        try await upload(text: "gone", named: "target.txt")
+        try await session.createSymbolicLink(
+            at: "\(workingDirectory!)/link.txt",
+            pointingAt: "\(workingDirectory!)/target.txt"
+        )
+        try await session.removeFile(at: "\(workingDirectory!)/target.txt")
+
+        let followed = try await session.stat("\(workingDirectory!)/link.txt")
+        let direct = try await session.lstat("\(workingDirectory!)/link.txt")
+
+        XCTAssertNil(followed, "stat followed the link to a file that is gone")
+        XCTAssertNotNil(direct, "lstat lost a name that is still taken")
+        XCTAssertEqual(direct?.isSymlink, true)
+
+        try await session.removeFile(at: "\(workingDirectory!)/link.txt")
+    }
+
+    /// Moving between directories is one rename, and the file arrives whole.
+    func testAMoveCarriesTheFileIntoAnotherDirectory() async throws {
+        try await upload(text: "moved", named: "travels.txt")
+        try await session.createDirectory(at: "\(workingDirectory!)/elsewhere")
+
+        try await session.rename(
+            from: "\(workingDirectory!)/travels.txt",
+            to: "\(workingDirectory!)/elsewhere/travels.txt"
+        )
+
+        let here = try await session.list(workingDirectory).map(\.name)
+        XCTAssertFalse(here.contains("travels.txt"))
+
+        let there = try await session.list("\(workingDirectory!)/elsewhere")
+        XCTAssertEqual(there.map(\.name), ["travels.txt"])
+        XCTAssertEqual(there.first?.size, 5)
+
+        try await session.removeFile(at: "\(workingDirectory!)/elsewhere/travels.txt")
+        try await session.removeDirectory(at: "\(workingDirectory!)/elsewhere")
+    }
+
+    /// The three renames that stand in for an overwrite, run against the real
+    /// server in the order the app runs them: park, move, delete the parked
+    /// copy. What it proves is the part that matters — every step has a free
+    /// destination, so none of them is the rename the server would refuse.
+    func testOverwritingIsThreeRenamesAndTheDataIsNeverNameless() async throws {
+        try await upload(text: "incoming", named: "source.txt")
+        try await upload(text: "already here", named: "destination.txt")
+
+        let parked = "\(workingDirectory!)/destination.txt.parked"
+        try await session.rename(from: "\(workingDirectory!)/destination.txt", to: parked)
+        // Between the first and the second rename the old file is still on the
+        // server under its parking name. That is the invariant.
+        let parkedExists = try await session.lstat(parked)
+        XCTAssertNotNil(parkedExists)
+
+        try await session.rename(
+            from: "\(workingDirectory!)/source.txt",
+            to: "\(workingDirectory!)/destination.txt"
+        )
+        try await session.removeFile(at: parked)
+
+        let names = try await session.list(workingDirectory).map(\.name).sorted()
+        XCTAssertEqual(names, ["destination.txt"])
+
+        let local = FileManager.default.temporaryDirectory
+            .appendingPathComponent("check-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: local) }
+        try await session.download(from: "\(workingDirectory!)/destination.txt", to: local)
+        XCTAssertEqual(try String(contentsOf: local, encoding: .utf8), "incoming")
+    }
+
     // MARK: - Helpers
 
     private func upload(text: String, named name: String) async throws {

@@ -96,6 +96,10 @@ struct SFTPScreen: View {
     /// modifier chains grow the inference problem faster than they look.
     @ViewBuilder
     private func content(_ model: SFTPModel) -> some View {
+        // Read once, here, inside the tracking scope the body set up: the alert
+        // below needs it in a closure that would otherwise read it from outside.
+        let pendingMoveConflict = model.moveConflict
+
         phaseView(model)
             .safeAreaInset(edge: .bottom, spacing: 0) { TransfersBar(manager: transfers) }
             .toolbar { toolbar(model) }
@@ -152,6 +156,42 @@ struct SFTPScreen: View {
                         .replacingOccurrences(of: "%2$@", with: conflict.suggestedName)
                 )
             }
+            // A name in the way of a paste. One question for the whole paste,
+            // as on Android, rather than one per file: the answer is a policy,
+            // and being asked five times in a row is how people stop reading.
+            //
+            // The Overwrite button is absent when a folder is involved, and that
+            // is the whole reason this is a builder and not a constant list.
+            // Nothing in SFTP merges two folders and POSIX replaces a directory
+            // only when it is empty, so a button that offered it would sometimes
+            // delete a tree and sometimes refuse, depending on something the
+            // listing does not show.
+            .alert(
+                String(localized: .iosSftpMoveConflictTitle),
+                isPresented: .init(
+                    // Captured, not read through the model. A Binding's getter
+                    // escapes, so it runs outside the tracking scope, registers
+                    // no dependency, and the warning for that is the one this
+                    // app has already been told off for twice.
+                    get: { pendingMoveConflict != nil },
+                    set: { if !$0 { Task { await model.resolveMove(.cancel) } } }
+                ),
+                presenting: pendingMoveConflict
+            ) { conflict in
+                Button(String(localized: .actionCancel), role: .cancel) {
+                    Task { await model.resolveMove(.cancel) }
+                }
+                Button(String(localized: .actionKeepBoth)) {
+                    Task { await model.resolveMove(.keepBoth) }
+                }
+                if !conflict.involvesFolder {
+                    Button(String(localized: .actionOverwrite), role: .destructive) {
+                        Task { await model.resolveMove(.overwrite) }
+                    }
+                }
+            } message: { conflict in
+                Text(conflict.message)
+            }
             // A full-screen push rather than a sheet: the editor is a place you
             // go, with a keyboard in it, and a sheet would leave the file list
             // peeping out above the thing being typed into.
@@ -201,6 +241,15 @@ struct SFTPScreen: View {
             case .browsing:
                 breadcrumb(model)
                 Divider()
+                if let cut = model.pendingCut {
+                    // `isHere` is worked out here, where the tracking scope is,
+                    // and handed over as a value. Reading `model.path` inside
+                    // the helper earned "Perceptible state '\SFTPModel.path' was
+                    // accessed from a view but is not being tracked" in the test
+                    // log — the same warning the host list paid for once already.
+                    cutBar(cut, isHere: cut.directory == model.path, model: model)
+                    Divider()
+                }
                 listing(model)
 
             // The same two panels the terminal shows, from the same builder, so
@@ -260,6 +309,13 @@ struct SFTPScreen: View {
                     Button(String(localized: .sftpDownloadSelectedCd), systemImage: "arrow.down.circle") {
                         guard let session = model.activeSession else { return }
                         transfers.download(selectedEntries(model), from: model.path, using: session)
+                        leaveSelection()
+                    }
+                    .disabled(selection.isEmpty)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(String(localized: .sftpMenuCut), systemImage: "scissors") {
+                        model.cut(selectedEntries(model))
                         leaveSelection()
                     }
                     .disabled(selection.isEmpty)
@@ -410,6 +466,52 @@ struct SFTPScreen: View {
 
     // MARK: - Pieces
 
+    /// The pending cut, above the listing: what is waiting, where it came from,
+    /// and the two ways out of it.
+    ///
+    /// A row of its own rather than an icon in the toolbar, which is Android's
+    /// reasoning and holds here: a cut is a mode the user is in, and a mode has
+    /// to say what it holds and how to leave it. An icon answers neither.
+    private func cutBar(_ cut: SFTPModel.Cut, isHere: Bool, model: SFTPModel) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "scissors")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Text(
+                String(localized: .iosSftpCutPending)
+                    .replacingOccurrences(of: "%1$d", with: "\(cut.entries.count)")
+                    .replacingOccurrences(of: "%2$@", with: cut.directory)
+            )
+            .font(.footnote)
+            .lineLimit(2)
+            .truncationMode(.head)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Disabled where it would do nothing: pasting into the folder the
+            // entries were cut from. The model treats that as a no-op anyway;
+            // saying so with a greyed button is better than a button that
+            // silently cancels the cut.
+            Button(String(localized: .sftpPaste)) {
+                Task { await model.paste() }
+            }
+            .font(.footnote.weight(.semibold))
+            .disabled(isHere)
+
+            Button {
+                model.cancelCut()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityLabel(Text(.sftpCutCancelCd))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(uiColor: .secondarySystemBackground))
+        .accessibilityIdentifier("sftp-cut-bar")
+    }
+
     private func breadcrumb(_ model: SFTPModel) -> some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
@@ -468,6 +570,24 @@ struct SFTPScreen: View {
                 }
 
                 ForEach(entries) { entry in
+                    // While selecting, the row is not a button at all.
+                    //
+                    // It was one, and it swallowed the tap: a `List` with a
+                    // selection binding ticks a row when the row's own content
+                    // does not take the touch first, and ours did. So in
+                    // selection mode a tap on a file **started a download**
+                    // instead of selecting it — seen in a screenshot, with the
+                    // file in the transfers bar and the circle still empty — and
+                    // the only thing that selected anything was the small circle
+                    // at the leading edge. Which made selecting several files,
+                    // the whole point of the mode, something close to
+                    // unreachable. Android hides the download control in
+                    // selection mode for the same reason: there, the row's job
+                    // is to tick a box.
+                    if editMode.isEditing {
+                        EntryRow(entry: entry, showsDownload: false) {}
+                            .tag(entry.id)
+                    } else {
                     Button {
                         // A folder opens, a file downloads — the Android rule.
                         // The row used to be `.disabled` for files, so tapping
@@ -509,6 +629,12 @@ struct SFTPScreen: View {
                                 editing = model.join(model.path, entry.name)
                             }
                         }
+                        // With Rename rather than with the download actions:
+                        // both are things done to the entry where it lives, and
+                        // neither moves a byte over the network.
+                        Button(String(localized: .sftpMenuCut), systemImage: "scissors") {
+                            model.cut([entry])
+                        }
                         Button(String(localized: .sftpMenuRename), systemImage: "pencil") {
                             renameInput = entry.name
                             renaming = entry
@@ -516,6 +642,7 @@ struct SFTPScreen: View {
                         Button(String(localized: .sftpMenuDelete), systemImage: "trash", role: .destructive) {
                             deleting = entry
                         }
+                    }
                     }
                 }
             }
@@ -541,6 +668,11 @@ struct SFTPScreen: View {
 
 private struct EntryRow: View {
     let entry: SFTPEntry
+
+    /// Whether to draw the download control at all. False while selecting,
+    /// where the row has one job — being ticked — and a second target in it is
+    /// a way to miss.
+    var showsDownload = true
 
     /// Called by the folder's own download button. Files draw the same glyph
     /// without a button behind it: their row tap already downloads, so a second
@@ -577,7 +709,9 @@ private struct EntryRow: View {
             // alone as a hint that a tap brings it down. Android draws exactly
             // this asymmetry: `IconButton` for a directory, bare `Icon` for a
             // file.
-            if entry.isDirectory && !entry.isSymlink {
+            if !showsDownload {
+                EmptyView()
+            } else if entry.isDirectory && !entry.isSymlink {
                 Button(action: onDownload) {
                     Image(systemName: "arrow.down.circle")
                         .font(.body)

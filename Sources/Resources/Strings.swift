@@ -225,6 +225,9 @@ extension LocalizedStringResource {
     /// Host not found
     static let errorHostNotFound = LocalizedStringResource("error_host_not_found")
 
+    /// Move failed
+    static let errorMoveFailed = LocalizedStringResource("error_move_failed")
+
     /// Refresh failed
     static let errorRefreshFailed = LocalizedStringResource("error_refresh_failed")
 
@@ -692,6 +695,12 @@ extension LocalizedStringResource {
 
     /// %1$@ already exists here. Keeping both saves it as %2$@.
     static let iosSftpConflictDetail = LocalizedStringResource("ios_sftp_conflict_detail")
+
+    /// %1$d to move, from %2$@
+    static let iosSftpCutPending = LocalizedStringResource("ios_sftp_cut_pending")
+
+    /// Name already taken
+    static let iosSftpMoveConflictTitle = LocalizedStringResource("ios_sftp_move_conflict_title")
 
     /// Upload…
     static let iosSftpUpload = LocalizedStringResource("ios_sftp_upload")
@@ -1191,12 +1200,6 @@ extension LocalizedStringResource {
     /// Background downloads
     static let sftpBackgroundDownloadsTitle = LocalizedStringResource("sftp_background_downloads_title")
 
-    /// "%1$@" already exists in Downloads. Download skipped.
-    static let sftpBackgroundSkippedExists = LocalizedStringResource("sftp_background_skipped_exists")
-
-    /// %1$d of %2$d files already exist in Downloads. What would you like to do?
-    static let sftpBatchConflictMessage = LocalizedStringResource("sftp_batch_conflict_message")
-
     /// Some files already exist
     static let sftpBatchConflictTitle = LocalizedStringResource("sftp_batch_conflict_title")
 
@@ -1215,11 +1218,11 @@ extension LocalizedStringResource {
     /// Cancelled: %1$@
     static let sftpCancelledAt = LocalizedStringResource("sftp_cancelled_at")
 
-    /// "%1$@" already exists in Downloads/SSHBorg/.
-    static let sftpConflictMessage = LocalizedStringResource("sftp_conflict_message")
-
     /// File already exists
     static let sftpConflictTitle = LocalizedStringResource("sftp_conflict_title")
+
+    /// Cancel the move
+    static let sftpCutCancelCd = LocalizedStringResource("sftp_cut_cancel_cd")
 
     /// Delete file
     static let sftpDeleteFileTitle = LocalizedStringResource("sftp_delete_file_title")
@@ -1275,6 +1278,9 @@ extension LocalizedStringResource {
     /// Hide hidden files
     static let sftpHideHiddenCd = LocalizedStringResource("sftp_hide_hidden_cd")
 
+    /// Cut
+    static let sftpMenuCut = LocalizedStringResource("sftp_menu_cut")
+
     /// Delete
     static let sftpMenuDelete = LocalizedStringResource("sftp_menu_delete")
 
@@ -1299,6 +1305,15 @@ extension LocalizedStringResource {
     /// New folder
     static let sftpMkdirTitle = LocalizedStringResource("sftp_mkdir_title")
 
+    /// %1$d of %2$d names are already taken here, and one of them is a folder: two folders cannot be merged.
+    static let sftpMoveBatchFolderExists = LocalizedStringResource("sftp_move_batch_folder_exists")
+
+    /// A folder called "%1$@" is already here, and two folders cannot be merged.
+    static let sftpMoveFolderExists = LocalizedStringResource("sftp_move_folder_exists")
+
+    /// A folder cannot be moved inside itself.
+    static let sftpMoveIntoItself = LocalizedStringResource("sftp_move_into_itself")
+
     /// %1$d selected
     static let sftpNSelected = LocalizedStringResource("sftp_n_selected")
 
@@ -1310,6 +1325,9 @@ extension LocalizedStringResource {
 
     /// Open the transfer in SSHBorg to see the errors.
     static let sftpNotifySeeDetails = LocalizedStringResource("sftp_notify_see_details")
+
+    /// Paste
+    static let sftpPaste = LocalizedStringResource("sftp_paste")
 
     /// Preparing…
     static let sftpPreparing = LocalizedStringResource("sftp_preparing")
@@ -1325,9 +1343,6 @@ extension LocalizedStringResource {
 
     /// Downloaded %1$d of %2$d
     static let sftpReportDownloadedNOfM = LocalizedStringResource("sftp_report_downloaded_n_of_m")
-
-    /// Could not create the file in Downloads
-    static let sftpReportLocalFileFailed = LocalizedStringResource("sftp_report_local_file_failed")
 
     /// Not attempted: %1$@
     static let sftpReportNotAttempted = LocalizedStringResource("sftp_report_not_attempted")

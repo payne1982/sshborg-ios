@@ -220,20 +220,36 @@ final class SFTPSession: @unchecked Sendable {
         }
     }
 
+    /// Renames an entry, which is also how it is moved: the server does the work
+    /// on its own filesystem and not one byte crosses the network, so a 10 GB
+    /// file moves as fast as an empty one.
+    ///
+    /// **The destination must not already exist**, and that is the caller's job
+    /// to check — with ``lstat(_:)``, before calling this. It is the one place
+    /// where this project's two SFTP clients disagree, which is why the Android
+    /// repo carries `docs/sftp-move.md` about it: SFTP v3 says a rename onto an
+    /// existing name is an error, POSIX `rename(2)` says it replaces the
+    /// destination, and OpenSSH bridges the two with `posix-rename@openssh.com`.
+    /// JSch, on the Android side, switches to that extension whenever the server
+    /// offers it and so **overwrites silently**; this call never does, so it
+    /// **fails** — the same gesture destroying a file on one platform and being
+    /// refused on the other.
+    ///
+    /// The flags that used to be passed here — `OVERWRITE | ATOMIC | NATIVE` —
+    /// were never sent. libssh2 speaks version 3 (`LIBSSH2_SFTP_VERSION 3`) and
+    /// writes the flag word only `if(sftp->version >= 5)`, which is in the
+    /// shipped `sftp.c` and was read there rather than guessed. They are gone
+    /// rather than left as a statement of intent: a constant named `OVERWRITE`
+    /// that cannot overwrite is worse than no constant at all.
     func rename(from source: String, to destination: String) async throws {
         try await run { sftp in
-            let flags = Int(
-                LIBSSH2_SFTP_RENAME_OVERWRITE
-                    | LIBSSH2_SFTP_RENAME_ATOMIC
-                    | LIBSSH2_SFTP_RENAME_NATIVE
-            )
             let result = source.withCString { from in
                 destination.withCString { to in
                     libssh2_sftp_rename_ex(
                         sftp,
                         from, UInt32(strlen(from)),
                         to, UInt32(strlen(to)),
-                        flags
+                        0
                     )
                 }
             }
@@ -241,12 +257,56 @@ final class SFTPSession: @unchecked Sendable {
         }
     }
 
-    /// Attributes of one path, or `nil` when it does not exist.
+    /// Creates a symbolic link. Not offered anywhere in the app: it exists
+    /// because the rule the move feature is built on — check with ``lstat(_:)``,
+    /// never with ``stat(_:)`` — is only demonstrable against a link whose
+    /// target is gone, and a claim about the server that no test can reach is a
+    /// claim nobody is checking.
+    func createSymbolicLink(at path: String, pointingAt target: String) async throws {
+        try await run { sftp in
+            // The argument order is the library's, not the obvious one: for
+            // `LIBSSH2_SFTP_SYMLINK` the first path is what the link points at
+            // and the mutable buffer is the link being created — the same way
+            // round as the `libssh2_sftp_symlink` macro, which reads
+            // `(orig, linkpath)`. Passing them the other way answers
+            // "SFTP operation failed", which is how this was found.
+            var link = Array(path.utf8CString)
+            let result = target.withCString { original in
+                libssh2_sftp_symlink_ex(
+                    sftp,
+                    original, UInt32(strlen(original)),
+                    &link, UInt32(path.utf8.count),
+                    LIBSSH2_SFTP_SYMLINK
+                )
+            }
+            guard result == 0 else { throw Self.error(sftp, path: path) }
+        }
+    }
+
+    /// Attributes of one path, or `nil` when it does not exist. Follows symbolic
+    /// links, so it describes whatever a link points at.
     func stat(_ path: String) async throws -> SFTPEntry? {
+        try await attributes(of: path, following: true)
+    }
+
+    /// Attributes of one path **without following a symbolic link**, or `nil`.
+    ///
+    /// This is the one to ask with before a rename, and the difference is not
+    /// academic: a symbolic link whose target has been deleted still owns its
+    /// name on the server, and ``stat(_:)`` — which follows it — reports nothing
+    /// at all. The name would look free, the rename would be issued, and the
+    /// server would refuse it. `docs/sftp-move.md` in the Android repo says the
+    /// same thing for the same reason.
+    func lstat(_ path: String) async throws -> SFTPEntry? {
+        try await attributes(of: path, following: false)
+    }
+
+    private func attributes(of path: String, following: Bool) async throws -> SFTPEntry? {
         try await run { sftp in
             var attributes = LIBSSH2_SFTP_ATTRIBUTES()
+            let kind = following ? LIBSSH2_SFTP_STAT : LIBSSH2_SFTP_LSTAT
             let result = path.withCString { remote in
-                libssh2_sftp_stat_ex(sftp, remote, UInt32(strlen(remote)), LIBSSH2_SFTP_STAT, &attributes)
+                libssh2_sftp_stat_ex(sftp, remote, UInt32(strlen(remote)), kind, &attributes)
             }
             guard result == 0 else { return nil }
 
@@ -254,7 +314,9 @@ final class SFTPSession: @unchecked Sendable {
             return SFTPEntry(
                 name: (path as NSString).lastPathComponent,
                 isDirectory: (mode & 0o170000) == 0o040000,
-                isSymlink: false,
+                // Always false when the link was followed: there is nothing left
+                // to report, the answer is about the target.
+                isSymlink: !following && (mode & 0o170000) == 0o120000,
                 size: attributes.filesize,
                 modified: attributes.mtime > 0 ? Date(timeIntervalSince1970: Double(attributes.mtime)) : nil,
                 permissions: mode & 0o7777
