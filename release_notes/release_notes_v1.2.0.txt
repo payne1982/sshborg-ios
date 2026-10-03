@@ -2,49 +2,59 @@
 • More room in the terminal: the title bar hides itself and comes back when you tap the screen, so the text takes the whole height (it can be kept fixed in Settings)
 • SFTP: move files and folders on the server — cut them in one folder and paste them in another. The server does the move itself, so even a very large file moves instantly and nothing is downloaded.
 • SFTP: while selecting files, tapping a row now ticks it instead of starting a download.
+• SFTP: tapping a file now opens its menu — download, open in the editor, cut, rename — instead of starting a download straight away. The download icon beside it is a button on every row.
 </en-US>
 <it-IT>
 • Più spazio nel terminale: la barra del titolo si nasconde da sola e torna quando tocchi lo schermo, così il testo occupa tutta l'altezza (si può tenerla fissa nelle impostazioni)
 • SFTP: sposta file e cartelle sul server — li tagli in una cartella e li incolli in un'altra. Lo spostamento lo fa il server, quindi anche un file molto grande si sposta all'istante e non viene scaricato niente.
 • SFTP: durante la selezione, toccare una riga ora la spunta invece di avviare un download.
+• SFTP: toccare un file ora apre il suo menu — scarica, apri nell'editor, taglia, rinomina — invece di avviare subito un download. L'icona di download accanto è un pulsante su ogni riga.
 </it-IT>
 <de-DE>
 • Mehr Platz im Terminal: die Titelleiste blendet sich selbst aus und kommt beim Antippen des Bildschirms zurück, sodass der Text die volle Höhe nutzt (sie lässt sich in den Einstellungen fest einblenden)
 • SFTP: Dateien und Ordner auf dem Server verschieben — in einem Ordner ausschneiden und in einem anderen einfügen. Das Verschieben erledigt der Server, also geht auch eine sehr große Datei sofort und es wird nichts heruntergeladen.
 • SFTP: Beim Auswählen setzt ein Tippen auf eine Zeile jetzt das Häkchen, statt einen Download zu starten.
+• SFTP: Ein Tippen auf eine Datei öffnet jetzt ihr Menü — herunterladen, im Editor öffnen, ausschneiden, umbenennen — statt sofort einen Download zu starten. Das Download-Symbol daneben ist in jeder Zeile eine Schaltfläche.
 </de-DE>
 <es-ES>
 • Más espacio en el terminal: la barra de título se oculta sola y vuelve al tocar la pantalla, de modo que el texto ocupa toda la altura (se puede dejar fija en los ajustes)
 • SFTP: mueve archivos y carpetas en el servidor — los cortas en una carpeta y los pegas en otra. El movimiento lo hace el servidor, así que incluso un archivo muy grande se mueve al instante y no se descarga nada.
 • SFTP: al seleccionar, tocar una fila ahora la marca en lugar de iniciar una descarga.
+• SFTP: tocar un archivo ahora abre su menú — descargar, abrir en el editor, cortar, renombrar — en vez de iniciar una descarga de inmediato. El icono de descarga que hay al lado es un botón en todas las filas.
 </es-ES>
 <fr-FR>
 • Plus de place dans le terminal : la barre de titre se masque d'elle-même et revient quand vous touchez l'écran, si bien que le texte occupe toute la hauteur (elle peut rester fixe dans les réglages)
 • SFTP : déplacez fichiers et dossiers sur le serveur — coupez-les dans un dossier et collez-les dans un autre. C'est le serveur qui effectue le déplacement, donc même un très gros fichier part instantanément et rien n'est téléchargé.
 • SFTP : pendant la sélection, toucher une ligne la coche désormais au lieu de lancer un téléchargement.
+• SFTP : toucher un fichier ouvre désormais son menu — télécharger, ouvrir dans l'éditeur, couper, renommer — au lieu de lancer aussitôt un téléchargement. L'icône de téléchargement à côté est un bouton sur chaque ligne.
 </fr-FR>
 <pt-PT>
 • Mais espaço no terminal: a barra de título esconde-se sozinha e volta quando toca no ecrã, pelo que o texto ocupa toda a altura (pode mantê-la fixa nas definições)
 • SFTP: mova ficheiros e pastas no servidor — corta-os numa pasta e cola-os noutra. A movimentação é feita pelo servidor, por isso até um ficheiro muito grande se move de imediato e nada é transferido.
 • SFTP: durante a seleção, tocar numa linha passa a assinalá-la em vez de iniciar uma transferência.
+• SFTP: tocar num ficheiro abre agora o seu menu — transferir, abrir no editor, cortar, mudar o nome — em vez de iniciar logo uma transferência. O ícone de transferência ao lado é um botão em todas as linhas.
 </pt-PT>
 <uk>
 • Більше місця в терміналі: смужка заголовка ховається сама й повертається, коли торкнутися екрана, тож текст займає всю висоту (її можна залишити завжди видимою в налаштуваннях)
 • SFTP: переміщуйте файли та теки на сервері — вирізаєте в одній теці й вставляєте в іншу. Переміщення виконує сервер, тож навіть дуже великий файл переміщується миттєво й нічого не завантажується.
 • SFTP: під час вибору дотик до рядка тепер позначає його, а не починає завантаження.
+• SFTP: дотик до файлу тепер відкриває його меню — завантажити, відкрити в редакторі, вирізати, перейменувати — замість того, щоб одразу починати завантаження. Піктограма завантаження поруч є кнопкою в кожному рядку.
 </uk>
 <ru-RU>
 • Больше места в терминале: строка заголовка скрывается сама и возвращается при касании экрана, так что текст занимает всю высоту (её можно оставить всегда видимой в настройках)
 • SFTP: перемещайте файлы и папки на сервере — вырезаете в одной папке и вставляете в другой. Перемещение выполняет сам сервер, поэтому даже очень большой файл перемещается мгновенно и ничего не скачивается.
 • SFTP: при выборе нажатие на строку теперь отмечает её, а не начинает скачивание.
+• SFTP: нажатие на файл теперь открывает его меню — скачать, открыть в редакторе, вырезать, переименовать — вместо того чтобы сразу начинать скачивание. Значок скачивания рядом стал кнопкой в каждой строке.
 </ru-RU>
 <zh-CN>
 • 终端空间更大：标题栏会自动收起，轻触屏幕时返回，文本可以占满整个高度（可在设置中让它始终显示）
 • SFTP：在服务器上移动文件和文件夹——在一个文件夹中剪切，在另一个中粘贴。移动由服务器完成，因此即使是很大的文件也能瞬间移动，且不会下载任何内容。
 • SFTP：选择文件时，轻触一行现在是勾选它，而不是开始下载。
+• SFTP：轻触文件现在会打开它的菜单——下载、在编辑器中打开、剪切、重命名——而不是立即开始下载。旁边的下载图标在每一行都是按钮。
 </zh-CN>
 <ja-JP>
 • ターミナルが広くなりました: タイトルバーが自動で隠れ、画面をタップすると戻るので、文字が画面の高さをすべて使えます（設定で常に表示したままにもできます）
 • SFTP: サーバー上でファイルやフォルダを移動できます — あるフォルダで切り取り、別のフォルダに貼り付けます。移動はサーバーが行うため、非常に大きなファイルでも一瞬で移動し、何もダウンロードされません。
 • SFTP: 選択中に行をタップすると、ダウンロードが始まるのではなくチェックが付くようになりました。
+• SFTP: ファイルをタップすると、すぐにダウンロードが始まるのではなく、メニュー（ダウンロード、エディタで開く、切り取り、名前の変更）が開くようになりました。隣のダウンロードアイコンは、どの行でもボタンになりました。
 </ja-JP>
