@@ -75,13 +75,48 @@ final class TerminalTitleBarUITests: XCTestCase {
         let frame = terminal.frame
         let back = app.buttons["terminal-bar-back"]
 
-        // Longer than the three seconds it waits plus the 0.7 it takes to go.
-        // This direction needs no help from the harness: however the timing is
-        // skewed, by now the bar is gone or it never leaves.
-        Thread.sleep(forTimeInterval: longerThanTheWait)
+        // Waited for rather than slept through, because the three seconds now
+        // start at the login and not at the screen: a sleep long enough to
+        // cover a slow connection as well would be a sleep nobody can read.
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: back)
+        waitForExpectations(timeout: 40)
         XCTAssertFalse(back.exists, "the title bar stayed on screen")
         attach(named: "21-bar-gone")
         XCTAssertEqual(terminal.frame, frame, "the terminal resized when the bar left")
+    }
+
+    /// The countdown does not start until the session is up.
+    ///
+    /// With password auth the three seconds used to be spent while the user was
+    /// still typing, so they reached the shell with the bar already gone and no
+    /// way of knowing a tap brings it back. The seeded host for this one is the
+    /// one with no password stored, so the prompt stays up for as long as the
+    /// test needs — which is the whole point: the bar has to still be there
+    /// after longer than it would ever have waited.
+    func testTheBarWaitsForTheConnection() throws {
+        let app = launched(lingerSeconds: nil)
+        let label = ProcessInfo.processInfo.environment["SSHBORG_UITEST_PASSWORD_HOST"]
+            ?? "test-host-password"
+
+        let row = app.staticTexts[label].firstMatch
+        guard row.waitForExistence(timeout: 15) else {
+            throw XCTSkip("no host labelled '\(label)' — seed one with no password stored")
+        }
+        row.tap()
+
+        // The prompt is drawn in the layout, over the terminal, so the bar is
+        // over both of them and the clock would have been running behind it.
+        let password = app.secureTextFields.firstMatch
+        guard password.waitForExistence(timeout: 30) else {
+            throw XCTSkip("that host did not ask for a password:\n\(app.debugDescription)")
+        }
+
+        let back = app.buttons["terminal-bar-back"]
+        XCTAssertTrue(back.exists, "the title bar was not there to begin with")
+
+        Thread.sleep(forTimeInterval: longerThanTheWait * 2)
+        XCTAssertTrue(back.exists, "the title bar retracted while the password was being asked for")
+        attach(named: "23-waiting-for-the-password")
     }
 
     /// Hiding the navigation bar used to take the swipe back with it — the

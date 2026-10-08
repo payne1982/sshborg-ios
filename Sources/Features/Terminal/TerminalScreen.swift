@@ -130,6 +130,7 @@ struct TerminalScreen: View {
         let shown: Bool
         let held: Bool
         let tick: Int
+        let connected: Bool
     }
 
     /// Calls the bar back and re-arms the wait. The tap that does this is a
@@ -297,12 +298,35 @@ struct TerminalScreen: View {
                 .clipped()
             }
         }
-        // The countdown. Restarted from scratch whenever any of these moves,
-        // which is what `task(id:)` is for: a tap that arrives while the bar is
-        // already down must push the moment it goes away, and a finger on the
-        // bar must stop the clock rather than pause it.
-        .task(id: BarWait(enabled: autoHidesBar, shown: isBarShown, held: isBarHeld, tick: barTick)) {
-            guard autoHidesBar, isBarShown, !isBarHeld else { return }
+        // The countdown, which does not start until the session is up.
+        //
+        // It used to run from the moment the screen appeared, and with password
+        // auth that meant the three seconds were spent while the user was still
+        // typing a password — or reading a host key fingerprint — so they
+        // arrived at the shell to find the bar already gone. Never having seen
+        // it, they could not have learnt that a tap brings it back: a bar whose
+        // whole design is to teach its own gesture, shown only to people who
+        // connect with a key and are quick about it. Android shipped the same
+        // mistake in 1.19.0 and was told about it from a tablet; here the
+        // integration host connects with a key, which is exactly why nobody saw
+        // it either.
+        //
+        // Restarted from scratch whenever any part of the identity moves, which
+        // is what `task(id:)` is for: a tap arriving while the bar is already
+        // down must push the moment it goes away, and a finger on the bar must
+        // stop the clock rather than pause it.
+        //
+        // A connection that fails or drops leaves the bar where it is, which is
+        // right: the panel over the terminal then holds the way out, and the
+        // bar beside it holds the way back.
+        .task(id: BarWait(
+            enabled: autoHidesBar,
+            shown: isBarShown,
+            held: isBarHeld,
+            tick: barTick,
+            connected: session.phase == .connected
+        )) {
+            guard autoHidesBar, isBarShown, !isBarHeld, session.phase == .connected else { return }
             try? await Task.sleep(nanoseconds: UInt64(Self.barLinger * 1_000_000_000))
             guard !Task.isCancelled else { return }
             withAnimation(.easeInOut(duration: Self.barExit)) { isBarShown = false }
