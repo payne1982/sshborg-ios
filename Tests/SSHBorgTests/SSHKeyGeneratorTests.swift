@@ -145,6 +145,20 @@ final class SSHKeyGeneratorTests: XCTestCase {
         XCTAssertNotNil(Data(base64Encoded: body))
     }
 
+    /// Seventy, and not the sixty-four a PEM file uses.
+    ///
+    /// What is written here is OpenSSH's own private-key format, not PEM, and
+    /// `ssh-keygen` wraps that at 70 — measured on OpenSSH 10.0p2 by generating
+    /// a key and counting: lines of 70 and a short last one. RFC 7468's 64 is
+    /// the number this is most likely to be "corrected" to, which is why the
+    /// reason is written down next to the assertion.
+    ///
+    /// It is also a cross-platform agreement now. The Android app wrote 64 from
+    /// its first commit, which meant the same key was two different files
+    /// depending on which app had made it; it was reported from here on
+    /// 09/10/2026 and moved to 70. Nothing parses differently either way — every
+    /// reader ignores the line breaks — so this test is the only thing holding
+    /// the two together.
     func testArmourWrapsAtSeventyColumns() throws {
         let key = try SSHKeyGenerator.generate(type: .rsa, bits: 2048)
         let bodyLines = key.privateKeyPEM
