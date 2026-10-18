@@ -77,6 +77,93 @@ final class TerminalTouchSettingsTests: XCTestCase {
         )
     }
 
+    // MARK: - The rows the title bar lies over (#19)
+
+    /// Rounded up, because a row half covered is a row that cannot be read.
+    /// Android's `rowsCovering` does the same with the same `ceil`.
+    func testTheBarCoversWholeRowsRoundedUp() {
+        // 24 rows in 480 points is a cell 20 points tall, so the 44-point bar
+        // lies over two whole rows and part of a third.
+        XCTAssertEqual(TerminalSession.rowsCovered(by: 44, viewHeight: 480, rows: 24), 3)
+        XCTAssertEqual(TerminalSession.rowsCovered(by: 40, viewHeight: 480, rows: 24), 2)
+        XCTAssertEqual(TerminalSession.rowsCovered(by: 0.5, viewHeight: 480, rows: 24), 1)
+    }
+
+    /// The fixed bar covers nothing, and neither does a grid that has not been
+    /// laid out yet — there is no cell height to divide by, so there is no
+    /// answer, and a guess would push the login down for nothing.
+    func testNothingIsCoveredWithoutABarOrALayout() {
+        XCTAssertEqual(TerminalSession.rowsCovered(by: 0, viewHeight: 480, rows: 24), 0)
+        XCTAssertEqual(TerminalSession.rowsCovered(by: 44, viewHeight: 0, rows: 24), 0)
+        XCTAssertEqual(TerminalSession.rowsCovered(by: 44, viewHeight: 480, rows: 0), 0)
+    }
+
+    /// And never the whole grid: a terminal squeezed shorter than the bar —
+    /// Split View dragged almost shut — must keep a row to write the prompt on,
+    /// or the padding would scroll the login away as it wrote it.
+    func testTheGridKeepsARowToWriteOn() {
+        XCTAssertEqual(TerminalSession.rowsCovered(by: 10_000, viewHeight: 480, rows: 24), 23)
+        XCTAssertEqual(TerminalSession.rowsCovered(by: 44, viewHeight: 20, rows: 1), 0)
+    }
+
+    /// A tab is created with the bar covering nothing: the screen is what knows
+    /// whether the bar is ours, and it says so before the first connection.
+    func testATabStartsAssumingNoBar() {
+        XCTAssertEqual(session.titleBarOverlap, 0)
+    }
+
+    /// The login begins below the bar: the cursor is as many rows down as the
+    /// bar covers before the first byte of the banner arrives.
+    ///
+    /// The expected row is computed from the view's own geometry rather than
+    /// written down, because the cell height belongs to the font and the layout
+    /// — what this pins is that the rows are really written, that they are the
+    /// number the bar covers, and that the cursor moved rather than the grid
+    /// scrolling.
+    func testTheFirstLoginStartsBelowTheBar() {
+        let terminal = session.terminalView
+        terminal.frame = CGRect(x: 0, y: 0, width: 390, height: 600)
+        terminal.layoutSubviews()
+
+        let expected = TerminalSession.rowsCovered(
+            by: 44,
+            viewHeight: terminal.bounds.height,
+            rows: terminal.getTerminal().rows
+        )
+        XCTAssertGreaterThan(expected, 0, "a 44-point bar over a 600-point grid covers no row")
+        XCTAssertEqual(terminal.getTerminal().getCursorLocation().y, 0)
+
+        session.titleBarOverlap = 44
+        session.startBelowTheTitleBar()
+        XCTAssertEqual(terminal.getTerminal().getCursorLocation().y, expected)
+    }
+
+    /// And only at the first login. A reconnect arrives with the previous
+    /// session's output on screen, where blank rows would be noise.
+    func testAReconnectIsNotPushedDownAgain() {
+        let terminal = session.terminalView
+        terminal.frame = CGRect(x: 0, y: 0, width: 390, height: 600)
+        terminal.layoutSubviews()
+
+        session.titleBarOverlap = 44
+        session.startBelowTheTitleBar()
+        let afterLogin = terminal.getTerminal().getCursorLocation().y
+
+        session.startBelowTheTitleBar()
+        XCTAssertEqual(terminal.getTerminal().getCursorLocation().y, afterLogin)
+    }
+
+    /// With the system's bar nothing is written at all: the terminal starts
+    /// below it, so there is nothing to make room for.
+    func testTheFixedBarWritesNothing() {
+        let terminal = session.terminalView
+        terminal.frame = CGRect(x: 0, y: 0, width: 390, height: 600)
+        terminal.layoutSubviews()
+
+        session.startBelowTheTitleBar()
+        XCTAssertEqual(terminal.getTerminal().getCursorLocation().y, 0)
+    }
+
     // MARK: - Scrollback
 
     func testTheScrollbackSettingReachesTheTerminal() {

@@ -118,6 +118,16 @@ struct TerminalScreen: View {
     /// it.
     private static let barExit: Double = 0.7
 
+    /// How tall the bar is, which is how much of the grid it lies over.
+    ///
+    /// A constant and not a measurement, unlike Android, where the bar is a
+    /// `TopAppBar` whose height belongs to Material and which carries the
+    /// status-bar inset the terminal also carries, so the overlap has to be
+    /// measured and that shared strip subtracted. Here the bar is ours, this
+    /// number is where its height comes from, and it sits inside the same safe
+    /// area as the terminal — its top edge *is* the grid's first row.
+    private static let barHeight: CGFloat = 44
+
     /// Whether the title bar is ours and retracts, or the system's and stays.
     private var autoHidesBar: Bool {
         environment.preferences.terminalBarAutoHide
@@ -191,7 +201,7 @@ struct TerminalScreen: View {
                 .padding(.horizontal, 56)
                 .allowsHitTesting(false)
         }
-        .frame(height: 44)
+        .frame(height: Self.barHeight)
         .frame(maxWidth: .infinity)
         .background(Color(uiColor: .systemBackground))
         .overlay(alignment: .bottom) { Divider() }
@@ -451,8 +461,18 @@ struct TerminalScreen: View {
         .task(id: session.id) {
             // Only drive the first connection; a reconnect is user-initiated.
             if session.phase == .connecting {
+                session.titleBarOverlap = autoHidesBar ? Self.barHeight : 0
                 await session.connect()
             }
+        }
+        // The same value again, because the session reconnects by itself — the
+        // app coming back to a link that dropped while it was away does not
+        // come through the task above — and the preference can have moved in
+        // between. In both places rather than only in this one: the order two
+        // `task` modifiers run in is SwiftUI's business, and the first login is
+        // the one moment the value has to already be right.
+        .task(id: autoHidesBar) {
+            session.titleBarOverlap = autoHidesBar ? Self.barHeight : 0
         }
         .task(id: session.phase == .connected) {
             // History comes over its own SFTP connection, so it can only be

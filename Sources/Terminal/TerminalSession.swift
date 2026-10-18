@@ -122,6 +122,16 @@ final class TerminalSession: Identifiable {
     /// terminal object carries before it has ever been laid out.
     @PerceptionIgnored private var measuredSize: (columns: Int, rows: Int)?
 
+    /// How much of the grid's top the retracting title bar lies over, in points,
+    /// as the screen draws it — 0 when the bar is the system's and the terminal
+    /// starts below it. Set by ``TerminalScreen``; read once per connection, by
+    /// ``connect(password:acceptHostKey:)``.
+    @PerceptionIgnored var titleBarOverlap: CGFloat = 0
+
+    /// Set once a shell has come up on this tab, so the rows left clear under
+    /// the title bar are written at the first login and never again.
+    @PerceptionIgnored private var hasLoggedIn = false
+
     @PerceptionIgnored private var forwarder: PortForwarder?
     @PerceptionIgnored private var forwardingTask: Task<Void, Never>?
 
@@ -280,6 +290,7 @@ final class TerminalSession: Identifiable {
             try? await persistAfterConnect(hostKey: session.hostKey)
             await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
             startForwarding(params)
+            startBelowTheTitleBar()
             startReading(from: channel)
         } catch SSHError.unknownHostKey(let info) {
             phase = .needsHostKeyApproval(info, isChange: false)
@@ -412,6 +423,62 @@ final class TerminalSession: Identifiable {
             try await hosts.updateKnownHostsEntry(id: id, to: hostKey.knownHostsLine)
         }
         try await hosts.recordConnection(id: id)
+    }
+
+    /// Begins the session as many rows down as the title bar covers, before the
+    /// first byte of the login banner arrives.
+    ///
+    /// A login that prints two lines left both of them under a bar that has yet
+    /// to retract, and the screen read as empty until it did. Nothing is sent to
+    /// the server and nothing is lost: the cursor simply starts further down.
+    ///
+    /// Everything shifts, not only what would have been hidden. The padding has
+    /// to be written before there is any output to measure, and shifting the
+    /// whole banner costs nothing, while shifting the minimum would deliberately
+    /// keep its first lines under the bar.
+    ///
+    /// Only ever at the first login of a tab. A reconnect — the app coming back
+    /// to a link that died while it was away, or Reconnect on a dropped one —
+    /// arrives with the previous session's output on screen, and blank rows
+    /// pushed into the middle of that would be noise rather than room. Android
+    /// draws the same line, from the other side: its padding is in `connect` and
+    /// not in `startReading`, "which also runs for a session being picked up
+    /// again after the app was away: that one already has its output on screen
+    /// and must not be nudged". A retry that never got as far as a shell has
+    /// written nothing, so it still counts as the first.
+    ///
+    /// Internal rather than private so a test can call it: the rows it writes
+    /// are the whole of the feature, and the alternative — a live login, read
+    /// back from the screen — is not available. The terminal is a `textView` to
+    /// XCUITest but its `value` is empty, measured on 18/10/2026: a UI test
+    /// asserting on the grid's text failed with nothing in it to assert on.
+    func startBelowTheTitleBar() {
+        guard !hasLoggedIn else { return }
+        hasLoggedIn = true
+
+        let covered = Self.rowsCovered(
+            by: titleBarOverlap,
+            viewHeight: terminalView.bounds.height,
+            rows: terminalView.getTerminal().rows
+        )
+        guard covered > 0 else { return }
+        terminalView.feed(text: String(repeating: "\n", count: covered))
+    }
+
+    /// How many whole rows something `points` tall, lying over the top of the
+    /// grid, hides.
+    ///
+    /// Rounded up, because a row half covered is a row that cannot be read, and
+    /// never the whole grid: a bar taller than the terminal — a split view
+    /// narrowed to nothing — must still leave a row to write on.
+    ///
+    /// The cell height comes from dividing, as everywhere else in the terminal:
+    /// SwiftTerm's own cell size is not reachable from here. Zero before the
+    /// first layout, when there is no height to divide and so no answer.
+    static func rowsCovered(by points: CGFloat, viewHeight: CGFloat, rows: Int) -> Int {
+        guard points > 0, viewHeight > 0, rows > 0 else { return 0 }
+        let cell = viewHeight / CGFloat(rows)
+        return min(Int((points / cell).rounded(.up)), rows - 1)
     }
 
     // MARK: - Streaming
