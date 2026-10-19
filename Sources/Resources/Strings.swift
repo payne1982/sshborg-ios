@@ -669,6 +669,12 @@ extension LocalizedStringResource {
     /// Generate a key, or import one you already use.
     static let iosKeysEmptyHint = LocalizedStringResource("ios_keys_empty_hint")
 
+    /// That file could not be read as text.
+    static let iosKeysFileNotText = LocalizedStringResource("ios_keys_file_not_text")
+
+    /// That file could not be opened.
+    static let iosKeysFileUnopenable = LocalizedStringResource("ios_keys_file_unopenable")
+
     /// Fingerprint
     static let iosKeysFingerprint = LocalizedStringResource("ios_keys_fingerprint")
 

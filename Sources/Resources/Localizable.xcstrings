@@ -2538,6 +2538,7 @@
       }
     },
     "biometric_prompt_title": {
+      "comment": "English only on purpose, and not an oversight: the value is the app's own name, which is the same in every language. Face ID shows it as the reason for the prompt.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -13941,12 +13942,67 @@
       }
     },
     "ios_jailbreak_warning_body": {
+      "comment": "iOS only. Adapted from Android's reviewed `root_warning_body`, sentence for sentence, with the rooted device made a jailbroken one and the Keystore the keychain — so the wording that was reviewed there carries over, and only the three terms that differ are new.",
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Gerät scheint per Jailbreak geöffnet zu sein. Auf einem solchen Gerät ist der Schutz geschwächt, den der Schlüsselbund gespeicherten Schlüsseln und Passwörtern gibt, und andere Software könnte sie lesen. Vorsicht geboten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This device appears to be jailbroken. On a jailbroken device the protection the keychain gives stored keys and passwords is weakened, and other software may be able to read them. Proceed with caution."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este dispositivo parece tener jailbreak. En un dispositivo con jailbreak, la protección que el llavero da a las claves y contraseñas guardadas está debilitada y otro software podría leerlas. Procede con precaución."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet appareil semble être débridé (jailbreak). Sur un appareil débridé, la protection que le trousseau offre aux clés et aux mots de passe enregistrés est affaiblie et d'autres logiciels pourraient les lire. Procédez avec prudence."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo dispositivo sembra avere il jailbreak. Su un dispositivo con jailbreak la protezione che il portachiavi dà alle chiavi e alle password salvate è ridotta e altro software potrebbe leggerle. Procedi con cautela."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このデバイスは脱獄（Jailbreak）されているようです。脱獄されたデバイスでは、保存された鍵やパスワードをキーチェーンが守る力が弱まり、他のソフトウェアから読み取られる可能性があります。注意して使用してください。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este dispositivo parece ter jailbreak. Num dispositivo com jailbreak, a proteção que o porta-chaves dá às chaves e palavras-passe guardadas está enfraquecida e outro software pode lê-las. Proceda com cautela."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Похоже, на этом устройстве сделан джейлбрейк. На устройствах с джейлбрейком защита, которую связка ключей даёт сохранённым ключам и паролям, ослаблена, и другое программное обеспечение может их прочитать. Продолжайте с осторожностью."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Схоже, цей пристрій має джейлбрейк. На пристроях із джейлбрейком захист, який в'язка ключів дає збереженим ключам і паролям, послаблений, і інше програмне забезпечення може їх прочитати. Будьте обережні."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此设备似乎已越狱。在越狱设备上，钥匙串对已保存的密钥和密码的保护会被削弱，其他软件可能读取它们。请谨慎使用。"
           }
         }
       }
@@ -14211,6 +14267,138 @@
           "stringUnit": {
             "state": "translated",
             "value": "生成一个密钥，或导入已在使用的密钥。"
+          }
+        }
+      }
+    },
+    "ios_keys_file_not_text": {
+      "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Datei konnte nicht als Text gelesen werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That file could not be read as text."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha podido leer ese archivo como texto."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier n'a pas pu être lu comme du texte."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non è stato possibile leggere quel file come testo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのファイルをテキストとして読み込めませんでした。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível ler esse ficheiro como texto."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать этот файл как текст."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося прочитати цей файл як текст."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法以文本方式读取该文件。"
+          }
+        }
+      }
+    },
+    "ios_keys_file_unopenable": {
+      "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Datei konnte nicht geöffnet werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That file could not be opened."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha podido abrir ese archivo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier n'a pas pu être ouvert."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non è stato possibile aprire quel file."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのファイルを開けませんでした。"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível abrir esse ficheiro."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть этот файл."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося відкрити цей файл."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开该文件。"
           }
         }
       }
@@ -14546,23 +14734,133 @@
       }
     },
     "ios_session_status_needs_host_key": {
+      "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartet auf die Bestätigung des Hostschlüssels"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Waiting for host key approval"
           }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando la aprobación de la clave del host"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de la validation de la clé de l'hôte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa dell'approvazione della chiave host"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホスト鍵の承認待ち"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À espera da aprovação da chave do host"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ожидание подтверждения ключа хоста"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очікування підтвердження ключа хоста"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待确认主机密钥"
+          }
         }
       }
     },
     "ios_session_status_needs_password": {
+      "comment": "iOS only — no Android counterpart. Translated for this app rather than imported, so unlike the rest it has not been through the Android app's review. Worth checking with a native speaker before release.",
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartet auf ein Passwort"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Waiting for a password"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando una contraseña"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente d'un mot de passe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa di una password"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスワードの入力待ち"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À espera de uma palavra-passe"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ожидание пароля"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очікування пароля"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待输入密码"
           }
         }
       }

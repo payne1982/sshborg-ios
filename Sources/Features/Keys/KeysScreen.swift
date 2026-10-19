@@ -352,7 +352,7 @@ private struct KeyImportSheet: View {
 
                 // A file outside the sandbox needs its access explicitly opened.
                 guard url.startAccessingSecurityScopedResource() else {
-                    error = "That file could not be opened."
+                    error = String(localized: .iosKeysFileUnopenable)
                     return
                 }
                 defer { url.stopAccessingSecurityScopedResource() }
@@ -360,7 +360,7 @@ private struct KeyImportSheet: View {
                 do {
                     text = try String(contentsOf: url, encoding: .utf8)
                 } catch {
-                    self.error = "That file could not be read as text."
+                    self.error = String(localized: .iosKeysFileNotText)
                 }
             }
             .alert(String(localized: .keysImportErrorInvalid), isPresented: .init(
