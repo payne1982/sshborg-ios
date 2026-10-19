@@ -21,7 +21,9 @@ final class TerminalSession: Identifiable {
     enum Phase: Equatable {
         case connecting
         case connected
-        case needsPassword
+        /// The server is asking for a password. Carries the banner it sent, so
+        /// what it had to say is in front of the person before they type.
+        case needsPassword(banner: String?)
         case needsHostKeyApproval(HostKeyInfo, isChange: Bool)
         case failed(String)
         case disconnected(reason: String?)
@@ -117,6 +119,24 @@ final class TerminalSession: Identifiable {
     /// survive a prompt, not to be a stored credential. Saving a password is a
     /// separate, deliberate act in the host editor.
     @PerceptionIgnored private var passwordForThisAttempt: String?
+
+    /// The `known_hosts` line the user looked at and accepted, until a shell
+    /// comes up and writes it down for good.
+    ///
+    /// A first connection to a host asks two questions in a row, and here each
+    /// answer costs a connection: the key is accepted, the next attempt gets as
+    /// far as the password and stops to ask, and the attempt after that would
+    /// arrive at an *unknown* key again — the key is only stored once a session
+    /// is up. So the acceptance is carried across the password prompt, the way
+    /// the typed password used to be carried across the key prompt before the
+    /// two changed order.
+    ///
+    /// Carried as the key itself and not as a yes, which is what makes it safe
+    /// to keep past a failed attempt: a later attempt asks for that exact key
+    /// to come back rather than accepting whatever answers. A typo in the
+    /// password therefore costs a retry and not a second look at the
+    /// fingerprint.
+    @PerceptionIgnored private var acceptedHostKey: String?
 
     /// The last size the view actually reported, as opposed to the one the
     /// terminal object carries before it has ever been laid out.
@@ -228,15 +248,21 @@ final class TerminalSession: Identifiable {
     func connect(password: String? = nil, acceptHostKey: Bool = false) async {
         closedByUser = false
         endedByRemote = false
+        // The Trust button has only a yes to hand back, so the key it was
+        // shown is taken from the question still on screen.
+        if acceptHostKey, case .needsHostKeyApproval(let info, _) = phase {
+            acceptedHostKey = info.knownHostsLine
+        }
         phase = .connecting
 
+        // Nothing stored means the password is asked for from *inside* the
+        // connection, once the server has said who it is and what it will
+        // accept: that is the only moment its banner exists, and it also means
+        // the host has answered before anyone types anything. See
+        // ``SSHAuth/deferred``.
         let auth: SSHAuth
         do {
-            guard let resolved = try await resolveAuth(typedPassword: password) else {
-                phase = .needsPassword
-                return
-            }
-            auth = resolved
+            auth = try await resolveAuth(typedPassword: password) ?? .deferred
         } catch {
             phase = .failed(error.localizedDescription)
             return
@@ -272,8 +298,11 @@ final class TerminalSession: Identifiable {
             self.channel = channel
             phase = .connected
             // Nothing else needs the credential now: the history is read on this
-            // very session, so there is no second login to hold one for.
+            // very session, so there is no second login to hold one for. The
+            // key is written down a few lines below, so the acceptance that was
+            // standing in for it is finished too.
             passwordForThisAttempt = nil
+            acceptedHostKey = nil
 
             // Open a session and the keyboard is there, as on Android, where the
             // terminal takes focus on attach and `reattachIme()` raises the IME.
@@ -292,6 +321,8 @@ final class TerminalSession: Identifiable {
             startForwarding(params)
             startBelowTheTitleBar()
             startReading(from: channel)
+        } catch SSHError.needsPassword(let banner) {
+            phase = .needsPassword(banner: banner)
         } catch SSHError.unknownHostKey(let info) {
             phase = .needsHostKeyApproval(info, isChange: false)
         } catch SSHError.hostKeyMismatch(let info) {
@@ -410,6 +441,7 @@ final class TerminalSession: Identifiable {
 
     private func hostKeyPolicy(acceptHostKey: Bool) -> HostKeyPolicy {
         if acceptHostKey { return .acceptOnce }
+        if let accepted = acceptedHostKey { return .requireMatch(accepted) }
         guard let stored = host.knownHostsEntry, !stored.isEmpty else { return .promptIfUnknown }
         return .requireMatch(stored)
     }
@@ -590,9 +622,10 @@ final class TerminalSession: Identifiable {
         // flattens the double optional, so the `auth != nil` beside it was
         // always true and warned as much.
         //
-        // `connect()` already tells the two apart — nil becomes `.needsPassword`
-        // and a throw becomes `.failed` with the reason — so the decision lives
-        // in one place instead of being made twice and disagreeing.
+        // `connect()` already tells the two apart — nothing stored becomes a
+        // question the server itself raises, `.needsPassword`, and a throw
+        // becomes `.failed` with the reason — so the decision lives in one
+        // place instead of being made twice and disagreeing.
         //
         // What that check also guaranteed still holds, structurally rather than
         // by inspection: a password typed by hand is never reused here, because
@@ -667,6 +700,7 @@ final class TerminalSession: Identifiable {
     func disconnect() {
         closedByUser = true
         passwordForThisAttempt = nil
+        acceptedHostKey = nil
         readerTask?.cancel()
         readerTask = nil
         channel?.close()

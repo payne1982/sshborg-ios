@@ -288,7 +288,15 @@ struct TerminalScreen: View {
                 // it here would make each switch a teardown, and the keyboard
                 // would drop every time. See TerminalHostView.
 
+            // Under the bar rather than behind it. The panel sits at the top of
+            // the terminal and so does the bar, and the bar is drawn last — so
+            // the question's first line was half hidden behind it, and stayed
+            // there: the bar does not retract until a session is up, which is
+            // exactly what a question means has not happened. Measured on the
+            // simulator on 19/10/2026, with the password prompt: the headline
+            // ran from y=89 under a bar covering 62 to 106.
             overlay(for: session)
+                .padding(.top, autoHidesBar && isBarShown ? Self.barHeight : 0)
 
             // Drawn over the terminal's first rows rather than above them, so
             // the grid underneath never changes size. Last in the stack, so it
@@ -547,12 +555,13 @@ struct TerminalScreen: View {
                 onReject: { manager.close(session) }
             )
 
-        case .needsPassword:
+        case .needsPassword(let banner):
             // Same panel as the host key prompt above, for the reasons and the
             // pixel measurements recorded in `ConnectionPrompt`.
             ConnectionPrompt.password(
                 for: session.host.username,
                 at: session.host.hostname,
+                banner: banner,
                 text: $passwordInput,
                 isFocused: $isPasswordFocused,
                 onConnect: { submitPassword(for: session) },

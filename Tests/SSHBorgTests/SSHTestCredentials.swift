@@ -62,6 +62,18 @@ enum SSHTestCredentials {
         )
     }
 
+    /// A port on the same host whose server sends a banner, when one has been
+    /// set up for the run.
+    ///
+    /// Separate because a banner is a server's configuration, not the app's: the
+    /// ordinary test host has none, and adding one to it would change what every
+    /// other suite sees. A throwaway `sshd` with `Banner` set, run as an
+    /// ordinary user on a spare port, is enough — it never authenticates anyone,
+    /// and what is being measured here happens before authentication.
+    static func bannerPort() -> Int? {
+        setting("SSHBORG_TEST_BANNER_PORT").flatMap(Int.init)
+    }
+
     /// Message for `XCTSkip`, naming what is missing so a skipped suite does not
     /// look like a passing one.
     static let skipReason = """

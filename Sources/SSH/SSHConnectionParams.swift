@@ -6,6 +6,28 @@ import Foundation
 enum SSHAuth: Equatable {
     case password(String)
     case publicKey(privateKeyPEM: String, passphrase: String? = nil)
+
+    /// Nothing in hand: the password has to be asked for.
+    ///
+    /// A connection made with this stops once the server has said who it is and
+    /// what it will accept, and reports back with ``SSHError/needsPassword(banner:)``
+    /// — carrying the banner, which is the only reason the stop exists. A
+    /// banner arrives *during* authentication, so a prompt raised before the
+    /// connect has nothing to show; asking from here also means the host is
+    /// known to be reachable before anyone types anything.
+    ///
+    /// Android calls this `SshAuth.Interactive` and keeps the connection open,
+    /// asking from inside it through a JSch callback. This stops and is retried
+    /// instead, which is the same shape the host key question already has here
+    /// — see ``HostKeyPolicy`` for why: the SSH layer stays free of reentrancy
+    /// into the UI, and both outcomes stay testable. The cost is one extra
+    /// handshake per answer, the same one the host key question already pays.
+    ///
+    /// A hop with no credentials of its own inherits this, as it inherits a
+    /// password, so a chain whose bastion asks is answered the same way: the
+    /// question is raised for whichever server asks first, and the answer is
+    /// then used by every hop.
+    case deferred
 }
 
 /// One key a forwarded agent will offer and sign with.

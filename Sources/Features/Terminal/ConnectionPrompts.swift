@@ -20,7 +20,8 @@ import SwiftUI
 /// that and the other not, both use the opaque panel.
 enum ConnectionPrompt {
 
-    /// Asks for a password, with the field already focused.
+    /// Asks for a password, with the field already focused and whatever the
+    /// server said on the way in above it.
     ///
     /// `onSubmit` and the Connect button do the same thing on purpose: a
     /// keyboard's Go key and a button that says Connect are the same intention.
@@ -28,6 +29,7 @@ enum ConnectionPrompt {
     static func password(
         for user: String,
         at hostname: String,
+        banner: String?,
         text: Binding<String>,
         isFocused: FocusState<Bool>.Binding,
         onConnect: @escaping () -> Void,
@@ -39,6 +41,14 @@ enum ConnectionPrompt {
                 .replacingOccurrences(of: "%1$@", with: "\(user)@\(hostname)"),
             actions: AnyView(
                 VStack(alignment: .leading, spacing: 10) {
+                    // Above the field, because a banner read after typing is a
+                    // banner that was never read: the server's terms, or the
+                    // warning that this is the wrong machine, have to be in
+                    // front of the person while the field is still empty.
+                    if let banner, !banner.isEmpty {
+                        ServerBannerView(text: banner)
+                    }
+
                     SecureField(String(localized: .hostFieldPassword), text: text)
                         .textFieldStyle(.roundedBorder)
                         .plainTextEntry()

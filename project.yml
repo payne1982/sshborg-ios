@@ -244,6 +244,9 @@ schemes:
         # in a password reads as a reference to another setting, and the test
         # receives something else. Measured: 16 characters in, 33 out.
         SSHBORG_TEST_PASSWORD_B64: $(SSHBORG_TEST_PASSWORD_B64)
+        # A spare port on the same host whose server sends a banner. Set up for
+        # a run and taken down after it — see `ServerBannerTests`.
+        SSHBORG_TEST_BANNER_PORT: $(SSHBORG_TEST_BANNER_PORT)
       targets:
         - SSHBorgTests
         - SSHBorgUITests

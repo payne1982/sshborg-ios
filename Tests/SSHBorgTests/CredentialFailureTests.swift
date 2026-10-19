@@ -16,8 +16,11 @@ import XCTest
 /// text offers "it may be corrupt, or the passphrase may be wrong" about a
 /// passphrase nobody was ever asked for.
 ///
-/// No server needed: `connect()` resolves the credential before it opens a
-/// socket, so everything here happens long before the network.
+/// Resolving the credential still happens before any socket is opened, so the
+/// three *key* failures here never reach the network. The fourth case — nothing
+/// stored at all — does, and deliberately: since 19/10/2026 the password is
+/// asked for by the server, from inside the connection, which is the only place
+/// its banner exists.
 @MainActor
 final class CredentialFailureTests: XCTestCase {
 
@@ -31,16 +34,27 @@ final class CredentialFailureTests: XCTestCase {
         keys = SSHKeyRepository(database)
     }
 
-    /// A host with no key and nothing saved is a fair question, and stays one.
-    func testNothingSavedStillAsksForAPassword() async throws {
+    /// A host with no key and nothing saved is a fair question — and it is now
+    /// the server that is left to ask it.
+    ///
+    /// The prompt used to come up here, before any socket existed. It costs
+    /// nothing to ask blind and it was wrong twice over: there is no banner to
+    /// show before the connection, and no sign the host is even reachable, so
+    /// people typed a password for a machine that was switched off. A host that
+    /// resolves to nothing therefore ends at the network now, which is what
+    /// this says out loud.
+    func testNothingSavedGoesToTheServerRatherThanAskingBlind() async throws {
         let host = Host(label: "bare", hostname: "example.invalid", username: "user")
         let session = TerminalSession(host: try await hosts.save(host), hosts: hosts, keys: keys)
 
         await session.connect()
 
-        XCTAssertEqual(
-            session.phase, .needsPassword,
-            "with nothing stored there is nothing to report — asking is the right answer"
+        guard case .failed(let reason) = session.phase else {
+            return XCTFail("expected the unreachable host to be reported, got \(session.phase)")
+        }
+        XCTAssertTrue(
+            reason.contains("connect"),
+            "it should have failed at the network, not before it: \(reason)"
         )
 
         session.disconnect()
@@ -71,10 +85,14 @@ final class CredentialFailureTests: XCTestCase {
             "the host has to fall back to password auth, not point at a key that is gone"
         )
 
-        // And what that means at the connection: a fair question, not an error.
+        // And what that means at the connection: a fair question for the server
+        // to ask, not an error — so this one goes to the network like any other
+        // host with nothing stored.
         let session = TerminalSession(host: try XCTUnwrap(reloaded), hosts: hosts, keys: keys)
         await session.connect()
-        XCTAssertEqual(session.phase, .needsPassword)
+        if case .failed = session.phase {} else {
+            XCTFail("expected the connection to be attempted, got \(session.phase)")
+        }
         session.disconnect()
     }
 

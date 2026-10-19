@@ -104,6 +104,13 @@ final class TerminalTitleBarUITests: XCTestCase {
         }
         row.tap()
 
+        // The key question comes first since 19/10/2026 — the password is asked
+        // for by the server now — so it is answered on the way to the prompt.
+        // Without this the test skipped itself rather than failing, which is
+        // coverage disappearing quietly.
+        let trust = app.buttons["Trust"].firstMatch
+        if trust.waitForExistence(timeout: 20) { trust.tap() }
+
         // The prompt is drawn in the layout, over the terminal, so the bar is
         // over both of them and the clock would have been running behind it.
         let password = app.secureTextFields.firstMatch

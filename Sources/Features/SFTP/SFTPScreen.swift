@@ -255,10 +255,11 @@ struct SFTPScreen: View {
             // The same two panels the terminal shows, from the same builder, so
             // one question does not look like two different things depending on
             // which screen asked it. They used to be system alerts here.
-            case .needsPassword:
+            case .needsPassword(let banner):
                 ConnectionPrompt.password(
                     for: host.username,
                     at: host.hostname,
+                    banner: banner,
                     text: $passwordInput,
                     isFocused: $isPasswordFocused,
                     onConnect: {

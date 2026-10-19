@@ -915,6 +915,9 @@ extension LocalizedStringResource {
     /// Password
     static let passwordFieldLabel = LocalizedStringResource("password_field_label")
 
+    /// Message from the server
+    static let passwordServerBanner = LocalizedStringResource("password_server_banner")
+
     /// Before using SSHBorg, please review our Privacy Policy. SSHBorg stores all data local…
     static let privacyPolicyDialogBody = LocalizedStringResource("privacy_policy_dialog_body")
 

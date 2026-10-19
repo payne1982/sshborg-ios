@@ -393,6 +393,9 @@ final class SSHSession: @unchecked Sendable {
         let username = params.username
 
         switch params.auth {
+        case .deferred:
+            try askTheCaller(session: session, username: username)
+
         case .password(let password):
             try authenticateWithPassword(
                 session: session,
@@ -426,6 +429,51 @@ final class SSHSession: @unchecked Sendable {
         guard libssh2_userauth_authenticated(session) == 1 else {
             throw SSHError.authenticationFailed("the server did not accept the credentials")
         }
+    }
+
+    /// Stops the connection to ask for a password, with whatever the server said
+    /// on the way in.
+    ///
+    /// The one round trip here is the `none` request every client makes to learn
+    /// what a server will accept, and it is also what carries the banner:
+    /// libssh2 only keeps one if it arrives in answer to that request, which is
+    /// where OpenSSH sends it. So the list and the banner come together or not
+    /// at all.
+    ///
+    /// Three outcomes, and only the last is the ordinary one. A server that
+    /// accepts `none` has already let us in and is left alone. A server that
+    /// offers no password method is a dead end, and saying so is better than
+    /// asking for something it will refuse — a host configured here for a
+    /// password but set to `publickey` on the far side used to answer the typed
+    /// password with "Authentication failed (username/password)", which reads
+    /// like a typo.
+    private static func askTheCaller(session: OpaquePointer, username: String) throws {
+        let offered = offeredAuthMethods(session: session, username: username)
+        let banner = serverBanner(session: session)
+
+        if libssh2_userauth_authenticated(session) == 1 { return }
+
+        let answersAPassword = offered.isEmpty
+            || offered.contains("password")
+            || offered.contains("keyboard-interactive")
+        guard answersAPassword else {
+            throw SSHError.authenticationFailed(
+                "This server does not accept passwords. It offers: \(offered.sorted().joined(separator: ", "))."
+            )
+        }
+
+        throw SSHError.needsPassword(banner: banner)
+    }
+
+    /// What the server said before letting anyone in, or nil.
+    ///
+    /// Available only after the auth list has been asked for, which is the
+    /// moment libssh2 captures it. The string belongs to the session and is
+    /// freed with it, so it is copied out here.
+    private static func serverBanner(session: OpaquePointer) -> String? {
+        var raw: UnsafeMutablePointer<CChar>?
+        guard libssh2_userauth_banner(session, &raw) == 0, let raw else { return nil }
+        return Banner.readable(String(cString: raw))
     }
 
     /// Authenticates with a password, by whichever method the server offers.

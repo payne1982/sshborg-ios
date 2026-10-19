@@ -21,6 +21,14 @@ enum SSHError: LocalizedError, Equatable {
 
     case authenticationFailed(String)
 
+    /// The server wants a password and the app has none stored. Carries the
+    /// banner the server sent, when it sent one.
+    ///
+    /// Raised only for ``SSHAuth/deferred``, and before anything is sent: the
+    /// caller asks, and connects again with the answer. The sibling of
+    /// ``unknownHostKey(_:)``, and for the same reason — see ``HostKeyPolicy``.
+    case needsPassword(banner: String?)
+
     /// libssh2 could not make sense of the key material it was handed: an
     /// unsupported format, a corrupt file, or the wrong passphrase.
     ///
@@ -76,6 +84,10 @@ enum SSHError: LocalizedError, Equatable {
             return "The host key has changed (\(info.fingerprint)). This could mean the server was rebuilt, or that the connection is being intercepted."
         case .authenticationFailed(let detail):
             return "Authentication failed: \(detail)"
+        case .needsPassword:
+            // Never reaches a screen: the two callers that can raise it turn it
+            // into their own password prompt. Worded for a log all the same.
+            return "This server is asking for a password."
         case .invalidPrivateKey:
             return "The private key could not be read. It may be corrupt, or the passphrase may be wrong."
         case .keyNotFound:

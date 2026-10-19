@@ -14,7 +14,7 @@ final class SFTPModel {
     enum Phase: Equatable {
         case connecting
         case browsing
-        case needsPassword
+        case needsPassword(banner: String?)
         case needsHostKeyApproval(HostKeyInfo, isChange: Bool)
         case failed(String)
     }
@@ -90,6 +90,11 @@ final class SFTPModel {
     /// earlier. Dropped as soon as the browser is up, and on disconnect.
     @PerceptionIgnored private var passwordForThisAttempt: String?
 
+    /// The `known_hosts` line the user accepted, carried across the password
+    /// prompt that now follows it. ``TerminalSession/acceptedHostKey`` explains
+    /// why it is the key and not a yes.
+    @PerceptionIgnored private var acceptedHostKey: String?
+
     /// Exposed so the screen can hand it to the transfer manager. `nil` until
     /// the connection is up.
     var activeSession: SFTPSession? { session }
@@ -103,15 +108,19 @@ final class SFTPModel {
     // MARK: - Connecting
 
     func connect(password: String? = nil, acceptHostKey: Bool = false) async {
+        // The key the Trust button agreed to, read from the question it
+        // answered. See ``TerminalSession/acceptedHostKey`` for why it is kept.
+        if acceptHostKey, case .needsHostKeyApproval(let info, _) = phase {
+            acceptedHostKey = info.knownHostsLine
+        }
         phase = .connecting
 
+        // Nothing stored means the server is the one that asks, once it has
+        // said who it is and what it will accept — which is also the only
+        // moment its banner exists. Same as the terminal; see ``SSHAuth/deferred``.
         let auth: SSHAuth
         do {
-            guard let resolved = try await resolveAuth(typedPassword: password) else {
-                phase = .needsPassword
-                return
-            }
-            auth = resolved
+            auth = try await resolveAuth(typedPassword: password) ?? .deferred
         } catch {
             phase = .failed(error.localizedDescription)
             return
@@ -138,7 +147,10 @@ final class SFTPModel {
             path = startingPath(home: session.homePath)
             phase = .browsing
             passwordForThisAttempt = nil
+            acceptedHostKey = nil
             await refresh()
+        } catch SSHError.needsPassword(let banner) {
+            phase = .needsPassword(banner: banner)
         } catch SSHError.unknownHostKey(let info) {
             phase = .needsHostKeyApproval(info, isChange: false)
         } catch SSHError.hostKeyMismatch(let info) {
@@ -183,6 +195,7 @@ final class SFTPModel {
 
     private func hostKeyPolicy(acceptHostKey: Bool) -> HostKeyPolicy {
         if acceptHostKey { return .acceptOnce }
+        if let accepted = acceptedHostKey { return .requireMatch(accepted) }
         guard let stored = host.knownHostsEntry, !stored.isEmpty else { return .promptIfUnknown }
         return .requireMatch(stored)
     }
@@ -197,6 +210,7 @@ final class SFTPModel {
 
     func disconnect() {
         passwordForThisAttempt = nil
+        acceptedHostKey = nil
         session?.disconnect()
         session = nil
     }

@@ -17,6 +17,9 @@ import XCTest
 /// The prompt is now an in-layout `StatusOverlay` with an opaque background, so
 /// what this test really watches is that the field and both buttons are on screen
 /// and reachable without a system alert in the tree.
+///
+/// It reaches the prompt through the host key question, which since 19/10/2026
+/// comes first — see `FirstConnectionQuestionsTests`.
 final class PasswordPromptUITests: XCTestCase {
 
     func testWhatThePasswordPromptActuallyIs() throws {
@@ -37,6 +40,14 @@ final class PasswordPromptUITests: XCTestCase {
             throw XCTSkip("no host labelled '\(label)' in the list — seed one to run this")
         }
         row.tap()
+
+        // The key question comes first since 19/10/2026: the password is asked
+        // for by the server, from inside the connection, and nothing is sent to
+        // a server whose key has not been accepted. On a host whose key is
+        // already pinned this panel never appears, so it is answered if it is
+        // there and stepped over if it is not.
+        let trust = app.buttons["Trust"].firstMatch
+        if trust.waitForExistence(timeout: 15) { trust.tap() }
 
         // Long enough for the TCP connection and the auth negotiation to reach
         // the point where the server asks for a password.
