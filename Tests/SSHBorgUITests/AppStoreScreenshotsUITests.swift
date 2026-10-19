@@ -44,6 +44,13 @@ final class AppStoreScreenshotsUITests: XCTestCase {
         // The bar stays on screen with the keyboard down, which is the state the
         // terminal shot wants: the output visible and the keys still there.
         app.launchArguments += ["-extra_keys_bar_pinned", "YES"]
+        // The title bar fixed, not the retracting one (#19). Not a judgement
+        // about which looks better: the overlay bar leaves three seconds after
+        // the session comes up, so whether it is in the picture would depend on
+        // how fast the server answered that morning. A screenshot has to come
+        // out the same every time it is taken, and this one also carries the
+        // host name, which is what says the app is connected to something.
+        app.launchArguments += ["-terminal_bar_auto_hide", "NO"]
         app.launch()
     }
 
