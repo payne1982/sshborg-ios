@@ -40,6 +40,10 @@ struct TerminalScreen: View {
     /// bar is already down.
     @State private var barTick = 0
 
+    /// Whether the keyboard was up when the lock came down over the app, so it
+    /// can be put back exactly as it was.
+    @State private var keyboardWasUpBeforeLock = false
+
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 0) {
@@ -314,6 +318,29 @@ struct TerminalScreen: View {
                 // So the bar leaves at the top edge of the terminal instead of
                 // sliding up over whatever the system draws above it.
                 .clipped()
+            }
+        }
+        // The lock covers the app; it does not take the keyboard with it.
+        //
+        // The cover is a view drawn over everything else, and drawing over a
+        // view does not touch the responder chain: the terminal underneath
+        // stays first responder, so the keyboard comes straight back up over
+        // the gate. Measured on the simulator on 19/10/2026 with the timeout
+        // set to zero — the gate up, its Unlock button on screen, and the
+        // keyboard over it. Android has the same shape and fixed it in
+        // `a967af2` ("it appeared over the lock screen").
+        //
+        // Put back on the way out, and only if it was there: the session is
+        // the same one, and arriving at a prompt that had a keyboard to find
+        // it gone would be its own small annoyance. That is Android's rule too
+        // — every session remembers whether the keyboard was up.
+        .onValueChange(of: environment.lock.isLocked) { locked in
+            if locked {
+                keyboardWasUpBeforeLock = session.terminalView.isFirstResponder
+                _ = session.terminalView.resignFirstResponder()
+            } else if keyboardWasUpBeforeLock {
+                keyboardWasUpBeforeLock = false
+                _ = session.terminalView.becomeFirstResponder()
             }
         }
         // The countdown, which does not start until the session is up.
