@@ -30,6 +30,17 @@ import XCTest
 /// The key travels base64-encoded for the same reason the test password does:
 /// it is a session secret. The host is not defaulted, because a machine name
 /// is not something this repository should carry.
+///
+/// ⚠️ **One server, one test.** A `mosh-server` remembers the highest sequence
+/// number it has seen, and every test here starts a transport that counts from
+/// one — so the second test to use the same server is refused as a replay and
+/// gets silence, which looks exactly like a blocked path. Measured on
+/// 25/10/2026: the roaming test failed with `noAnswer` after its two
+/// predecessors had each used the same server, and passed on its own against a
+/// fresh one. So each test is run with `-only-testing` naming it alone, against
+/// a server started for it. It is the same hazard Android's comment on
+/// `MoshReplayFilter` describes from the other side, and it goes away in phase
+/// 6, where the bootstrap starts a server per session.
 final class MoshLabIntegrationTests: XCTestCase {
 
     private struct Lab {
@@ -223,6 +234,109 @@ final class MoshLabIntegrationTests: XCTestCase {
             "the marker never came back. Frames: \(report). "
             + "What did: \(output.map { String(format: "%02X", $0) }.joined())"
         )
+    }
+
+    /// **The roaming, which is the whole reason the feature exists.**
+    ///
+    /// A session is opened, a command is run, and then the socket is thrown away
+    /// and a new one opened — a new local port, which is what a change of
+    /// network looks like from here — while the same ``MoshTransport`` carries
+    /// on with the same key and the same sequence counter. Then another command.
+    ///
+    /// If the second one answers, three things are true at once: the sequence
+    /// counter survived the socket (or the server would have refused us as a
+    /// replay, which is the first thing Android's lab got wrong), the server
+    /// adopted the address it heard from, and the session on the far end never
+    /// noticed. That is phase 4's gate about the local port and the one about
+    /// resynchronising, which are the same event from the client's side.
+    func testTheSessionFollowsUsToANewLocalPort() throws {
+        let lab = try lab()
+        let collector = Collector()
+        let transport = try MoshTransport(
+            crypto: MoshCrypto(printableKey: lab.printableKey), listener: collector
+        )
+        // The lab's server binds `0.0.0.0`, so the socket that answers is IPv4
+        // and the budget is the larger of the two.
+        transport.useMTU(forIPv4: true)
+
+        // Opening: the first tick is the datagram that introduces us, and the
+        // answer is what tells the transport the far end is there.
+        var socket = try open(transport: transport, lab: lab)
+        try transport.onDatagram(socket.firstAnswer, now: Self.now())
+
+        transport.type(Data("echo LAB-ONE\r".utf8))
+        try pump(transport, through: socket, until: { collector.sawText("LAB-ONE") }, seconds: 8)
+        XCTAssertTrue(collector.sawText("LAB-ONE"), "the first command never answered")
+
+        // The network changes underneath: a new local port, nothing else.
+        let before = transport.receivedDatagrams
+        transport.type(Data("echo LAB-TWO\r".utf8))
+        socket = try open(transport: transport, lab: lab)
+        try transport.onDatagram(socket.firstAnswer, now: Self.now())
+
+        try pump(transport, through: socket, until: { collector.sawText("LAB-TWO") }, seconds: 8)
+
+        XCTAssertTrue(
+            collector.sawText("LAB-TWO"),
+            "the session did not follow us to a new local port. Received "
+            + "\(transport.receivedDatagrams - before) datagrams after the hop, "
+            + "stray \(transport.strayDatagrams), stale \(transport.staleFrames), "
+            + "round trip \(Int(transport.timing.smoothedRoundTrip)) ms"
+        )
+        XCTAssertEqual(transport.conflictingFragments, 0)
+        XCTAssertFalse(transport.counterpartyShutdown, "the far end gave up on us")
+    }
+
+    /// Opens a socket with whatever the transport wants to send next, which is
+    /// what a client does after a network change: there is always something to
+    /// say, if only an acknowledgement.
+    private func open(transport: MoshTransport, lab: Lab) throws -> UDP.Session {
+        for _ in 0..<50 {
+            if let datagram = try transport.tick(now: Self.now()).first {
+                return try UDP.Session(
+                    host: lab.host, port: lab.port, probe: datagram, timeout: 5
+                )
+            }
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        throw Failure.nothingToSend
+    }
+
+    /// The I/O loop the transport is written to be driven by: tick, send what it
+    /// hands back, read what arrives, tick again. The real one belongs to the
+    /// session and uses `Network.framework`; this is the same shape in twelve
+    /// lines.
+    private func pump(
+        _ transport: MoshTransport,
+        through socket: UDP.Session,
+        until done: () -> Bool,
+        seconds: TimeInterval
+    ) throws {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline, !done() {
+            for datagram in try transport.tick(now: Self.now()) {
+                try socket.send(datagram)
+            }
+            if let answer = try? socket.receive(timeout: 0.2) {
+                try transport.onDatagram(answer, now: Self.now())
+            }
+        }
+    }
+
+    private enum Failure: Error { case nothingToSend }
+
+    /// Milliseconds of uptime, which is what the transport's clock is: never a
+    /// wall clock, because a session has to survive the time changing.
+    private static func now() -> MoshTime {
+        MoshTime(DispatchTime.now().uptimeNanoseconds / 1_000_000)
+    }
+
+    private final class Collector: MoshTransportListener {
+        private(set) var output = Data()
+
+        func onHostBytes(_ bytes: Data) { output.append(bytes) }
+
+        func sawText(_ text: String) -> Bool { output.contains(Data(text.utf8)) }
     }
 
     /// A datagram under the wrong key must be ignored rather than answered,
