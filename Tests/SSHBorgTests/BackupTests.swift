@@ -461,7 +461,65 @@ final class BackupTests: XCTestCase {
     /// it gets checked rather than assumed.
     func testTheVersionSaysWhatTheFileActuallyCarries() async throws {
         let archive = try await service.export()
-        XCTAssertEqual(archive.version, 7)
+        XCTAssertEqual(archive.version, 9)
+    }
+
+    // MARK: - The mosh fields, carried for Android's sake
+
+    /// Backup 8 added the per-host switch and 9 the three settings. Nothing in
+    /// this app acts on them; they travel because a field this app drops is a
+    /// field the user loses by passing a backup through it.
+    func testTheMoshFieldsTravelBothWays() async throws {
+        var vps = Host(label: "vps", hostname: "vps.example", username: "u")
+        vps.mosh = true
+        vps.moshFamily = "ipv4"
+        vps.moshPorts = "60010-60020"
+        vps.moshCommand = "/usr/local/bin/mosh-server"
+        _ = try await hosts.save(vps)
+        _ = try await hosts.save(Host(label: "plain", hostname: "plain.example", username: "u"))
+
+        let exported = try await service.export()
+        let text = String(decoding: try exported.jsonData(), as: UTF8.self)
+        let reparsed = try BackupArchive.decode(try exported.jsonData())
+        let byLabel = Dictionary(uniqueKeysWithValues: reparsed.hosts.map { ($0.label, $0) })
+
+        let entry = try XCTUnwrap(byLabel["vps"])
+        XCTAssertTrue(entry.mosh)
+        XCTAssertEqual(entry.moshFamily, "ipv4")
+        XCTAssertEqual(entry.moshPorts, "60010-60020")
+        XCTAssertEqual(entry.moshCommand, "/usr/local/bin/mosh-server")
+
+        // The switch is written for every host, even off, because restoring over
+        // a host that has it on must turn it off again: a backup is what the
+        // hosts were, not a set of things to add. The other three are written
+        // only when they say something, which is Android's rule for them.
+        XCTAssertEqual(byLabel["plain"]?.mosh, false)
+        XCTAssertEqual(occurrences(of: "\"mosh\"", in: text), 2)
+        XCTAssertEqual(occurrences(of: "\"moshFamily\"", in: text), 1)
+        XCTAssertEqual(occurrences(of: "\"moshPorts\"", in: text), 1)
+        XCTAssertEqual(occurrences(of: "\"moshCommand\"", in: text), 1)
+
+        // And back in, over the hosts that are already there.
+        _ = try await service.restore(reparsed)
+        let stored = try await hosts.fetchAll()
+        let restored = try XCTUnwrap(stored.first { $0.label == "vps" })
+        XCTAssertTrue(restored.mosh)
+        XCTAssertEqual(restored.moshFamily, "ipv4")
+        XCTAssertEqual(restored.moshPorts, "60010-60020")
+        XCTAssertEqual(restored.moshCommand, "/usr/local/bin/mosh-server")
+    }
+
+    /// Every backup up to version 7, where no host could have mosh at all.
+    func testAnOlderBackupLeavesMoshOff() throws {
+        let archive = try BackupArchive.decode(Data(androidBackup.utf8))
+
+        XCTAssertFalse(archive.hosts.contains { $0.mosh })
+        XCTAssertTrue(archive.hosts.allSatisfy { $0.moshFamily == "auto" })
+        XCTAssertTrue(archive.hosts.allSatisfy { $0.moshPorts == nil })
+    }
+
+    private func occurrences(of needle: String, in text: String) -> Int {
+        text.components(separatedBy: needle).count - 1
     }
 
     // MARK: - The host list order (#16)

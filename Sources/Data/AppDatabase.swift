@@ -135,6 +135,33 @@ final class AppDatabase: Sendable {
             }
         }
 
+        // Android's Room migration 13 -> 14: the per-host mosh switch.
+        //
+        // Nothing in this app reads the four columns this and the next
+        // migration add, and they are added anyway, because the backup format
+        // is shared with Android and the file carries them. A column we do not
+        // have is a column we drop: an Android backup imported here and
+        // exported again would come back with mosh off on every host, which is
+        // a configuration lost in silence rather than a feature missing. See
+        // PIANO.md, 25/10/2026.
+        migrator.registerMigration("v4") { db in
+            try db.alter(table: "hosts") { t in
+                t.add(column: "mosh", .boolean).notNull().defaults(to: false)
+            }
+        }
+
+        // Android's Room migration 14 -> 15: the three things about a mosh
+        // session that cannot be decided for somebody else — which address
+        // family it is born on, which UDP ports their firewall carries, and
+        // where their server keeps the program. Defaults that mean "as before".
+        migrator.registerMigration("v5") { db in
+            try db.alter(table: "hosts") { t in
+                t.add(column: "moshFamily", .text).notNull().defaults(to: "auto")
+                t.add(column: "moshPorts", .text)
+                t.add(column: "moshCommand", .text)
+            }
+        }
+
         return migrator
     }
 }

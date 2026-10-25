@@ -78,7 +78,11 @@ struct BackupService {
                     color: host.color,
                     position: host.position,
                     lastConnected: host.lastConnected,
-                    connectCount: host.connectCount
+                    connectCount: host.connectCount,
+                    mosh: host.mosh,
+                    moshFamily: host.moshFamily,
+                    moshPorts: host.moshPorts,
+                    moshCommand: host.moshCommand
                 )
             },
             settings: currentSettings()
@@ -229,7 +233,11 @@ struct BackupService {
             groupId: groupID,
             color: entry.color,
             position: entry.position,
-            connectCount: entry.connectCount
+            connectCount: entry.connectCount,
+            mosh: entry.mosh,
+            moshFamily: entry.moshFamily,
+            moshPorts: entry.moshPorts,
+            moshCommand: entry.moshCommand
         )
         host.lastConnected = entry.lastConnected
         return host

@@ -28,14 +28,22 @@ struct BackupArchive: Equatable {
     /// What each version added, following the Android writer: 2 `groups`, 3
     /// `settings`, 4 `keyLabel`, 5 `sftpShowHidden`, 6 the extra-key bars in
     /// `settings`, 7 the host list order — `position` on a group and on a host,
-    /// plus `lastConnected` and `connectCount`. Older files still load —
-    /// their missing sections simply do not apply, and neither reader branches
-    /// on the number.
+    /// plus `lastConnected` and `connectCount`, 8 the per-host `mosh` switch,
+    /// 9 the three mosh settings. Older files still load — their missing
+    /// sections simply do not apply, and neither reader branches on the number.
+    ///
+    /// The mosh fields are carried although this app does nothing with them,
+    /// because the alternative is worse than not having the feature: a backup
+    /// round-tripped through here would hand Android back every host with mosh
+    /// off. The omission rules are Android's own and are followed exactly —
+    /// `mosh` for every host even when off, since "a backup is what the hosts
+    /// were, not a set of things to add", and the other three only when they
+    /// say something.
     ///
     /// It sat at 3 while `keyLabel` was already being written, which is the
     /// failure mode of a version field nobody reads: nothing broke, and the
     /// number quietly stopped describing the file.
-    static let currentVersion = 7
+    static let currentVersion = 9
 
     var version: Int = currentVersion
     var exportedAt: String
@@ -101,6 +109,17 @@ struct BackupArchive: Equatable {
         /// zero, so a host that has never been connected to carries neither
         /// this nor ``lastConnected``.
         var connectCount: Int = 0
+
+        /// The per-host mosh switch, version 8. Written for every host even
+        /// when off, unlike everything else that can be left out.
+        var mosh: Bool = false
+
+        /// The three mosh settings, version 9, written only when they say
+        /// something: `auto`, no port range and no command are what a host left
+        /// on the defaults has, and what a backup from 8 or earlier means.
+        var moshFamily: String = "auto"
+        var moshPorts: String?
+        var moshCommand: String?
     }
 
     /// The preference keys the Android app exports, by its own names.
@@ -203,6 +222,13 @@ extension BackupArchive {
         if let value = host.lastConnected { object["lastConnected"] = value }
         if host.connectCount > 0 { object["connectCount"] = host.connectCount }
 
+        // Version 8 and 9. `mosh` goes in whatever it is, the other three only
+        // when they are not the default — the Android writer's own rule.
+        object["mosh"] = host.mosh
+        if host.moshFamily != "auto" { object["moshFamily"] = host.moshFamily }
+        if let value = host.moshPorts { object["moshPorts"] = value }
+        if let value = host.moshCommand { object["moshCommand"] = value }
+
         return object
     }
 
@@ -290,7 +316,14 @@ extension BackupArchive {
                 // Written by Android as a JSON number too large for `Int` on a
                 // 32-bit read, so it is taken as `Int64` and not as `Int`.
                 lastConnected: (raw["lastConnected"] as? NSNumber)?.int64Value,
-                connectCount: raw["connectCount"] as? Int ?? 0
+                connectCount: raw["connectCount"] as? Int ?? 0,
+                // Absent in backups up to version 7, where no host could have
+                // mosh on, and absent in 8 and later for a host that left the
+                // three settings alone.
+                mosh: raw["mosh"] as? Bool ?? false,
+                moshFamily: nonEmpty(raw["moshFamily"]) ?? "auto",
+                moshPorts: nonEmpty(raw["moshPorts"]),
+                moshCommand: nonEmpty(raw["moshCommand"])
             )
         }
 

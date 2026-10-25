@@ -31,7 +31,9 @@ struct HostEditorScreen: View {
     // Advanced
     @State private var agentForwarding = false
     @State private var allowLegacyCiphers = false
-    @State private var jumpMode: Host.JumpMode = .simple
+    // The default for a host being created; `load(from:)` overwrites it for one
+    // being edited. It follows the column's own default — see `Host.jumpMode`.
+    @State private var jumpMode: Host.JumpMode = .hostList
     @State private var jumpHostsText = ""
     @State private var jumpHostIds: [Int64] = []
     @State private var portForwardingsText = ""
@@ -233,12 +235,18 @@ struct HostEditorScreen: View {
     private var jumpHostsSection: some View {
         Section {
             // No label: the section header already says what this chooses, and
-            // labelling it repeated a word that is also one of the options —
-            // the row read "Simple: Simple". Android has the same shape, a group
-            // of choices under the section title.
+            // labelling it repeated a word that was also one of the options —
+            // the row read "Simple: Simple" when that option was still called
+            // Simple. Android has the same shape, a group of choices under the
+            // section title.
+            //
+            // The host list first, because it is the default: the selected one
+            // on the left, and the one on the left is the one that can carry a
+            // hop's own key or password. The text field keeps its place as the
+            // fallback, for a hop that is not a host of yours.
             Picker(selection: $jumpMode) {
-                Text(.hostJumpModeSimple).tag(Host.JumpMode.simple)
                 Text(.hostJumpModeHostList).tag(Host.JumpMode.hostList)
+                Text(.hostJumpModeSimple).tag(Host.JumpMode.simple)
             } label: {
                 EmptyView()
             }

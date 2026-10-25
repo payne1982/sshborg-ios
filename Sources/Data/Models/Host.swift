@@ -47,7 +47,16 @@ struct Host: Identifiable, Hashable, Codable, FetchableRecord, MutablePersistabl
     var portForwardings: String?
 
     /// `simple` uses ``jumpHosts``; `host_list` uses ``jumpHostIdList``.
-    var jumpMode: String = JumpMode.simple.rawValue
+    ///
+    /// `host_list` is the default for a host created from now on, following
+    /// Android: it is the mode that can carry credentials, because a hop picked
+    /// from the host list brings its own key or password where one typed into
+    /// the text field has none of its own. Nothing existing moves — the column
+    /// has been written on every save since it appeared, so every host keeps
+    /// what it was saved with, and a backup old enough not to carry the field
+    /// is still read as `simple`, which is what it meant when the text string
+    /// was the only mode there was.
+    var jumpMode: String = JumpMode.hostList.rawValue
 
     /// Ordered comma-separated host IDs, used when ``jumpMode`` is `host_list`.
     var jumpHostIdList: String?
@@ -83,6 +92,35 @@ struct Host: Identifiable, Hashable, Codable, FetchableRecord, MutablePersistabl
     /// How many times this host has been connected to, for the "most used"
     /// order. Bumped by ``HostRepository/recordConnection(id:at:)``.
     var connectCount: Int = 0
+
+    /// Whether the terminal for this host rides mosh instead of the SSH shell
+    /// channel, on the platform where that exists.
+    ///
+    /// **Nothing in this app reads this or the three fields below.** Android
+    /// gained mosh in its versionCode 39 and these are its per-host
+    /// configuration; they are here because the backup format is shared, and a
+    /// field this app drops is a field the user loses by passing a backup
+    /// through it. Stored, exported, and not acted on — the plan for acting on
+    /// it is in PIANO.md, 25/10/2026.
+    var mosh: Bool = false
+
+    /// Which address family a mosh session is made over: `auto`, `ipv4` or
+    /// `ipv6`.
+    ///
+    /// It matters because a mosh session is bound to the family it was born on
+    /// — `mosh-server -s` listens on the one address the SSH connection arrived
+    /// on — so it can only follow a device between networks that both have it.
+    /// A preference and not a demand: with no address of that family, the other
+    /// is used.
+    var moshFamily: String = "auto"
+
+    /// The UDP port range `mosh-server` may choose from, as `60001-60999` or a
+    /// single port. `nil` means mosh's own default, which is that whole range.
+    var moshPorts: String?
+
+    /// What to run on the server when `mosh-server` is not what a
+    /// non-interactive shell finds on its PATH. `nil` means `mosh-server`.
+    var moshCommand: String?
 
     mutating func didInsert(_ inserted: InsertionSuccess) {
         id = inserted.rowID

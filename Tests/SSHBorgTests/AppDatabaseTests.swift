@@ -23,7 +23,7 @@ final class AppDatabaseTests: XCTestCase {
         }
     }
 
-    /// The Android Room entity has these 24 columns, its version 13. A mismatch
+    /// The Android Room entity has these 28 columns, its version 15. A mismatch
     /// means the shared JSON backup would silently drop a field.
     ///
     /// It has already earned its keep: `sftpShowHidden` was added to the model,
@@ -40,6 +40,8 @@ final class AppDatabaseTests: XCTestCase {
                     "portForwardings", "jumpMode", "jumpHostIdList", "sftpStartMode",
                     "sftpStartDir", "sftpShowHidden", "allowLegacyCiphers",
                     "groupId", "color", "position", "connectCount",
+                    // Carried for the backup's sake, read by nothing here.
+                    "mosh", "moshFamily", "moshPorts", "moshCommand",
                 ]
             )
         }
@@ -67,7 +69,11 @@ final class AppDatabaseTests: XCTestCase {
             sftpStartMode: "fixed",
             sftpStartDir: "/var/log",
             allowLegacyCiphers: true,
-            color: 0xFF43_A047
+            color: 0xFF43_A047,
+            mosh: true,
+            moshFamily: "ipv6",
+            moshPorts: "60010-60020",
+            moshCommand: "/usr/local/bin/mosh-server"
         )
 
         let saved = try await repository.save(host)
@@ -89,12 +95,19 @@ final class AppDatabaseTests: XCTestCase {
         )
 
         XCTAssertEqual(saved.port, 22)
-        XCTAssertEqual(saved.jumpMode, "simple")
+        // `host_list` since Android made it the default: it is the mode that can
+        // carry a hop's own credentials. Nothing stored moves, because the column
+        // has been written on every save since it appeared.
+        XCTAssertEqual(saved.jumpMode, "host_list")
         XCTAssertEqual(saved.sftpStartMode, "last")
         XCTAssertFalse(saved.agentForwarding)
         XCTAssertFalse(saved.allowLegacyCiphers)
         XCTAssertNil(saved.groupId)
         XCTAssertNil(saved.color)
+        XCTAssertFalse(saved.mosh)
+        XCTAssertEqual(saved.moshFamily, "auto")
+        XCTAssertNil(saved.moshPorts)
+        XCTAssertNil(saved.moshCommand)
     }
 
     func testHostsAreOrderedByLabel() async throws {
