@@ -287,6 +287,35 @@ final class MoshLabIntegrationTests: XCTestCase {
         XCTAssertFalse(transport.counterpartyShutdown, "the far end gave up on us")
     }
 
+    /// The third step of phase 5's gate: **a resize propagates both ways.**
+    ///
+    /// The width goes up as a user action inside the state diff, the far end
+    /// resizes the pty, and the shell is asked what it thinks — `tput cols`
+    /// reads the terminal it is attached to, so the number that comes back is
+    /// the server's answer and not ours. An unlikely width, so that finding it
+    /// in the output cannot be a coincidence.
+    func testAResizeReachesTheShellAndItsAnswerComesBack() throws {
+        let lab = try lab()
+        let collector = Collector()
+        let transport = try MoshTransport(
+            crypto: MoshCrypto(printableKey: lab.printableKey), listener: collector
+        )
+        transport.useMTU(forIPv4: true)
+
+        let socket = try open(transport: transport, lab: lab)
+        try transport.onDatagram(socket.firstAnswer, now: Self.now())
+
+        transport.resize(width: 123, height: 37)
+        transport.type(Data("tput cols\r".utf8))
+        try pump(transport, through: socket, until: { collector.sawText("123") }, seconds: 8)
+
+        XCTAssertTrue(
+            collector.sawText("123"),
+            "the shell never answered 123 columns. What came back: "
+            + String(decoding: collector.output.suffix(400), as: UTF8.self).debugDescription
+        )
+    }
+
     /// Opens a socket with whatever the transport wants to send next, which is
     /// what a client does after a network change: there is always something to
     /// say, if only an acknowledgement.

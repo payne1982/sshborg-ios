@@ -1,0 +1,30 @@
+# printf "\033[5;20r\033[8;5HPARTIAL\033[12;10H\033[0;33mscroll region\033[0m\033[14;1H\033[KCLEARED
+\033[r\033[20;1H"
+
+
+
+
+
+    PARTIAL
+
+
+
+         scroll region
+
+CLEARED
+
+
+
+
+
+#
+
+
+
+
+
+
+
+
+
+

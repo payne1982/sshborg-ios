@@ -1,0 +1,3 @@
+clear
+[?2004l[H[2J[3J[?2004h# printf "\033[5;20r\033[8;5HPARTIAL\033[12;10H\033[0;33mscroll region\033[0m\033[14;1H\033[KCLEARED\033[r\033[20;1H"
+[?2004l[5;20r[8;5HPARTIAL[12;10H[0;33mscroll region[0m[14;1H[KCLEARED[r[20;1H[?2004h# 

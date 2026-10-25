@@ -204,6 +204,13 @@ targets:
     platform: iOS
     sources:
       - path: Tests/SSHBorgTests
+      # A folder reference, copied into the bundle as `oracle/`: the recorded
+      # byte streams and tmux's rendering of them, which `MoshOracleTests`
+      # replays into SwiftTerm and compares. Kept as files rather than as base64
+      # in a Swift literal because the point of them is being inspectable — and
+      # `diff` on a failure says more than an assertion message can.
+      - path: Tests/Fixtures/oracle
+        type: folder
     dependencies:
       - target: SSHBorg
 
