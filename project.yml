@@ -247,6 +247,15 @@ schemes:
         # A spare port on the same host whose server sends a banner. Set up for
         # a run and taken down after it — see `ServerBannerTests`.
         SSHBORG_TEST_BANNER_PORT: $(SSHBORG_TEST_BANNER_PORT)
+        # The mosh lab: a `mosh-server` started by hand on the same host, whose
+        # port and session key are handed over on its `MOSH CONNECT` line. The
+        # key goes through the base64 channel for the same reason the password
+        # does, and because it is a session secret that must not sit in a
+        # command line in the clear. See BUILD-MAC.md, and
+        # `MoshLabIntegrationTests`, which skips itself without them.
+        SSHBORG_MOSH_HOST: $(SSHBORG_MOSH_HOST)
+        SSHBORG_MOSH_PORT: $(SSHBORG_MOSH_PORT)
+        SSHBORG_MOSH_KEY_B64: $(SSHBORG_MOSH_KEY_B64)
       targets:
         - SSHBorgTests
         - SSHBorgUITests

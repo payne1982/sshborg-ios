@@ -21,6 +21,16 @@ import Foundation
 enum MoshDeflate {
 
     enum Failure: Error, Equatable {
+        /// Apple's encoder refused, or wanted more room than we were willing to
+        /// try. It has never been seen; a payload only ever grows by a fraction
+        /// of a per cent even when it is incompressible.
+        case deflateFailed
+        /// Nothing to compress. Refused rather than answered, because the
+        /// stream it would produce is the one thing ``MoshDeflate/inflate(_:limit:)``
+        /// cannot read back: `compression_decode_buffer` reports an empty
+        /// result and a failure the same way, as zero. An instruction always
+        /// carries its five numbers, so the protocol never asks.
+        case nothingToDeflate
         /// Not an RFC 1950 stream: too short, or the two header bytes do not
         /// describe a deflate stream with a valid check value.
         case notZlib
@@ -91,6 +101,49 @@ enum MoshDeflate {
             compression_decode_buffer(
                 destination, capacity,
                 source.bindMemory(to: UInt8.self).baseAddress!, deflated.count,
+                nil, COMPRESSION_ZLIB
+            )
+        }
+        guard written > 0 else { return nil }
+        return Data(bytes: destination, count: written)
+    }
+
+    /// The zlib stream mosh expects, assembled around Apple's raw DEFLATE: the
+    /// two-byte header, the deflate data, and the Adler-32 of the *input*,
+    /// big-endian.
+    ///
+    /// `0x78 0x9C` is what zlib itself writes at its default level, and the
+    /// FLEVEL bits in it are informational — an inflater reads the method and
+    /// the check value and ignores the rest.
+    static func deflate(_ raw: Data) throws -> Data {
+        guard !raw.isEmpty else { throw Failure.nothingToDeflate }
+        var out = Data([0x78, 0x9C])
+
+        // Even incompressible input grows by only a fraction of a per cent, so
+        // the first guess is generous and the second is a formality.
+        var capacity = raw.count + max(64, raw.count / 8)
+        for _ in 0..<3 {
+            if let deflated = Self.deflate(raw, into: capacity) {
+                out.append(deflated)
+                let checksum = adler32(raw)
+                for shift in stride(from: 24, through: 0, by: -8) {
+                    out.append(UInt8(truncatingIfNeeded: checksum >> UInt32(shift)))
+                }
+                return out
+            }
+            capacity *= 2
+        }
+        throw Failure.deflateFailed
+    }
+
+    private static func deflate(_ raw: Data, into capacity: Int) -> Data? {
+        let destination = UnsafeMutablePointer<UInt8>.allocate(capacity: capacity)
+        defer { destination.deallocate() }
+
+        let written = raw.withUnsafeBytes { source in
+            compression_encode_buffer(
+                destination, capacity,
+                source.bindMemory(to: UInt8.self).baseAddress!, raw.count,
                 nil, COMPRESSION_ZLIB
             )
         }

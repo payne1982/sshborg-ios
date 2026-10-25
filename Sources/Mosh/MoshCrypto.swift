@@ -221,4 +221,24 @@ enum MoshProtocolError: Error, Equatable {
     case sequenceExhausted
     /// Our own direction bit came back at us.
     case wrongDirection
+
+    // The framing and the protobuf, all of which mean "this is not a datagram
+    // mosh would have sent".
+    case packetWithoutTimestamps
+    case fragmentWithoutHeader
+    case noRoomForAFragment(Int)
+    case varintPastTheEnd
+    case varintTooLong
+    case fieldDoesNotFit(Int)
+    case fixedFieldPastTheEnd
+    case unknownWireType(Int)
+    /// Mosh treats a version it does not know as fatal rather than as
+    /// something to negotiate, and so do we: the state numbering is the
+    /// protocol.
+    case protocolVersion(Int)
+
+    // The user stream's own bookkeeping, both of which would be our bug and
+    // not the peer's.
+    case actionsAlreadyFreed(from: UInt64, freed: UInt64)
+    case noSuchAction(from: UInt64, count: UInt64)
 }
