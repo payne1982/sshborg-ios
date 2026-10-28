@@ -598,6 +598,106 @@ final class SSHSession: @unchecked Sendable {
         }
     }
 
+    // MARK: - Running one command
+
+    /// Runs `command` on the far end and gives back what it said.
+    ///
+    /// One exec channel, which is a different thing from the shell: no pty, no
+    /// terminal, and the session it runs on is **left open** — which is the
+    /// whole point for the only caller there is. `MoshBootstrap` starts a
+    /// `mosh-server` with this and then goes on using the same SSH connection
+    /// for SFTP, the agent and the port forwardings, where the stock mosh
+    /// client closes it and loses all three.
+    ///
+    /// `stopWhen` is asked after every read and ends the call early. Waiting for
+    /// the channel to close would otherwise mean waiting for whatever was
+    /// started to let go of it, and a daemon never does: the handover line is
+    /// the first thing `mosh-server` prints and the only thing we are there for.
+    ///
+    /// Standard error is read only once standard output has ended, which by then
+    /// cannot block — and only then is it worth having, because what it carries
+    /// is a diagnosis of something that did not work.
+    func execute(
+        _ command: String,
+        timeout: TimeInterval = 20,
+        stopWhen: (@Sendable (String) -> Bool)? = nil
+    ) async throws -> (output: String, exitStatus: Int32) {
+        try await withRawSession { raw in
+            // The session's own timeout, for as long as this takes. Restored
+            // afterwards: a long bootstrap must not leave every later call
+            // waiting that long before it gives up.
+            let previous = libssh2_session_get_timeout(raw)
+            libssh2_session_set_timeout(raw, Int(timeout * 1000))
+            defer { libssh2_session_set_timeout(raw, previous) }
+
+            // libssh2's own defaults for a session channel, which the
+            // `libssh2_channel_open_session` macro would have supplied.
+            guard let channel = libssh2_channel_open_ex(
+                raw, "session", 7, 2 * 1024 * 1024, 32_768, nil, 0
+            ) else {
+                throw SSHError.fromSession(raw, fallback: "could not open an exec channel")
+            }
+            defer { libssh2_channel_free(channel) }
+
+            let started = command.withCString { line in
+                libssh2_channel_process_startup(
+                    channel, "exec", 4, line, UInt32(strlen(line))
+                )
+            }
+            guard started == 0 else {
+                throw SSHError.fromSession(raw, fallback: "could not run \(command)")
+            }
+
+            var said = ""
+            var ended = false
+            var buffer = [CChar](repeating: 0, count: 4096)
+
+            while true {
+                let count = libssh2_channel_read_ex(channel, 0, &buffer, buffer.count)
+                if count > 0 {
+                    said += String(
+                        decoding: buffer[0..<Int(count)].map { UInt8(bitPattern: $0) }, as: UTF8.self
+                    )
+                    if stopWhen?(said) == true { return (said, 0) }
+                    continue
+                }
+                if count == 0 {
+                    ended = true
+                    break
+                }
+                if count == Int(LIBSSH2_ERROR_EAGAIN) { continue }
+                throw SSHError.fromSession(raw, fallback: "reading from \(command)")
+            }
+
+            // Only now, and only because stdout has ended: the process is gone,
+            // so whatever it put on the error stream is already there.
+            if ended {
+                while true {
+                    let count = libssh2_channel_read_ex(channel, 1, &buffer, buffer.count)
+                    guard count > 0 else { break }
+                    said += String(
+                        decoding: buffer[0..<Int(count)].map { UInt8(bitPattern: $0) }, as: UTF8.self
+                    )
+                }
+            }
+
+            // The exit status needs the channel *closed*, not merely at the end
+            // of its output: the server sends `exit-status` as a channel request
+            // of its own, and libssh2 has it only once it has processed that.
+            // Measured on 28/10/2026 — reading to EOF and asking straight away
+            // returned 0 for a command the shell had refused to find, which is
+            // the one answer that means "it worked".
+            //
+            // Only on the path where the output has ended, which is the only
+            // path where it can be had: a channel we left early belongs to
+            // something still running, and closing it would mean waiting for a
+            // daemon to let go.
+            guard ended else { return (said, 0) }
+            libssh2_channel_close(channel)
+            return (said, libssh2_channel_get_exit_status(channel))
+        }
+    }
+
     /// How far the forwarded agent got, or `nil` when forwarding is off.
     /// Exists for diagnosis: a failure on the far end is silent from here.
     var agentDiagnostics: AgentForwarder.Diagnostics? {

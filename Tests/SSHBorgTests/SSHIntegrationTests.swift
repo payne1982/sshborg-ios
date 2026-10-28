@@ -387,4 +387,80 @@ final class SSHIntegrationTests: XCTestCase {
 
         return await collector.value
     }
+
+    // MARK: - Running one command, and starting a mosh server with it
+
+    /// The exec channel, which the app had no way to open until mosh needed one.
+    func testOneCommandRunsAndItsOutputComesBack() async throws {
+        let session = try await SSHSession.connect(params(try target()))
+        defer { session.disconnect() }
+
+        let marker = "EXEC_\(UUID().uuidString.prefix(8))"
+        let answer = try await session.execute("echo \(marker)")
+
+        XCTAssertTrue(
+            answer.output.contains(marker),
+            "the command said \(answer.output.debugDescription)"
+        )
+        XCTAssertEqual(answer.exitStatus, 0)
+    }
+
+    /// Standard error is read too, because for a command that failed it is the
+    /// whole of the diagnosis — and the exit status comes back with it.
+    func testACommandThatFailsReportsWhatItSaidAndHowItEnded() async throws {
+        let session = try await SSHSession.connect(params(try target()))
+        defer { session.disconnect() }
+
+        let answer = try await session.execute("sshborg-no-such-program-exists")
+
+        XCTAssertNotEqual(answer.exitStatus, 0)
+        XCTAssertEqual(
+            MoshBootstrap.reason(for: answer.output, exitStatus: answer.exitStatus),
+            .notInstalled,
+            "what the shell said was \(answer.output.debugDescription)"
+        )
+    }
+
+    /// **The gate for the bootstrap**, and the part of phase 6 that needed no
+    /// device: it logs in over SSH, starts a real `mosh-server`, reads the
+    /// handover — and then uses the same SSH session again, which is the whole
+    /// reason for not closing it. The stock mosh client does close it, and loses
+    /// SFTP, the agent and the port forwardings with it.
+    ///
+    /// The server left behind gives itself up: nothing connects to it, and a
+    /// `mosh-server` that no client reaches exits on its own after sixty
+    /// seconds. That is also why this test cannot go on to drive the session —
+    /// the lab does that, and needs the handover by hand.
+    func testTheBootstrapStartsAMoshServerAndLeavesTheSSHSessionAlone() async throws {
+        let target = try target()
+        let session = try await SSHSession.connect(params(target))
+        defer { session.disconnect() }
+
+        // A short timeout on the server's side: this one is never going to be
+        // connected to, and an hour of a shell waiting on fatberry for a test is
+        // not a tidy thing to leave behind.
+        let handover: MoshHandover
+        do {
+            handover = try await MoshBootstrap.start(
+                on: session, dialled: target.host, networkTimeout: 30
+            )
+        } catch let unavailable as MoshBootstrap.Unavailable {
+            throw XCTSkip(
+                "no mosh on \(target.host): \(unavailable.reason) — \(unavailable.detail ?? "")"
+            )
+        }
+
+        XCTAssertEqual(handover.host, target.host)
+        XCTAssertTrue((1...65535).contains(handover.port))
+        // 22 base64 characters with the padding left off, which is the sixteen
+        // bytes `MoshCrypto` insists on.
+        XCTAssertEqual(handover.key.count, 22)
+        XCTAssertNoThrow(try MoshCrypto(printableKey: handover.key))
+
+        // And the session is still ours.
+        let after = try await session.execute("echo still-here")
+        XCTAssertTrue(after.output.contains("still-here"), "the exec channel took the session with it")
+        let alive = await session.isAlive()
+        XCTAssertTrue(alive)
+    }
 }
