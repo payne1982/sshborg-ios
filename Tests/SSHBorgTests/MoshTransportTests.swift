@@ -208,6 +208,7 @@ final class MoshTransportTests: XCTestCase {
 
         XCTAssertEqual(transport.strayDatagrams, 2)
         XCTAssertEqual(transport.receivedDatagrams, 0)
+        XCTAssertEqual(transport.protocolErrors, 0, "the weather was counted as a fault of ours")
         XCTAssertTrue(listener.hostBytes.isEmpty)
     }
 
@@ -220,6 +221,48 @@ final class MoshTransportTests: XCTestCase {
         XCTAssertThrowsError(try transport.onDatagram(ours, now: 20)) {
             XCTAssertEqual($0 as? MoshProtocolError, .wrongDirection)
         }
+
+        // And counted as ours, not as the weather: it got past the tag, so it
+        // came from whoever holds the session key. On a working session
+        // `protocolErrors` is the one that should be zero.
+        XCTAssertEqual(transport.protocolErrors, 1)
+        XCTAssertEqual(transport.strayDatagrams, 0)
+    }
+
+    /// **A state the screen has already been cannot come back**, which is
+    /// Android's `ab4a36c`. The replay filter hands a duplicate on deliberately,
+    /// because being idempotent about it is this layer's job — and it was not.
+    ///
+    /// The dangerous shape is the one where the screen *can* go back: two frames
+    /// arriving the wrong way round, and the older applied on top of the newer,
+    /// taking the screen backwards. Ordinary UDP does that without anybody's
+    /// help, and anyone able to copy a datagram back onto the wire could do it
+    /// on purpose, with no key and no forgery.
+    func testTwoFramesOvertakingEachOtherDoNotTakeTheScreenBackwards() throws {
+        listener.canReturnToState = true
+
+        try transport.onDatagram(server.frame(old: 0, new: 2, bytes: Data("newer".utf8)), now: 0)
+        try transport.onDatagram(server.frame(old: 0, new: 1, bytes: Data("older".utf8)), now: 10)
+
+        XCTAssertEqual(listener.hostBytes, [Data("newer".utf8)], "the screen went backwards")
+        XCTAssertEqual(listener.statesReached, [2])
+        XCTAssertTrue(listener.returnRequests.isEmpty, "it offered to go back for an older frame")
+    }
+
+    /// And what arrived is reported, because liveness, first contact and the
+    /// roaming all hang on the difference between hearing from the server and
+    /// merely hearing something — and the address a datagram came from is not
+    /// that difference.
+    func testWhatArrivedIsReportedToTheCaller() throws {
+        let frame = server.frame(old: 0, new: 1, bytes: Data("once".utf8))
+
+        XCTAssertEqual(try transport.onDatagram(frame, now: 0), .fresh)
+        XCTAssertEqual(try transport.onDatagram(frame, now: 10), .duplicate, "a byte-for-byte replay")
+        XCTAssertEqual(
+            try transport.onDatagram(Data(repeating: 0xAB, count: 60), now: 20), .stray
+        )
+
+        XCTAssertEqual(listener.hostBytes, [Data("once".utf8)])
     }
 
     // MARK: - The closing handshake

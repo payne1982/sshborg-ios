@@ -69,6 +69,27 @@ extension MoshTransportListener {
 /// that would plug in here, and it is deliberately optional.
 final class MoshTransport {
 
+    /// What an arriving datagram turned out to be, for the layer that owns the
+    /// socket: it is the difference between hearing from the server and merely
+    /// hearing *something*.
+    ///
+    /// Liveness, first contact and the roaming all hang on that difference, and
+    /// the address a datagram arrived from is not it. Android's `ab4a36c` found
+    /// out the hard way: one junk datagram from the server's address committed a
+    /// session to mosh instead of letting it fall back to SSH, and a trickle of
+    /// the same kept a dead session from ever timing out.
+    enum Arrival {
+        /// Did not open under our key. Anyone can send one, and it says nothing
+        /// about anything.
+        case stray
+        /// Opened, but its sequence number is not ahead of what we have seen: a
+        /// copy of the past.
+        case duplicate
+        /// Opened under our key and never seen before. The only kind that proves
+        /// the far end is there.
+        case fresh
+    }
+
     private let crypto: MoshCrypto
     private weak var listener: MoshTransportListener?
     private var mtu: Int
@@ -129,6 +150,18 @@ final class MoshTransport {
     /// session's and is counted apart from what arrived *under our key*.
     private(set) var strayDatagrams = 0
 
+    /// Datagrams that **did** authenticate and were still unusable: our own
+    /// direction bit played back, fragments that contradict each other, an
+    /// instruction we cannot parse.
+    ///
+    /// The line between the two counters is where Android landed after reading
+    /// this file's first version, and it is a step further in than the note
+    /// that prompted it: a datagram that got past the tag came from whoever
+    /// holds the session key, so it is a version disagreement or a bug of ours
+    /// and the reason is the whole value. On a working session this is the one
+    /// that should be zero.
+    private(set) var protocolErrors = 0
+
     /// The state numbers of the last frame we had to throw away: what it was
     /// diffed against, what it would have produced, and what we hold.
     ///
@@ -152,6 +185,13 @@ final class MoshTransport {
 
     private var ackNumber: UInt64 = 0
     private var heldState: UInt64 = 0
+
+    /// The newest state ever applied to the screen, which is not always the one
+    /// we hold: a frame diffed against an older state puts the screen back
+    /// before drawing on top, and ``heldState`` goes back with it. This one only
+    /// ever goes up, and it is what decides whether an arriving frame has
+    /// anything to tell us.
+    private var highestState: UInt64 = 0
     private var pendingDataAck = false
 
     private var lastHeard: MoshTime = 0
@@ -257,15 +297,30 @@ final class MoshTransport {
     /// ``strayDatagrams``: anyone can send one, and it says nothing about the
     /// session.
     ///
+    /// Returns what it was, so the caller can tell the one kind that proves
+    /// there is a far end from the two kinds anybody could have sent.
+    ///
     /// Throws when the datagram *did* authenticate and is still not usable —
     /// our own traffic played back, or an instruction we cannot parse. That came
     /// from the real peer, so the reason is worth having. Either way the caller
     /// carries on: it is not a reason to end the session.
-    func onDatagram(_ datagram: Data, now: MoshTime) throws {
+    @discardableResult
+    func onDatagram(_ datagram: Data, now: MoshTime) throws -> Arrival {
         guard let opened = crypto.open(datagram) else {
             strayDatagrams += 1
-            return
+            return .stray
         }
+        // Everything from here on got past the tag, so a throw is counted as
+        // ours rather than as the weather.
+        do {
+            return try receive(opened, now: now)
+        } catch {
+            protocolErrors += 1
+            throw error
+        }
+    }
+
+    private func receive(_ opened: MoshCrypto.Opened, now: MoshTime) throws -> Arrival {
         receivedDatagrams += 1
 
         let number = opened.nonce.sequence
@@ -287,9 +342,11 @@ final class MoshTransport {
         // A packet with no payload is a heartbeat with nothing in it. Mosh sends
         // them, and the timing above is the whole of what they are for; there is
         // no fragment to decode and asking for one would throw.
-        guard !packet.payload.isEmpty else { return }
+        guard !packet.payload.isEmpty else { return arrival(fresh: fresh) }
 
-        guard let payload = assembly.add(try MoshFragment.decode(packet.payload)) else { return }
+        guard let payload = try assembly.add(try MoshFragment.decode(packet.payload)) else {
+            return arrival(fresh: fresh)
+        }
         let instruction = try MoshInstruction.decode(fragmentPayload: payload)
 
         processAcknowledgement(instruction.ackNumber, now: now)
@@ -300,12 +357,25 @@ final class MoshTransport {
             counterpartyShutdown = true
             ackNumber = Self.shutdownNumber
             pendingDataAck = true
-            return
+            return arrival(fresh: fresh)
         }
 
-        // Already applied: the duplicate of a frame we have is not an error, it
-        // is a retransmission.
-        guard instruction.newNumber != heldState else { return }
+        // Nothing newer than what the screen has already been: a retransmission,
+        // a duplicate, or a datagram that overtook its neighbour on the way
+        // here. The replay filter hands all of those on deliberately, because
+        // being idempotent about them is *this* layer's job — and until
+        // Android's `ab4a36c` it was not. It dropped only `newNumber ==
+        // heldState`, so a frame diffed against a state the screen could still
+        // be put back to was applied on top of it: two frames arriving the wrong
+        // way round took the screen **backwards**, which is ordinary UDP and
+        // needs nobody's help, and anyone able to copy one datagram back onto
+        // the wire could do it on purpose with no key and no forgery.
+        //
+        // The comparison is unsigned because a state number is a `uint64` on the
+        // wire, which `UInt64` gives us for nothing where Kotlin needed
+        // `compareUnsigned`. The shutdown number is the largest of them and is
+        // dealt with above, before this can refuse it.
+        guard instruction.newNumber > highestState else { return arrival(fresh: fresh) }
 
         if instruction.oldNumber != heldState {
             // We keep one state, the live terminal, so a diff against anything
@@ -329,7 +399,7 @@ final class MoshTransport {
                 // the start of every session into one round trip.
                 pendingDataAck = true
                 nextAckTime = now
-                return
+                return arrival(fresh: fresh)
             }
         }
 
@@ -345,6 +415,7 @@ final class MoshTransport {
         }
 
         heldState = instruction.newNumber
+        highestState = instruction.newNumber
         ackNumber = instruction.newNumber
         listener?.onStateReached(instruction.newNumber)
         // Every state we accept is worth saying so about, and within `ackDelay`
@@ -354,7 +425,10 @@ final class MoshTransport {
         // hold costs it nothing. We keep one screen and throw the frame away, so
         // being slow to say where we are is the one thing we cannot afford.
         pendingDataAck = true
+        return arrival(fresh: fresh)
     }
+
+    private func arrival(fresh: Bool) -> Arrival { fresh ? .fresh : .duplicate }
 
     // MARK: - The sender
 

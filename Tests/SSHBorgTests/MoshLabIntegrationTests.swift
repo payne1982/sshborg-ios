@@ -186,7 +186,7 @@ final class MoshLabIntegrationTests: XCTestCase {
                 continue
             }
             let fragment = try MoshFragment.decode(decodedPacket.payload)
-            guard let payload = assembly.add(fragment) else { continue }
+            guard let payload = try assembly.add(fragment) else { continue }
 
             let instruction = try MoshInstruction.decode(fragmentPayload: payload)
             XCTAssertEqual(instruction.version, MoshInstruction.protocolVersion)

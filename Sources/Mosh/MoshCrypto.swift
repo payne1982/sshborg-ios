@@ -148,11 +148,20 @@ struct MoshNonce: Equatable {
 ///
 /// OCB with a repeated nonce is not merely weakened, it is forgeable, so this
 /// counter exists to make repetition impossible rather than merely unlikely: it
-/// only ever goes up, it is guarded by a lock, and it refuses to wrap. **It must
-/// outlive the socket** — a new local port after a network change is still the
-/// same key, so the count carries on from where it was — and on iOS it must
-/// also outlive the app going to the background, which is the one case Android
-/// never had to think about.
+/// only ever goes up and it refuses to wrap. **It must outlive the socket** — a
+/// new local port after a network change is still the same key, so the count
+/// carries on from where it was — and on iOS it must also outlive the app going
+/// to the background, which is the one case Android never had to think about.
+///
+/// The lock is not the interesting part and is not an improvement on Android's
+/// `AtomicLong`: `getAndIncrement` is the primitive that guarantees exactly
+/// this, and the Swift standard library had no atomic until the Synchronization
+/// module, which is iOS 18 and we floor at 16. It is also uncontended in
+/// practice — one call site, on the socket loop, with keystrokes arriving
+/// through a queue drained there. What earns its keep is the test: five hundred
+/// callers released at once must come away with five hundred distinct numbers,
+/// against the day this becomes contended, which is the day it stops being a
+/// race and becomes forgeability.
 final class MoshSequence {
 
     private let lock = NSLock()
@@ -226,6 +235,13 @@ enum MoshProtocolError: Error, Equatable {
     // mosh would have sent".
     case packetWithoutTimestamps
     case fragmentWithoutHeader
+    /// Two different answers for how many fragments an instruction has.
+    case contradictoryLastFragment(id: UInt64)
+    /// A fragment numbered past the last one, arriving either after the total
+    /// was known or before it and still held when it became known.
+    case fragmentPastTheLastOne(id: UInt64, number: Int)
+    /// Pieces of one instruction waiting for a last fragment that never comes.
+    case unassembledTooLarge(id: UInt64, bytes: Int)
     case noRoomForAFragment(Int)
     case varintPastTheEnd
     case varintTooLong

@@ -96,12 +96,21 @@ struct Host: Identifiable, Hashable, Codable, FetchableRecord, MutablePersistabl
     /// Whether the terminal for this host rides mosh instead of the SSH shell
     /// channel, on the platform where that exists.
     ///
+    /// It means "reach *me* over mosh", wherever it is read from, and that one
+    /// sentence carries two rules. A host with it on has no jump chain of its
+    /// own — mosh has no channels, so a chain cannot be tunnelled through it.
+    /// But a host whose **first hop** has it on is reached the other way round:
+    /// the session is made to that bastion over mosh and the rest of the way is
+    /// typed into its shell as one `ssh -J` line, so the terminal ends up on a
+    /// machine whose network does not change. Only the terminal takes that
+    /// road; SFTP still tunnels the whole chain, because that one is SSH.
+    ///
     /// **Nothing in this app reads this or the three fields below.** Android
     /// gained mosh in its versionCode 39 and these are its per-host
     /// configuration; they are here because the backup format is shared, and a
     /// field this app drops is a field the user loses by passing a backup
     /// through it. Stored, exported, and not acted on — the plan for acting on
-    /// it is in PIANO.md, 25/10/2026.
+    /// it is in PIANO.md.
     var mosh: Bool = false
 
     /// Which address family a mosh session is made over: `auto`, `ipv4` or

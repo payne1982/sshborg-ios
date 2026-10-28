@@ -113,6 +113,7 @@ final class MoshFragmentAssembly {
     private var total = -1
     private var delivered = false
     private var fragments: [MoshFragment?] = []
+    private var bytesHeld = 0
 
     /// How many fragments the largest instruction we have assembled was split
     /// into.
@@ -130,15 +131,51 @@ final class MoshFragmentAssembly {
 
     /// The complete payload once the last missing piece arrives, otherwise
     /// `nil`.
-    func add(_ fragment: MoshFragment) -> Data? {
+    ///
+    /// Throws when the pieces contradict each other, which needs a peer holding
+    /// the session key — a broken or hostile server rather than the network.
+    /// Android's `e7bf644` found why that matters: **a count of fragments is not
+    /// the same as having them.** The total is only known when the last fragment
+    /// arrives, so completeness was checked by counting, and the count can add
+    /// up over a hole — fragment 2 of an unknown total, then a fragment numbered
+    /// 1 that says it is the last, gives two arrived out of two with nothing in
+    /// slot 0. In Kotlin that dereferenced null; here it would have been a force
+    /// unwrap, which is a crash and not an exception.
+    func add(_ fragment: MoshFragment) throws -> Data? {
         if fragment.id != currentID {
             currentID = fragment.id
             arrived = 0
             total = -1
             delivered = false
             fragments = Array(repeating: nil, count: Self.initialSlots)
+            bytesHeld = 0
         }
-        if fragment.isFinal { total = fragment.number + 1 }
+
+        // The last fragment is what says how many there are, so it is also the
+        // only thing that can contradict itself. Two different answers for one
+        // id means the pieces on the floor belong to two instructions, and no
+        // amount of waiting will make them into one.
+        if fragment.isFinal {
+            let announced = fragment.number + 1
+            guard total < 0 || total == announced else {
+                throw MoshProtocolError.contradictoryLastFragment(id: fragment.id)
+            }
+            total = announced
+            // And a piece already held above it, which is the same contradiction
+            // arriving in the other order: it was taken in while the total was
+            // still unknown.
+            for index in announced..<max(announced, fragments.count) where fragments[index] != nil {
+                throw MoshProtocolError.fragmentPastTheLastOne(id: fragment.id, number: index)
+            }
+        }
+
+        // A piece numbered past the last one. Harmless to drop, and not harmless
+        // to keep: it would be counted among the pieces that have arrived while
+        // the hole it does not fill stays open.
+        if total >= 0, fragment.number >= total {
+            throw MoshProtocolError.fragmentPastTheLastOne(id: fragment.id, number: fragment.number)
+        }
+
         if fragment.number >= fragments.count {
             fragments += Array(
                 repeating: nil,
@@ -151,9 +188,22 @@ final class MoshFragmentAssembly {
         } else {
             fragments[fragment.number] = fragment
             arrived += 1
+            // What is being held for an instruction nobody has finished sending.
+            // The ceiling on a *decompressed* instruction applies after assembly,
+            // and with fifteen bits of fragment numbers to fill there is room for
+            // many times that much to sit here waiting for a last fragment that
+            // never comes.
+            bytesHeld += fragment.contents.count
+            guard bytesHeld <= Self.maximumHeldBytes else {
+                throw MoshProtocolError.unassembledTooLarge(id: fragment.id, bytes: bytesHeld)
+            }
         }
 
-        guard total >= 0, arrived == total, !delivered else { return nil }
+        guard total >= 0, arrived >= total, !delivered else { return nil }
+        // A count of pieces is not the same as having the right ones. Every rule
+        // above exists to keep those two in step; this is the one that does not
+        // have to be believed.
+        guard !(0..<total).contains(where: { fragments[$0] == nil }) else { return nil }
         delivered = true
         largestAssembly = max(largestAssembly, total)
 
@@ -165,6 +215,12 @@ final class MoshFragmentAssembly {
     }
 
     private static let initialSlots = 8
+
+    /// How much unassembled payload one instruction may have waiting. An
+    /// instruction is a screen's worth of differences, so this is already far
+    /// above anything a real one needs, and the point is only that the number
+    /// exists.
+    private static let maximumHeldBytes = 4 * 1024 * 1024
 }
 
 /// Splits an instruction's compressed payload into fragments.
