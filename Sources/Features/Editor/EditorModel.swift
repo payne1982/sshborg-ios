@@ -212,7 +212,13 @@ final class EditorModel {
 
         do {
             try bytes.write(to: scratch)
-            try await session.upload(from: scratch, to: path, isCancelled: nil, onProgress: nil)
+            // Atomically, and keeping the file's own permissions: a save writes
+            // onto the name the user is editing, so a network that goes away
+            // halfway would otherwise leave half the new contents and nothing
+            // else. See ``SFTPSession/uploadReplacing(from:to:isCancelled:onProgress:)``.
+            try await session.uploadReplacing(
+                from: scratch, to: path, isCancelled: nil, onProgress: nil
+            )
             raw = bytes
             onSuccess()
             didSave = true

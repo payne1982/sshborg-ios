@@ -387,14 +387,52 @@ final class SFTPSession: @unchecked Sendable {
         isCancelled: (@Sendable () -> Bool)? = nil,
         onProgress: (@Sendable (UInt64) -> Void)? = nil
     ) async throws {
+        try await write(
+            localURL,
+            to: remotePath,
+            flags: UInt(LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_TRUNC),
+            mode: 0o644,
+            isCancelled: isCancelled,
+            onProgress: onProgress
+        )
+    }
+
+    /// Create the file, and refuse a name that is already taken rather than
+    /// opening whatever is under it — a leftover, a race, or a symlink somebody
+    /// left waiting, which "opening" would mean writing through.
+    ///
+    /// Named here rather than written at the call site so that a test can ask
+    /// for the same thing: the C module is not importable from the test target
+    /// (adding the package there links it twice and the app stops linking), so
+    /// anything a test needs to say about libssh2's flags has to be said from
+    /// this side.
+    static let createExclusively = UInt(LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_EXCL)
+
+    /// The bytes, however the caller wants the file opened.
+    ///
+    /// `mode` is only consulted when the file is **created**: an existing file
+    /// keeps its own permissions through a truncating write, which is why
+    /// saving a 0600 config in place never widens it.
+    ///
+    /// Internal rather than private because it is the only way a test can make
+    /// a file with a mode of its choosing, and "the mode is preserved" cannot be
+    /// asserted against a file whose mode is whatever the server's umask felt
+    /// like.
+    func write(
+        _ localURL: URL,
+        to remotePath: String,
+        flags: UInt,
+        mode: Int,
+        isCancelled: (@Sendable () -> Bool)? = nil,
+        onProgress: (@Sendable (UInt64) -> Void)? = nil
+    ) async throws {
         let input = try FileHandle(forReadingFrom: localURL)
         defer { try? input.close() }
 
         try await run { sftp in
-            let flags = UInt(LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_TRUNC)
             guard let handle = remotePath.withCString({ remote in
                 libssh2_sftp_open_ex(
-                    sftp, remote, UInt32(strlen(remote)), flags, 0o644, LIBSSH2_SFTP_OPENFILE
+                    sftp, remote, UInt32(strlen(remote)), flags, mode, LIBSSH2_SFTP_OPENFILE
                 )
             }) else {
                 throw Self.error(sftp, path: remotePath)
@@ -424,6 +462,119 @@ final class SFTPSession: @unchecked Sendable {
                 onProgress?(total)
             }
         }
+    }
+
+    /// Writes `localURL` over `remotePath` **atomically**, keeping the file's own
+    /// permissions, and leaving the original untouched if anything fails.
+    ///
+    /// What this buys over a truncating write is the half-saved file. A save
+    /// writes straight onto the name the user is editing, so a network that goes
+    /// away mid-upload — which on a phone is the ordinary case rather than the
+    /// exception — leaves a file with the first half of the new contents and
+    /// nothing else. Here the bytes go to a name nobody is reading, and the
+    /// user's file is only touched by renames, each of which either happens or
+    /// does not.
+    ///
+    /// Three things make it safe, and each of them is a thing that went wrong
+    /// somewhere else first:
+    ///
+    /// - **`LIBSSH2_FXF_EXCL`**, so the scratch name is *created* and never
+    ///   opened. Android's editor wrote to `.<name>.sshborg-tmp`, a name anyone
+    ///   can work out in advance, and in a directory a second account can write
+    ///   to that account could leave a symlink waiting under it — the write then
+    ///   follows the link and truncates a file somewhere else, with our access.
+    ///   Their comment says the guarantee they wanted was `SSH_FXF_EXCL`, which
+    ///   the client they use does not expose. libssh2 does.
+    /// - **The target's own mode, read before anything is written**, so the
+    ///   contents never sit in a file more open than the one they are replacing.
+    ///   A new file takes the mode it is given, so this is the one place the mode
+    ///   argument matters.
+    /// - **Park, move, delete**, because no rename here may land on a name that
+    ///   exists: libssh2 speaks SFTP 3 and writes rename flags only from version
+    ///   5, so its `OVERWRITE` never leaves the phone. The sequence is the one
+    ///   `docs/sftp-move.md` in the Android repo describes for both apps, and at
+    ///   no point does the user's file exist under no name at all.
+    ///
+    /// A target that has gone — somebody deleted it while the editor was open —
+    /// is created instead, which is what the editor's Save means there.
+    func uploadReplacing(
+        from localURL: URL,
+        to remotePath: String,
+        isCancelled: (@Sendable () -> Bool)? = nil,
+        onProgress: (@Sendable (UInt64) -> Void)? = nil
+    ) async throws {
+        guard let existing = try await lstat(remotePath), !existing.isDirectory else {
+            try await upload(
+                from: localURL, to: remotePath, isCancelled: isCancelled, onProgress: onProgress
+            )
+            return
+        }
+
+        let scratch = try await freeName(besides: remotePath, marker: "saving")
+        do {
+            try await write(
+                localURL,
+                to: scratch,
+                flags: Self.createExclusively,
+                mode: Int(existing.permissions),
+                isCancelled: isCancelled,
+                onProgress: onProgress
+            )
+            try await replace(source: scratch, destination: remotePath)
+        } catch {
+            // One `catch` for both steps, and the test is why: a cancelled save
+            // throws out of the *write*, which the first version of this did not
+            // clean up after — so an interrupted save left the user's file
+            // intact, which was the point, and a scratch file beside it, which
+            // was not. The user's file is never in doubt here; the only thing to
+            // tidy is our own litter. Best effort, and never reported over the
+            // top of the failure that matters.
+            try? await removeFile(at: scratch)
+            throw error
+        }
+    }
+
+    /// Overwriting, done here rather than asked of the server: park what is in
+    /// the way under a free name, move the source into place, delete the parked
+    /// copy — and if the move fails, put the parked file back where it was.
+    ///
+    /// Every rename in that sequence has a free destination, which is what makes
+    /// it behave the same under both of this project's SFTP clients, and at no
+    /// point does the user's file exist under no name at all.
+    ///
+    /// Only ever reached for a file: a folder collision does not offer this.
+    func replace(source: String, destination: String) async throws {
+        let parked = try await freeName(besides: destination, marker: "replaced")
+        try await rename(from: destination, to: parked)
+        do {
+            try await rename(from: source, to: destination)
+        } catch {
+            // Best effort, and deliberately not reported over the top of the
+            // error that caused it: the original failure is the one the user
+            // needs, and if this one fails too the parked name is in the listing
+            // where it can be seen.
+            try? await rename(from: parked, to: destination)
+            throw error
+        }
+        try? await removeFile(at: parked)
+    }
+
+    /// A name next to `path` that nothing is using, checked with ``lstat(_:)``
+    /// because a dangling symlink still owns its name and `stat` would report it
+    /// free.
+    ///
+    /// Unpredictable rather than merely unique: the point is that nobody can
+    /// have arranged for something to be sitting under it. `EXCL` is what makes
+    /// that a guarantee rather than a hope, and this only keeps the number of
+    /// times it has to be relied on down to one.
+    private func freeName(besides path: String, marker: String) async throws -> String {
+        for _ in 0..<8 {
+            let candidate = "\(path).sshborg-\(marker)-\(UUID().uuidString.prefix(12))"
+            if try await lstat(candidate) == nil { return candidate }
+        }
+        // Eight unpredictable names all taken is not a server, so the message
+        // says what was being attempted rather than pretending to diagnose.
+        throw SSHError.library(code: 0, message: "no free name beside \(path)")
     }
 
     /// Removes a partly written remote file, used when an upload is cancelled.

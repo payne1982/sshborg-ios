@@ -488,29 +488,11 @@ final class SFTPModel {
         }
     }
 
-    /// Overwriting, done here rather than asked of the server: park what is in
-    /// the way under a free name, move the source into place, delete the parked
-    /// copy — and if the move fails, put the parked file back where it was.
-    ///
-    /// Every rename in that sequence has a free destination, which is what makes
-    /// it behave the same under both of this project's SFTP clients, and at no
-    /// point does the user's file exist under no name at all.
-    ///
-    /// Only ever reached for a file: a folder collision does not offer this.
+    /// Overwriting, which the server will not do for us: the sequence lives in
+    /// ``SFTPSession/replace(source:destination:)``, where the editor's atomic
+    /// save needs it too.
     private func replace(source: String, destination: String, using session: SFTPSession) async throws {
-        let parked = "\(destination).sshborg-replaced-\(Int(Date().timeIntervalSince1970 * 1000))"
-        try await session.rename(from: destination, to: parked)
-        do {
-            try await session.rename(from: source, to: destination)
-        } catch {
-            // Best effort, and deliberately not reported over the top of the
-            // error that caused it: the original failure is the one the user
-            // needs, and if this one fails too the parked name is in the listing
-            // where it can be seen.
-            try? await session.rename(from: parked, to: destination)
-            throw error
-        }
-        try? await session.removeFile(at: parked)
+        try await session.replace(source: source, destination: destination)
     }
 
     /// Whether moving this entry out of `source` and into `destination` would

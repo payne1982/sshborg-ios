@@ -342,4 +342,133 @@ final class SFTPIntegrationTests: XCTestCase {
         try text.write(to: local, atomically: true, encoding: .utf8)
         try await session.upload(from: local, to: "\(workingDirectory!)/\(name)")
     }
+
+    // MARK: - Saving a file that is already there
+
+    /// The whole point of the atomic save: the bytes never sit in a file more
+    /// open than the one they are replacing. Android's editor widened a 0600
+    /// file to whatever the umask allowed, because it wrote to a *new* temp file
+    /// and chmod'd it afterwards.
+    func testASaveKeepsTheFilesOwnPermissions() async throws {
+        let path = "\(workingDirectory!)/private.conf"
+        let first = try scratchFile(containing: "secret\n")
+        try await session.write(first, to: path, flags: SFTPSession.createExclusively, mode: 0o600)
+        let asCreated = try await permissions(of: path)
+        XCTAssertEqual(asCreated, 0o600, "the fixture did not get its mode")
+
+        let second = try scratchFile(containing: "still secret\n")
+        try await session.uploadReplacing(from: second, to: path)
+
+        let afterSaving = try await permissions(of: path)
+        let contents = try await text(at: path)
+        XCTAssertEqual(afterSaving, 0o600, "the save widened the file")
+        XCTAssertEqual(contents, "still secret\n")
+    }
+
+    /// A save that dies halfway must leave the file it was replacing exactly as
+    /// it was — which a truncating write cannot do, and is the reason for all
+    /// of this.
+    func testASaveThatDiesHalfwayLeavesTheOriginalAlone() async throws {
+        let path = "\(workingDirectory!)/notes.txt"
+        let original = try scratchFile(containing: "the original\n")
+        try await session.upload(from: original, to: path)
+
+        // Bigger than one chunk, so the cancellation lands in the middle of the
+        // write rather than before it.
+        let replacement = try scratchFile(containing: String(repeating: "x", count: 300_000))
+        let cancelled = Cancelled()
+
+        do {
+            try await session.uploadReplacing(
+                from: replacement, to: path, isCancelled: { cancelled.afterFirstChunk() }
+            )
+            XCTFail("a cancelled save reported success")
+        } catch {
+            XCTAssertEqual(error as? SSHError, .cancelled)
+        }
+
+        let survived = try await text(at: path)
+        XCTAssertEqual(survived, "the original\n", "the original was damaged")
+        let leftovers = try await session.list(workingDirectory)
+            .map(\.name)
+            .filter { $0 != "notes.txt" }
+        XCTAssertEqual(leftovers, [], "the save left litter behind")
+    }
+
+    /// `EXCL` is the guarantee the whole sequence rests on: the scratch name is
+    /// *created*, so a name something is already using fails instead of being
+    /// opened — and if that something is a symlink, "opened" would mean writing
+    /// through it to a file somebody else chose.
+    func testAnExclusiveCreateRefusesANameThatIsTaken() async throws {
+        let path = "\(workingDirectory!)/taken"
+        let file = try scratchFile(containing: "here first\n")
+        try await session.upload(from: file, to: path)
+
+        do {
+            try await session.write(file, to: path, flags: SFTPSession.createExclusively, mode: 0o644)
+            XCTFail("an exclusive create opened a file that already existed")
+        } catch {
+            // The server's refusal, whatever it calls it.
+        }
+        let untouched = try await text(at: path)
+        XCTAssertEqual(untouched, "here first\n")
+    }
+
+    /// Somebody deleted the file while the editor was open. Save then means
+    /// create, which is what the button says.
+    func testSavingOverAFileThatHasGoneCreatesIt() async throws {
+        let path = "\(workingDirectory!)/vanished.txt"
+        let file = try scratchFile(containing: "back again\n")
+
+        try await session.uploadReplacing(from: file, to: path)
+
+        let created = try await text(at: path)
+        XCTAssertEqual(created, "back again\n")
+    }
+
+    /// And the ordinary case leaves the directory with one file in it and no
+    /// trace of how it got there.
+    func testASuccessfulSaveLeavesNothingBehind() async throws {
+        let path = "\(workingDirectory!)/config"
+        try await session.upload(from: try scratchFile(containing: "one\n"), to: path)
+
+        try await session.uploadReplacing(from: try scratchFile(containing: "two\n"), to: path)
+
+        let listing = try await session.list(workingDirectory).map(\.name)
+        let saved = try await text(at: path)
+        XCTAssertEqual(listing, ["config"])
+        XCTAssertEqual(saved, "two\n")
+    }
+
+    // MARK: - Helpers for the saving tests
+
+    private func scratchFile(containing text: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sshborg-test-\(UUID().uuidString)")
+        try Data(text.utf8).write(to: url)
+        return url
+    }
+
+    private func permissions(of path: String) async throws -> UInt32 {
+        let entry = try await session.lstat(path)
+        return try XCTUnwrap(entry).permissions
+    }
+
+    private func text(at path: String) async throws -> String {
+        String(decoding: try await session.readSmallFile(at: path), as: UTF8.self)
+    }
+
+    /// True from the second time it is asked, so the write has put a chunk on
+    /// the wire before the cancellation lands.
+    private final class Cancelled: @unchecked Sendable {
+        private let lock = NSLock()
+        private var asked = 0
+
+        func afterFirstChunk() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            asked += 1
+            return asked > 1
+        }
+    }
 }
