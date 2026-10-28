@@ -133,7 +133,11 @@ final class SFTPSession: @unchecked Sendable {
                     decoding: nameBuffer[0..<Int(count)].map { UInt8(bitPattern: $0) },
                     as: UTF8.self
                 )
-                guard name != ".", name != ".." else { continue }
+                // `.` and `..` are in every listing and are simply not shown.
+                // Anything else that is not a name is a name the server should
+                // not have been able to offer, and it is dropped rather than
+                // used — see ``SFTPNames``, where the reasoning lives.
+                guard SFTPNames.isPlain(name) else { continue }
 
                 let mode = UInt32(attributes.permissions & 0xFFFF_FFFF)
                 let isSymlink = (mode & 0o170000) == 0o120000
