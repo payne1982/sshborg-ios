@@ -4,6 +4,8 @@
 • The file editor no longer cuts a file short when a save is interrupted: the new version is written aside first, and the original stays on the server until it has been replaced. It also keeps the file's permissions exactly.
 • SFTP: file names sent by a server are checked before they are used, so a server cannot point the app outside the folder you are looking at.
 • Jump hosts: choosing them now starts from your own host list, with the typed form a tap away.
+• App lock with your own PIN or passphrase: a lock that needs neither Face ID nor the device passcode. Five wrong tries lock it for a while, longer each time — and a forgotten one cannot be recovered, so the app says so before you set it.
+• Security: when you approve a server's key, only that exact key is accepted from then on — for every machine in a jump-host chain, and for port forwarding too. A mosh-server command restored from a backup can no longer run anything but the program it names.
 </en-US>
 <it-IT>
 • Mosh (sperimentale): un terminale che sopravvive al cambio di rete e al telefono messo via. Lo schermo sta sul server, quindi al ritorno trovi la stessa shell con gli stessi programmi ancora in esecuzione. Si accende host per host — sul server serve mosh-server installato e le sue porte UDP raggiungibili.
@@ -11,6 +13,8 @@
 • L'editor di file non tronca più un file se il salvataggio si interrompe: la nuova versione viene scritta a parte, e l'originale resta sul server finché non è stato sostituito. E conserva esattamente i permessi del file.
 • SFTP: i nomi dei file che manda un server vengono controllati prima di essere usati, così un server non può puntare l'app fuori dalla cartella che stai guardando.
 • Jump host: la scelta parte dal tuo elenco di host, e la forma scritta a mano è a un tocco di distanza.
+• Blocco dell'app con un PIN o una passphrase tuoi: un blocco che non chiede né Face ID né il codice del dispositivo. Cinque tentativi sbagliati lo bloccano per un po', ogni volta più a lungo — e uno dimenticato non si recupera, quindi l'app lo dice prima che tu lo imposti.
+• Sicurezza: quando approvi la chiave di un server, da lì in poi viene accettata solo quella chiave esatta — per ogni macchina di una catena di jump host, e anche per il port forwarding. Un comando mosh-server ripristinato da un backup non può più eseguire altro che il programma che nomina.
 </it-IT>
 <de-DE>
 • Mosh (experimentell): ein Terminal, das einen Netzwechsel und das Weglegen des Telefons übersteht. Der Bildschirm liegt auf dem Server, also finden Sie bei der Rückkehr dieselbe Shell mit denselben noch laufenden Programmen. Pro Host einschaltbar — auf dem Server muss mosh-server installiert und seine UDP-Ports erreichbar sein.
@@ -18,6 +22,8 @@
 • Der Dateieditor schneidet keine Datei mehr ab, wenn ein Speichern unterbrochen wird: die neue Fassung wird zuerst daneben geschrieben, und das Original bleibt auf dem Server, bis es ersetzt ist. Die Dateirechte bleiben dabei genau erhalten.
 • SFTP: Dateinamen, die ein Server sendet, werden vor der Verwendung geprüft, damit ein Server die App nicht aus dem Ordner herausführen kann, den Sie gerade ansehen.
 • Jump-Hosts: die Auswahl beginnt jetzt bei Ihrer eigenen Hostliste, die getippte Form ist einen Fingertipp entfernt.
+• App-Sperre mit eigener PIN oder Passphrase: eine Sperre, die weder Face ID noch den Gerätecode braucht. Fünf falsche Versuche sperren sie eine Weile, jedes Mal länger — und eine vergessene lässt sich nicht wiederherstellen, deshalb sagt die App das, bevor Sie sie festlegen.
+• Sicherheit: wenn Sie den Schlüssel eines Servers bestätigen, wird von da an nur genau dieser Schlüssel angenommen — für jede Maschine einer Jump-Host-Kette und auch für die Portweiterleitung. Ein aus einem Backup wiederhergestellter mosh-server-Befehl kann nichts anderes mehr ausführen als das Programm, das er nennt.
 </de-DE>
 <es-ES>
 • Mosh (experimental): un terminal que sobrevive a un cambio de red y a guardar el teléfono. La pantalla vive en el servidor, así que al volver encuentras la misma shell con los mismos programas aún en marcha. Se activa host por host — en el servidor hace falta mosh-server instalado y sus puertos UDP accesibles.
@@ -25,6 +31,8 @@
 • El editor de archivos ya no deja un archivo cortado si se interrumpe un guardado: la nueva versión se escribe aparte primero, y el original sigue en el servidor hasta que se ha sustituido. Además conserva exactamente los permisos del archivo.
 • SFTP: los nombres de archivo que envía un servidor se comprueban antes de usarlos, de modo que un servidor no puede llevar la app fuera de la carpeta que estás viendo.
 • Saltos (jump hosts): la elección empieza por tu propia lista de hosts, y la forma escrita a mano está a un toque.
+• Bloqueo de la app con tu propio PIN o frase de contraseña: un bloqueo que no necesita ni Face ID ni el código del dispositivo. Cinco intentos fallidos lo bloquean un rato, cada vez más — y uno olvidado no se puede recuperar, así que la app lo dice antes de que lo configures.
+• Seguridad: cuando apruebas la clave de un servidor, desde entonces solo se acepta esa clave exacta — para cada máquina de una cadena de saltos, y también para la redirección de puertos. Un comando mosh-server restaurado desde una copia ya no puede ejecutar nada más que el programa que nombra.
 </es-ES>
 <fr-FR>
 • Mosh (expérimental) : un terminal qui survit à un changement de réseau et au téléphone rangé dans la poche. L'écran vit sur le serveur : au retour, vous retrouvez le même shell avec les mêmes programmes toujours en cours. À activer hôte par hôte — le serveur doit avoir mosh-server installé et ses ports UDP joignables.
@@ -32,6 +40,8 @@
 • L'éditeur de fichiers ne tronque plus un fichier quand un enregistrement est interrompu : la nouvelle version est d'abord écrite à côté, et l'original reste sur le serveur jusqu'à son remplacement. Les permissions du fichier sont conservées à l'identique.
 • SFTP : les noms de fichiers envoyés par un serveur sont vérifiés avant d'être utilisés, pour qu'un serveur ne puisse pas emmener l'app hors du dossier que vous regardez.
 • Hôtes de rebond : le choix part désormais de votre propre liste d'hôtes, la forme saisie à la main restant à portée de doigt.
+• Verrouillage de l'app par votre propre code PIN ou phrase secrète : un verrou qui ne demande ni Face ID ni le code de l'appareil. Cinq essais erronés le bloquent un moment, chaque fois plus longtemps — et un code oublié ne se récupère pas, l'app le dit donc avant que vous le définissiez.
+• Sécurité : quand vous approuvez la clé d'un serveur, seule cette clé exacte est acceptée ensuite — pour chaque machine d'une chaîne de rebonds, et pour la redirection de ports aussi. Une commande mosh-server restaurée depuis une sauvegarde ne peut plus exécuter autre chose que le programme qu'elle nomme.
 </fr-FR>
 <pt-PT>
 • Mosh (experimental): um terminal que sobrevive a uma mudança de rede e ao telefone guardado. O ecrã vive no servidor, por isso ao voltar encontra a mesma shell com os mesmos programas ainda a correr. Liga-se host a host — no servidor é preciso ter o mosh-server instalado e as suas portas UDP acessíveis.
@@ -39,6 +49,8 @@
 • O editor de ficheiros já não corta um ficheiro se uma gravação for interrompida: a nova versão é escrita à parte primeiro, e o original fica no servidor até ter sido substituído. E mantém exatamente as permissões do ficheiro.
 • SFTP: os nomes de ficheiros enviados por um servidor são verificados antes de serem usados, para que um servidor não possa levar a app fora da pasta que está a ver.
 • Jump hosts: a escolha começa pela sua própria lista de hosts, com a forma escrita à mão a um toque de distância.
+• Bloqueio da app com o seu próprio PIN ou frase-passe: um bloqueio que não precisa de Face ID nem do código do dispositivo. Cinco tentativas erradas bloqueiam-no durante um tempo, cada vez mais longo — e um esquecido não se recupera, por isso a app avisa antes de o definir.
+• Segurança: quando aprova a chave de um servidor, a partir daí só essa chave exata é aceite — para cada máquina de uma cadeia de jump hosts, e também para o reencaminhamento de portas. Um comando mosh-server restaurado de uma cópia de segurança já não pode executar nada além do programa que indica.
 </pt-PT>
 <uk>
 • Mosh (експериментально): термінал, який переживає зміну мережі та телефон, прибраний у кишеню. Екран живе на сервері, тому після повернення ви бачите ту саму оболонку з тими самими програмами, що й далі працюють. Увімкніть для окремого хоста — на сервері потрібен встановлений mosh-server і доступні його UDP-порти.
@@ -46,6 +58,8 @@
 • Редактор файлів більше не обрізає файл, якщо збереження перервалося: нова версія спершу записується окремо, а оригінал лишається на сервері, доки його не замінено. Права доступу файлу зберігаються точно.
 • SFTP: імена файлів, які надсилає сервер, перевіряються перед використанням, щоб сервер не міг вивести програму за межі теки, яку ви дивитеся.
 • Проміжні хости: вибір тепер починається з вашого власного списку хостів, а введення вручну — за один дотик.
+• Блокування застосунку власним PIN-кодом або парольною фразою: блокування, якому не потрібні ні Face ID, ні код пристрою. П'ять помилкових спроб блокують його на певний час, щоразу довше — а забутий код не відновити, тож застосунок попереджає про це, перш ніж ви його задасте.
+• Безпека: коли ви підтверджуєте ключ сервера, відтоді приймається лише саме цей ключ — для кожної машини в ланцюжку проміжних хостів, а також для переадресації портів. Команда mosh-server, відновлена з резервної копії, більше не може виконати нічого, крім програми, яку вона називає.
 </uk>
 <ru-RU>
 • Mosh (экспериментально): терминал, который переживает смену сети и убранный в карман телефон. Экран живёт на сервере, поэтому по возвращении вы находите ту же оболочку с теми же работающими программами. Включается для каждого хоста отдельно — на сервере нужен установленный mosh-server и доступные его UDP-порты.
@@ -53,6 +67,8 @@
 • Редактор файлов больше не обрезает файл, если сохранение прервалось: новая версия сначала записывается отдельно, а оригинал остаётся на сервере, пока не заменён. Права доступа файла сохраняются в точности.
 • SFTP: имена файлов, которые присылает сервер, проверяются перед использованием, чтобы сервер не мог вывести приложение за пределы папки, которую вы смотрите.
 • Промежуточные хосты: выбор теперь начинается с вашего собственного списка хостов, а ввод вручную — в одно касание.
+• Блокировка приложения собственным PIN-кодом или парольной фразой: блокировка, которой не нужны ни Face ID, ни код устройства. Пять неверных попыток блокируют её на время, каждый раз дольше — а забытый код не восстановить, поэтому приложение предупреждает об этом до того, как вы его зададите.
+• Безопасность: когда вы подтверждаете ключ сервера, с этого момента принимается только именно этот ключ — для каждой машины в цепочке промежуточных хостов и для переадресации портов тоже. Команда mosh-server, восстановленная из резервной копии, больше не может выполнить ничего, кроме программы, которую она называет.
 </ru-RU>
 <zh-CN>
 • Mosh（实验性）：终端可以经受网络切换和手机放进口袋。屏幕保存在服务器上，所以回来时还是同一个 shell，里面的程序仍在运行。按主机单独开启——服务器上需要装有 mosh-server，并且它的 UDP 端口可以连通。
@@ -60,6 +76,8 @@
 • 保存中断时，文件编辑器不再把文件截断：新版本先写在旁边，原文件在被替换之前一直留在服务器上。文件的权限也会原样保留。
 • SFTP：服务器发来的文件名在使用前会先检查，这样服务器无法把应用指向你正在查看的目录之外。
 • 跳板主机：现在从你自己的主机列表开始选择，手工输入的方式仍然只差一次点按。
+• 用你自己的 PIN 码或口令锁定应用：既不需要面容 ID，也不需要设备密码。连续输错五次会锁定一段时间，每次更久——忘记的口令无法找回，所以应用会在你设置之前说明这一点。
+• 安全：你确认某台服务器的密钥后，之后只接受这把确切的密钥——跳板链中的每台机器如此，端口转发也是如此。从备份恢复的 mosh-server 命令不能再执行它所指定程序以外的任何东西。
 </zh-CN>
 <ja-JP>
 • Mosh（実験的）: ネットワークの切り替えや、端末をしまっても生き残るターミナルです。画面はサーバー側にあるので、戻ってきても同じシェルがそのまま、同じプログラムが動いたままです。ホストごとに有効にできます — サーバーに mosh-server が入っていて、その UDP ポートに届く必要があります。
@@ -67,4 +85,6 @@
 • 保存が中断されても、ファイルエディタがファイルを途中で切ることはなくなりました。新しい版はまず別に書かれ、置き換えが終わるまで元のファイルはサーバーに残ります。ファイルのパーミッションもそのまま保たれます。
 • SFTP: サーバーが送ってくるファイル名は使う前に検査されるので、いま見ているフォルダの外へアプリを向けさせることはできません。
 • 経由ホスト: 選択は自分のホスト一覧から始まり、手で入力する形式もワンタップで使えます。
+• 独自の PIN またはパスフレーズによるアプリのロック：Face ID もデバイスのパスコードも要らないロックです。5 回間違えると一定時間ロックされ、そのたびに長くなります。忘れたものは復元できないため、設定する前にアプリがそのことを伝えます。
+• セキュリティ：サーバーの鍵を承認すると、それ以降はその鍵だけが受け入れられます。踏み台チェーンのすべてのマシンでも、ポート転送でも同じです。バックアップから復元した mosh-server コマンドは、指定したプログラム以外を実行できなくなりました。
 </ja-JP>

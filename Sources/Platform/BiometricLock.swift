@@ -71,6 +71,10 @@ enum BiometricLock {
         switch (mode, availability()) {
         case (.none, _):
             return true
+        // Never asked of the system: the app's own secret is typed into the
+        // cover, and ``AppLock/unlock(with:)`` is what checks it.
+        case (.secret, _):
+            return false
         case (.device, _):
             policy = .deviceOwnerAuthentication
         case (.biometric, .biometrics):

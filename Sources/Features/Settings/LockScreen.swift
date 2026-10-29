@@ -81,3 +81,116 @@ struct LockScreen: View {
         }
     }
 }
+
+/// The cover when the lock is the app's own PIN or passphrase.
+///
+/// Opaque from the first frame like the other one, but with nothing to wait
+/// for: there is no system sheet in front of it, so the field is there at once
+/// and has the keyboard. A PIN gets the number pad, a passphrase the ordinary
+/// keyboard; both are secure entry.
+///
+/// A wrong answer says so and empties the field. Five of them in a row lock the
+/// field for thirty seconds, then a minute, then two, up to fifteen minutes —
+/// Android's schedule — and the countdown is shown so the wait is not mistaken
+/// for a broken button. The count survives the app being killed, because it is
+/// kept with the secret and not in this view.
+struct SecretLockScreen: View {
+
+    let kind: AppLockSecret.Kind
+    let lockoutRemaining: () -> Int
+    let onSubmit: (String) async -> AppLockSecret.Verdict
+
+    @State private var typed = ""
+    @State private var message: String?
+    @State private var waiting = 0
+    @State private var isChecking = false
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.secondary)
+
+                Text(.lockTitle)
+                    .font(.headline)
+
+                SecureField(
+                    String(localized: kind == .pin ? .lockEnterPin : .lockEnterPassphrase),
+                    text: $typed
+                )
+                .textFieldStyle(.roundedBorder)
+                .keyboardType(kind == .pin ? .numberPad : .default)
+                .textContentType(.password)
+                .plainTextEntry()
+                .submitLabel(.go)
+                .focused($isFocused)
+                .disabled(waiting > 0 || isChecking)
+                .onSubmit(submit)
+                .frame(maxWidth: 320)
+                .accessibilityIdentifier("lock-secret-field")
+
+                if let message {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(Color.red)
+                        .multilineTextAlignment(.center)
+                }
+
+                Button(String(localized: .lockUnlockAction), action: submit)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canSubmit)
+            }
+            .padding(32)
+        }
+        .onAppear {
+            waiting = lockoutRemaining()
+            isFocused = waiting == 0
+        }
+        // The countdown, once a second, for as long as there is one.
+        .task(id: waiting > 0) {
+            while waiting > 0 {
+                message = String(localized: .lockLockedOut)
+                    .replacingOccurrences(of: "%1$d", with: "\(waiting)")
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                waiting = lockoutRemaining()
+            }
+            if message != nil, !isChecking { message = nil }
+            isFocused = true
+        }
+    }
+
+    private var canSubmit: Bool {
+        guard waiting == 0, !isChecking else { return false }
+        // The same floor the setter used: anything shorter cannot be right, and
+        // trying it would spend one of the five attempts for nothing.
+        switch kind {
+        case .pin: return typed.count >= AppLockSecret.pinMinimum
+        case .passphrase: return typed.count >= AppLockSecret.passphraseMinimum
+        }
+    }
+
+    private func submit() {
+        guard canSubmit else { return }
+        let attempt = typed
+        isChecking = true
+        Task {
+            let verdict = await onSubmit(attempt)
+            isChecking = false
+            typed = ""
+            switch verdict {
+            case .accepted:
+                message = nil
+            case .refused:
+                message = String(localized: .lockIncorrect)
+                isFocused = true
+            case .lockedOut(let seconds):
+                waiting = seconds
+            }
+        }
+    }
+}

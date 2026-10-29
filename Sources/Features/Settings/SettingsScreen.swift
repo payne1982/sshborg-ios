@@ -25,6 +25,11 @@ struct SettingsScreen: View {
     @Environment(\.openURL) private var openURL
 
     @State private var model: SettingsModel?
+
+    @State private var secretFlow: SettingsScreenSecretFlow?
+    @State private var isShowingLockDisclaimer = false
+    /// "I understand" was tapped: the sheet opens once the alert is gone.
+    @State private var setsSecretAfterDisclaimer = false
     @State private var isMigratingEncryption = false
     @State private var encryptionError: String?
     @State private var isChoosingFile = false
@@ -45,6 +50,19 @@ struct SettingsScreen: View {
                 aboutSection
             }
             .navigationTitle(Text(.settingsTitle))
+            // The PIN's alert and sheets hang off the screen and not off the
+            // section that holds the picker: a sheet attached to a section of a
+            // lazily built list is torn down whenever the list rebuilds that
+            // section, which it does as the sheet comes up. Measured by the
+            // PIN's UI test on 29/10/2026 — the field was there for one query
+            // and gone the next.
+            .modifier(LockSecretFlows(
+                secretFlow: $secretFlow,
+                isShowingDisclaimer: $isShowingLockDisclaimer,
+                setsSecretAfterDisclaimer: $setsSecretAfterDisclaimer,
+                preferences: preferences,
+                lock: environment.lock
+            ))
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 model = model ?? SettingsModel(
@@ -230,21 +248,60 @@ struct SettingsScreen: View {
     // MARK: - Security
 
     private var securitySection: some View {
+        securitySectionBody
+    }
+
+    /// What choosing a lock mode does, which is not always to choose it.
+    ///
+    /// The PIN is set before it is switched on, and confirmed before it is
+    /// switched off — otherwise the picker would be the way round the lock.
+    /// Biometrics and the device passcode are refused where the device has
+    /// neither, as the disabled picker used to refuse everything.
+    private func requestLockMode(_ mode: AppPreferences.LockMode) {
+        let current = preferences.lockMode
+        guard mode != current else { return }
+
+        if mode == .biometric || mode == .device, !BiometricLock.canAuthenticate() { return }
+
+        if current == .secret, environment.lock.secret.isConfigured {
+            secretFlow = .confirmLeaving(mode)
+            return
+        }
+        if mode == .secret {
+            isShowingLockDisclaimer = true
+            return
+        }
+        preferences.lockMode = mode
+    }
+
+    private var securitySectionBody: some View {
         Section {
             // Three modes rather than a switch, matching Android: "none" is a
             // real choice, and "device lock" lets someone with no biometrics
             // enrolled — or who would rather not use them — still lock the app.
-            Picker(String(localized: .settingsAppLockTitle), selection: binding(\.lockMode)) {
+            //
+            // And a fourth, the app's own PIN or passphrase, which is why the
+            // picker is no longer disabled without biometrics: that one needs
+            // nothing of the device. The other two are still refused there, by
+            // ``requestLockMode(_:)``, and the footnote below says why.
+            Picker(
+                String(localized: .settingsAppLockTitle),
+                selection: Binding(get: { preferences.lockMode }, set: requestLockMode)
+            ) {
                 Text(.settingsLockModeNone).tag(AppPreferences.LockMode.none)
                 Text(.settingsLockModeBiometric).tag(AppPreferences.LockMode.biometric)
                 Text(.settingsLockModeDevice).tag(AppPreferences.LockMode.device)
+                Text(.settingsLockModePin).tag(AppPreferences.LockMode.secret)
             }
-            .disabled(!BiometricLock.canAuthenticate())
             // Switching the lock off has to take effect now, not at the next
             // launch: leaving the app locked behind a setting that says it is
             // not would be a puzzle with no way out.
             .onValueChange(of: preferences.lockMode) { _ in
                 environment.lock.lockModeChanged()
+            }
+
+            if preferences.lockMode == .secret {
+                Button(String(localized: .settingsChangeSecret)) { secretFlow = .change }
             }
 
             if !BiometricLock.canAuthenticate() {
@@ -516,6 +573,87 @@ private struct BackupFileHandling: ViewModifier {
             return message
         case nil:
             return ""
+        }
+    }
+}
+
+/// The PIN's disclaimer and sheets, mounted on the settings screen itself.
+///
+/// See the note where it is applied for why they are not on the section.
+private struct LockSecretFlows: ViewModifier {
+
+    @Binding var secretFlow: SettingsScreenSecretFlow?
+    @Binding var isShowingDisclaimer: Bool
+    @Binding var setsSecretAfterDisclaimer: Bool
+    let preferences: AppPreferences
+    let lock: AppLock
+
+    func body(content: Content) -> some View {
+        content
+            // There is no way back from a forgotten secret, so it is said before
+            // one is set and not after. Android's wording.
+            .alert(String(localized: .lockDisclaimerTitle), isPresented: $isShowingDisclaimer) {
+                Button(String(localized: .lockDisclaimerContinue)) { setsSecretAfterDisclaimer = true }
+                Button(String(localized: .actionCancel), role: .cancel) {}
+            } message: {
+                Text(.lockDisclaimerBody)
+            }
+            // Not from the alert's own button: a sheet presented while an alert
+            // is still on its way out can be taken down with it. The button says
+            // what to do, and the sheet waits for the alert to have gone.
+            .onValueChange(of: isShowingDisclaimer) { showing in
+                guard !showing, setsSecretAfterDisclaimer else { return }
+                setsSecretAfterDisclaimer = false
+                Task {
+                    try? await Task.sleep(nanoseconds: 350_000_000)
+                    secretFlow = .set
+                }
+            }
+            .sheet(item: $secretFlow) { flow in
+                switch flow {
+                case .set, .change:
+                    NewSecretSheet(
+                        verifyCurrent: flow == .change ? { await lock.secret.check($0) } : nil,
+                        onSave: { kind, secret in
+                            await lock.secret.set(secret, as: kind)
+                            preferences.lockMode = .secret
+                            lock.lockModeChanged()
+                            secretFlow = nil
+                        },
+                        onCancel: { secretFlow = nil }
+                    )
+                case .confirmLeaving(let mode):
+                    ConfirmSecretSheet(
+                        verify: { await lock.secret.check($0) },
+                        onVerified: {
+                            // Forgotten, not left behind: a hash nobody uses is a
+                            // hash somebody could still try to match.
+                            lock.secret.clear()
+                            secretFlow = nil
+                            preferences.lockMode = mode
+                            lock.lockModeChanged()
+                        },
+                        onCancel: { secretFlow = nil }
+                    )
+                }
+            }
+    }
+}
+
+/// Where the PIN or passphrase flow is, when one is running.
+enum SettingsScreenSecretFlow: Identifiable, Equatable {
+    /// A first one, after the disclaimer.
+    case set
+    /// A new one in place of the current, which is asked for first.
+    case change
+    /// Leaving the PIN for another mode: the current one first.
+    case confirmLeaving(AppPreferences.LockMode)
+
+    var id: String {
+        switch self {
+        case .set: "set"
+        case .change: "change"
+        case .confirmLeaving(let mode): "leave-\(mode.rawValue)"
         }
     }
 }

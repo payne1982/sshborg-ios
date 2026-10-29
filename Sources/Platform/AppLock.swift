@@ -80,6 +80,9 @@ final class AppLock {
     /// absence was long enough, and the arithmetic is where the mistakes are.
     @PerceptionIgnored private let now: () -> Date
 
+    /// The app's own PIN or passphrase, when that is the lock.
+    @PerceptionIgnored let secret: AppLockSecret
+
     init(
         preferences: AppPreferences,
         ask: @escaping (AppPreferences.LockMode) async -> Bool = { mode in
@@ -90,15 +93,27 @@ final class AppLock {
         },
         isAuthenticationPossible: @escaping () -> Bool = BiometricLock.canAuthenticate,
         center: NotificationCenter = .default,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        secret: AppLockSecret = AppLockSecret()
     ) {
         self.preferences = preferences
         self.ask = ask
         self.isAuthenticationPossible = isAuthenticationPossible
         self.now = now
+        self.secret = secret
+        #if DEBUG
+        // The PIN UI test sets a real secret in this simulator's preferences;
+        // a run that failed halfway must not leave the next one facing a lock it
+        // cannot open. `#if DEBUG`, like the hook beside it: nothing shipped
+        // can be asked to forget its lock.
+        if ProcessInfo.processInfo.arguments.contains("-SSHBorgResetLockSecret") {
+            secret.clear()
+            preferences.lockMode = .none
+        }
+        #endif
         // Locked from the very first frame when the lock is on, rather than
         // showing the host list and covering it a moment later.
-        self.isLocked = Self.shouldLock(preferences, isAuthenticationPossible)
+        self.isLocked = Self.shouldLock(preferences, isAuthenticationPossible, secret)
 
         // The cover is also raised straight from UIKit, and not only from the
         // scene phase the app watches.
@@ -165,7 +180,8 @@ final class AppLock {
     /// which is the protection that was there before this feature existed.
     private static func shouldLock(
         _ preferences: AppPreferences,
-        _ isAuthenticationPossible: () -> Bool
+        _ isAuthenticationPossible: () -> Bool,
+        _ secret: AppLockSecret
     ) -> Bool {
         #if DEBUG
         // UI tests drive the app with a finger, and no finger can answer Face
@@ -178,13 +194,26 @@ final class AppLock {
         if ProcessInfo.processInfo.arguments.contains("-SSHBorgDisableLock") { return false }
         #endif
 
-        guard preferences.lockMode != .none else { return false }
-        return isAuthenticationPossible()
+        switch preferences.lockMode {
+        case .none:
+            return false
+        // Needs nothing of the device, which is the point of it — only that a
+        // secret has actually been set. A mode restored without one (it is not
+        // in the backup) locks nothing rather than locking the owner out.
+        case .secret:
+            return secret.isConfigured
+        case .biometric, .device:
+            return isAuthenticationPossible()
+        }
     }
 
     private var shouldLock: Bool {
-        Self.shouldLock(preferences, isAuthenticationPossible)
+        Self.shouldLock(preferences, isAuthenticationPossible, secret)
     }
+
+    /// Whether the cover asks for the app's own secret rather than the system's
+    /// prompt.
+    var asksForSecret: Bool { preferences.lockMode == .secret }
 
     /// The app is going away. Covers up unless the system prompt is what took
     /// the foreground.
@@ -242,7 +271,23 @@ final class AppLock {
 
         guard !hasAskedSinceLocking else { return }
         hasAskedSinceLocking = true
+        // The app's own secret is typed into the cover; there is no system
+        // prompt to raise, and the cover is already up.
+        guard !asksForSecret else { return }
         await authenticate()
+    }
+
+    /// Checks the app's own secret, and unlocks on a match.
+    ///
+    /// Counts a wrong answer and refuses to look at all during a lockout, as
+    /// ``AppLockSecret/verify(_:)`` does; the cover shows what it says.
+    func unlock(with typed: String) async -> AppLockSecret.Verdict {
+        let verdict = await secret.verify(typed)
+        if verdict == .accepted {
+            lastAuthenticated = now()
+            isLocked = false
+        }
+        return verdict
     }
 
     /// Asks, and unlocks on success. Safe to call again after a refusal, which

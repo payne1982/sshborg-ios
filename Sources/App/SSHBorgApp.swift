@@ -28,11 +28,22 @@ struct SSHBorgApp: App {
                         .environment(\.appEnvironment, Self.environment)
 
                     if Self.environment.lock.isLocked {
-                        LockScreen(
-                            biometryName: BiometricLock.availability().displayName,
-                            isAsking: isAsking,
-                            onRetry: { Task { await Self.environment.lock.authenticate() } }
-                        )
+                        Group {
+                            if Self.environment.lock.asksForSecret,
+                               let kind = Self.environment.lock.secret.record?.kind {
+                                SecretLockScreen(
+                                    kind: kind,
+                                    lockoutRemaining: { Self.environment.lock.secret.lockoutRemaining },
+                                    onSubmit: { await Self.environment.lock.unlock(with: $0) }
+                                )
+                            } else {
+                                LockScreen(
+                                    biometryName: BiometricLock.availability().displayName,
+                                    isAsking: isAsking,
+                                    onRetry: { Task { await Self.environment.lock.authenticate() } }
+                                )
+                            }
+                        }
                         // No animation on the way in. A cover that fades is a cover
                         // that shows the host list for a few frames on the way out
                         // of the app, which is exactly what it exists to prevent.

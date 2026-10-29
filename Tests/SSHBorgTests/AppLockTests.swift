@@ -300,4 +300,46 @@ final class AppLockTests: XCTestCase {
 
         XCTAssertFalse(lock.isLocked)
     }
+
+    // MARK: - The app's own secret
+
+    private func secretLock(configured: Bool) async -> AppLock {
+        let secret = AppLockSecret(defaults: UserDefaults(suiteName: "applock.secret.\(UUID().uuidString)")!)
+        if configured { await secret.set("4711", as: .pin) }
+        return AppLock(
+            preferences: preferences(mode: .secret),
+            ask: { _ in XCTFail("the system was asked about the app's own secret"); return false },
+            // Needs nothing of the device: that is the point of it.
+            isAuthenticationPossible: { false },
+            center: NotificationCenter(),
+            secret: secret
+        )
+    }
+
+    /// Locked from the first frame without any biometrics or passcode, never
+    /// asks the system, and opens only for the right answer.
+    func testTheAppsOwnSecretLocksWithoutTheDevice() async {
+        let lock = await secretLock(configured: true)
+        XCTAssertTrue(lock.isLocked)
+        XCTAssertTrue(lock.asksForSecret)
+
+        await lock.didBecomeActive()
+        XCTAssertTrue(lock.isLocked, "something other than the secret opened it")
+
+        let wrong = await lock.unlock(with: "0000")
+        XCTAssertEqual(wrong, .refused(attemptsLeft: 4))
+        XCTAssertTrue(lock.isLocked)
+
+        let right = await lock.unlock(with: "4711")
+        XCTAssertEqual(right, .accepted)
+        XCTAssertFalse(lock.isLocked)
+    }
+
+    /// The mode is carried in nothing that carries the secret, so a mode with no
+    /// secret behind it — however it arrived — locks nothing rather than locking
+    /// the owner out of their own hosts.
+    func testTheSecretModeWithNoSecretLocksNothing() async {
+        let lock = await secretLock(configured: false)
+        XCTAssertFalse(lock.isLocked)
+    }
 }

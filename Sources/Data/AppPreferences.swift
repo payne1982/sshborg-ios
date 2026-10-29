@@ -296,6 +296,10 @@ extension AppPreferences {
         case biometric = 1
         /// Passcode or biometrics, whichever the user prefers.
         case device = 2
+        /// The app's own PIN or passphrase, which needs no device hardware and
+        /// is not the device's passcode. Android's `LOCK_SECRET`, value and all.
+        /// See ``AppLockSecret``.
+        case secret = 3
     }
 
     /// Raw values are Android's `AppCompatDelegate.MODE_NIGHT_*`, deliberately,
