@@ -205,4 +205,30 @@ final class ConnectionPlannerTests: XCTestCase {
         let reloaded = try await hosts.fetch(id: host.id!)
         XCTAssertEqual(reloaded?.jumpHostKeys, "existing ssh-ed25519 AAAA")
     }
+
+    // MARK: - A changed hop key replaces the old one
+
+    /// A typed chain keeps its hops' keys as lines on the host. A new key for a
+    /// hop takes the place of its old line rather than sitting beside it — two
+    /// lines for one machine, and the old one would still be found first.
+    func testANewKeyForATypedHopReplacesItsOldLine() async throws {
+        var host = makeHost {
+            $0.jumpMode = Host.JumpMode.simple.rawValue
+            $0.jumpHosts = "me@edge.example, me@[mid.example]:2222"
+            $0.jumpHostKeys = "edge.example ssh-ed25519 OLDEDGE\n[mid.example]:2222 ssh-ed25519 MID"
+        }
+        host = try await hosts.save(host)
+
+        await planner.persistJumpHostKeys(
+            [SSHSession.JumpHostKey(hostId: nil, knownHostsLine: "edge.example ssh-ed25519 NEWEDGE")],
+            for: host
+        )
+
+        let stored = try await hosts.fetch(id: host.id!)
+        let lines = (stored?.jumpHostKeys ?? "").split(whereSeparator: \.isNewline).map(String.init)
+        XCTAssertEqual(lines.sorted(), [
+            "[mid.example]:2222 ssh-ed25519 MID",
+            "edge.example ssh-ed25519 NEWEDGE",
+        ].sorted())
+    }
 }

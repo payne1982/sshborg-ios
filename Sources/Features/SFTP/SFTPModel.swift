@@ -143,7 +143,7 @@ final class SFTPModel {
             let session = try await SFTPSession.connect(params)
             self.session = session
 
-            try? await persistAfterConnect(hostKey: session.hostKey)
+            try? await persistAfterConnect(hostKey: session.hostKey, approved: approvedHostKeys)
             await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
 
             path = startingPath(home: session.homePath)
@@ -196,9 +196,11 @@ final class SFTPModel {
     }
 
 
-    private func persistAfterConnect(hostKey: HostKeyInfo) async throws {
+    /// See ``TerminalSession`` for why an approved key replaces a stored one.
+    private func persistAfterConnect(hostKey: HostKeyInfo, approved: [String: String]) async throws {
         guard let id = host.id else { return }
-        if host.knownHostsEntry?.isEmpty ?? true {
+        let approvedHere = approved[hostKey.marker] == hostKey.knownHostsLine
+        if host.knownHostsEntry?.isEmpty ?? true || approvedHere {
             try await hosts.updateKnownHostsEntry(id: id, to: hostKey.knownHostsLine)
         }
         try await hosts.recordConnection(id: id)

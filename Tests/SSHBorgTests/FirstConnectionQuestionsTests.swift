@@ -83,4 +83,48 @@ final class FirstConnectionQuestionsTests: XCTestCase {
 
         session.disconnect()
     }
+
+    /// A key that has changed, accepted, **replaces** the old one: the next
+    /// connection asks nothing.
+    ///
+    /// It used to connect once and leave the old key stored, so every later
+    /// connection found the old key, was presented the new one, and asked the same
+    /// question again — and Android, on 29/10/2026, still does. The stored key
+    /// here is the right machine with a key it does not have, which is what a
+    /// rebuilt server looks like from this side.
+    func testAcceptingAChangedKeyReplacesTheOldOne() async throws {
+        var host = Host(label: "rebuilt", hostname: target.host, username: target.username)
+        host.port = target.port
+        let marker = KnownHostsLine.marker(host: target.host, port: target.port)
+        host.knownHostsEntry = "\(marker) ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHRoZSBrZXkgYmVmb3JlIHRoZSByZWJ1aWxkISEh"
+        let saved = try await hosts.save(host)
+
+        let first = TerminalSession(host: saved, hosts: hosts, keys: keys)
+        await first.connect()
+        guard case .needsHostKeyApproval(let info, let isChange) = first.phase else {
+            return XCTFail("a changed key was not asked about: \(first.phase)")
+        }
+        XCTAssertTrue(isChange, "a changed key was presented as a new one")
+
+        await first.connect(acceptHostKey: true)
+        if case .needsPassword = first.phase { await first.connect(password: target.password) }
+        guard case .connected = first.phase else {
+            return XCTFail("accepting the changed key did not connect: \(first.phase)")
+        }
+        first.disconnect()
+
+        let stored = try await hosts.fetch(id: saved.id!)
+        XCTAssertEqual(stored?.knownHostsEntry, info.knownHostsLine, "the accepted key was not stored")
+
+        // And the next connection is not asked again.
+        let second = TerminalSession(host: try XCTUnwrap(stored), hosts: hosts, keys: keys)
+        await second.connect(password: target.password)
+        if case .needsHostKeyApproval = second.phase {
+            XCTFail("the key accepted a moment ago was asked about again")
+        }
+        guard case .connected = second.phase else {
+            return XCTFail("the second connection did not come up: \(second.phase)")
+        }
+        second.disconnect()
+    }
 }

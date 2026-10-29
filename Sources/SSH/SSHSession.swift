@@ -192,7 +192,13 @@ final class SSHSession: @unchecked Sendable {
 
             if index == 0 { realSocket = hopSession.socket }
 
-            if hop.knownHostsEntry?.isEmpty ?? true {
+            // Unpinned hops, and a hop whose key the person approved here —
+            // which for a pinned hop means a key that *changed*, and was accepted
+            // as the new one. Accepting it has to replace the old: otherwise the
+            // next connection finds the old key stored, the new one presented,
+            // and asks the same question again, which is what it used to do here
+            // and still does on Android.
+            if hop.knownHostsEntry?.isEmpty ?? true || params.approvedHostKeys[marker] != nil {
                 collectedKeys.append(
                     JumpHostKey(hostId: hop.hostId, knownHostsLine: hopSession.hostKey.knownHostsLine)
                 )

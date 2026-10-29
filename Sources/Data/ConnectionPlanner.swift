@@ -234,7 +234,16 @@ extension ConnectionPlanner {
             // one line per hop, in the order they were collected.
             guard let id = host.id else { return }
             let existing = host.jumpHostKeys.map { $0.split(whereSeparator: \.isNewline).map(String.init) } ?? []
-            let merged = existing + collected.map(\.knownHostsLine)
+            let incoming = collected.map(\.knownHostsLine)
+            // A new key for a hop takes the place of its old one rather than
+            // sitting beside it: two lines for one machine, and the old one
+            // would still be found first.
+            let replaced = Set(incoming.compactMap { KnownHostsLine.parse($0)?.marker })
+            let kept = existing.filter { line in
+                guard let marker = KnownHostsLine.parse(line)?.marker else { return true }
+                return !replaced.contains(marker)
+            }
+            let merged = kept + incoming
             try? await hosts.updateJumpHostKeys(
                 id: id,
                 to: merged.joined(separator: "\n")

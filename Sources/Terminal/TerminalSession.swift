@@ -539,8 +539,18 @@ final class TerminalSession: Identifiable {
     /// The key belongs to the machine that presented it, which is the bastion
     /// when there is one; the connection count belongs to the row the person
     /// tapped, which is this tab's host either way.
-    private func persistAfterConnect(hostKey: HostKeyInfo, dialled: Host) async throws {
-        if let id = dialled.id, dialled.knownHostsEntry?.isEmpty ?? true {
+    ///
+    /// Written when nothing is stored yet, and also when the person approved
+    /// **this** key here — which, with a key already stored, is a key that
+    /// changed and was accepted as the new one. Accepting it replaces the old
+    /// one; it used to leave it, so the next connection asked the same question
+    /// again (Android still does, on 29/10/2026). Never written for a key that
+    /// was not approved: a mismatch nobody said yes to never gets this far.
+    private func persistAfterConnect(
+        hostKey: HostKeyInfo, dialled: Host, approved: [String: String]
+    ) async throws {
+        let approvedHere = approved[hostKey.marker] == hostKey.knownHostsLine
+        if let id = dialled.id, dialled.knownHostsEntry?.isEmpty ?? true || approvedHere {
             try await hosts.updateKnownHostsEntry(id: id, to: hostKey.knownHostsLine)
         }
         if let id = host.id {
@@ -836,6 +846,9 @@ final class TerminalSession: Identifiable {
         hopCommand: String?
     ) async {
         self.dialled = nil
+        // Kept for the write-down below, which needs to know what was approved
+        // after the attempt's own record of it is cleared.
+        let approved = approvedHostKeys
         self.lastDialled = (host: dialled, params: params)
         self.sshSession = session
         self.transport = transport
@@ -865,7 +878,7 @@ final class TerminalSession: Identifiable {
         // steal focus from the password prompt, which needs it first.
         terminalView.becomeFirstResponder()
 
-        try? await persistAfterConnect(hostKey: session.hostKey, dialled: dialled)
+        try? await persistAfterConnect(hostKey: session.hostKey, dialled: dialled, approved: approved)
         await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
         startForwarding(params)
         startBelowTheTitleBar()
