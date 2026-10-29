@@ -105,12 +105,11 @@ struct Host: Identifiable, Hashable, Codable, FetchableRecord, MutablePersistabl
     /// machine whose network does not change. Only the terminal takes that
     /// road; SFTP still tunnels the whole chain, because that one is SSH.
     ///
-    /// **Nothing in this app reads this or the three fields below.** Android
-    /// gained mosh in its versionCode 39 and these are its per-host
-    /// configuration; they are here because the backup format is shared, and a
-    /// field this app drops is a field the user loses by passing a backup
-    /// through it. Stored, exported, and not acted on — the plan for acting on
-    /// it is in PIANO.md.
+    /// All four are read now. They arrived before they were, because the backup
+    /// format is shared with Android — a field this app dropped would be a field
+    /// the user lost by passing a backup through it — and the fourth of them is
+    /// honoured where it is least obvious: see
+    /// ``SSHSocket/AddressPreference``, which only a mosh host is given.
     var mosh: Bool = false
 
     /// Which address family a mosh session is made over: `auto`, `ipv4` or

@@ -137,4 +137,37 @@ final class SessionResumeTests: XCTestCase {
             "a mosh terminal was thrown away because our SSH session had died"
         )
     }
+
+    /// Bringing the forwardings back after a pocket asks nothing, or does not
+    /// happen.
+    ///
+    /// A mosh tab's terminal survives being away but the forwardings do not —
+    /// they have a session of their own — and nothing else would ever start them
+    /// again. What must not happen is a password prompt or a fingerprint
+    /// question over a terminal that is working perfectly.
+    func testTheForwardingsOnlyComeBackWhenNothingHasToBeAsked() {
+        XCTAssertTrue(
+            TerminalSession.forwardingsCanComeBack(
+                forwardings: 1, hasStoredCredentials: true, hasPinnedHostKey: true
+            )
+        )
+        XCTAssertFalse(
+            TerminalSession.forwardingsCanComeBack(
+                forwardings: 0, hasStoredCredentials: true, hasPinnedHostKey: true
+            ),
+            "a login for nothing to forward"
+        )
+        XCTAssertFalse(
+            TerminalSession.forwardingsCanComeBack(
+                forwardings: 2, hasStoredCredentials: false, hasPinnedHostKey: true
+            ),
+            "a password typed by hand must not be kept for this"
+        )
+        XCTAssertFalse(
+            TerminalSession.forwardingsCanComeBack(
+                forwardings: 2, hasStoredCredentials: true, hasPinnedHostKey: false
+            ),
+            "a fingerprint nobody asked to see"
+        )
+    }
 }

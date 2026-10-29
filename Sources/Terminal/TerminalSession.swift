@@ -201,6 +201,11 @@ final class TerminalSession: Identifiable {
     }
 
     @PerceptionIgnored private var dialled: Dialled?
+
+    /// The machine that was dialled and what it was dialled with, kept so the
+    /// port forwardings can be started again without asking anything. See
+    /// ``bringTheForwardingsBack()``.
+    @PerceptionIgnored private var lastDialled: (host: Host, params: SSHConnectionParams)?
     @PerceptionIgnored private var readerTask: Task<Void, Never>?
     @PerceptionIgnored private var contactTask: Task<Void, Never>?
     @PerceptionIgnored private var bridge: TerminalDelegateBridge?
@@ -805,6 +810,7 @@ final class TerminalSession: Identifiable {
         hopCommand: String?
     ) async {
         self.dialled = nil
+        self.lastDialled = (host: dialled, params: params)
         self.sshSession = session
         self.transport = transport
         phase = .connected
@@ -835,6 +841,7 @@ final class TerminalSession: Identifiable {
         startForwarding(params)
         startBelowTheTitleBar()
         startReading(from: transport)
+        if let mosh = transport as? MoshTerminalTransport { watchMoshInDebug(mosh) }
         // Last, and only once there is a shell to type it into.
         if let hopCommand { armHopCommand(hopCommand) }
     }
@@ -848,7 +855,73 @@ final class TerminalSession: Identifiable {
         { [weak self] bytes in
             self?.terminalView.feed(byteArray: ArraySlice(bytes))
             self?.noteHopOutput()
+            self?.noteEcho()
         }
+    }
+
+    // MARK: - Measuring a keystroke, in a debug build only
+
+    /// When something was last typed and has not been answered yet.
+    @PerceptionIgnored private var typedAt: Date?
+
+    @PerceptionIgnored private var diagnosticTask: Task<Void, Never>?
+
+    private func noteKeystroke() {
+        #if DEBUG
+        if typedAt == nil { typedAt = Date() }
+        #endif
+    }
+
+    /// The far end has answered: how long that took, and over what.
+    ///
+    /// Measured for **either** transport, which is the whole point of it. The
+    /// comparison that decides whether phase 6b is worth writing — the eight
+    /// screens of history — is the same device, the same network and the same
+    /// finger, with SSH as the ruler; Android's figures were a median of 97 ms
+    /// over mosh against 72 over SSH, and 115 before its own screen history.
+    /// Read it with the phone attached:
+    ///
+    ///     log stream --predicate 'process == "SSHBorg"' | grep -E 'Terminal|Mosh'
+    ///
+    /// ⚠️ A reply the emulator sends by itself — an answer to a device query —
+    /// comes through the same delegate as the keyboard and cannot be told apart
+    /// here, so it starts a measurement of its own. There are a handful of them
+    /// in a session, mostly during the login, and they are noise in a median
+    /// rather than a reason to trust a single line.
+    private func noteEcho() {
+        #if DEBUG
+        guard let typed = typedAt else { return }
+        typedAt = nil
+        let milliseconds = Int(Date().timeIntervalSince(typed) * 1000)
+        NSLog(
+            "Terminal: echo=%dms %@",
+            milliseconds,
+            transport?.screenIsSynchronised == true ? "mosh" : "ssh"
+        )
+        #endif
+    }
+
+    /// In a debug build, one line every two seconds about how a mosh session is
+    /// going.
+    ///
+    /// The lab can measure a keystroke against a real server from a desktop; it
+    /// cannot say what the same session costs on somebody's phone, and Android's
+    /// first field report was "half a second a character" where its lab said
+    /// seventeen milliseconds. This is how that gap gets a number instead of a
+    /// theory. Nothing in a release build, and nothing in the line that is
+    /// anybody's business but the session's own health — no key, no address, no
+    /// host name.
+    private func watchMoshInDebug(_ mosh: MoshTerminalTransport) {
+        #if DEBUG
+        diagnosticTask?.cancel()
+        diagnosticTask = Task { [weak mosh] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard let mosh, mosh.isConnected else { return }
+                NSLog("Mosh: %@", mosh.diagnosticLine())
+            }
+        }
+        #endif
     }
 
     // MARK: - Streaming
@@ -898,9 +971,7 @@ final class TerminalSession: Identifiable {
         // A shell that exited on its own is finished, and reconnecting it would
         // undo what the user just did by typing `exit`.
         endedByRemote = endedCleanly
-        phase = .disconnected(
-            reason: endedCleanly ? nil : String(localized: .terminalConnectionLost)
-        )
+        phase = .disconnected(reason: Self.disconnectionReason(for: end))
 
         // `exit` closes the tab; anything else leaves the panel up.
         //
@@ -933,7 +1004,10 @@ final class TerminalSession: Identifiable {
             guard Self.needsRedialAfterBeingAway(
                 screenIsSynchronised: transport?.screenIsSynchronised == true,
                 sshIsAlive: alive
-            ) else { return }
+            ) else {
+                if !alive { await bringTheForwardingsBack() }
+                return
+            }
             endedByRemote = false
             phase = .disconnected(reason: nil)
             await reconnectAutomatically()
@@ -952,6 +1026,23 @@ final class TerminalSession: Identifiable {
         case .connecting, .needsPassword, .needsHostKeyApproval, .moshUnavailable, .failed:
             return
         }
+    }
+
+    /// What the panel says under "Disconnected", or nil for a shell that exited
+    /// on its own and takes its tab with it.
+    ///
+    /// The sentence first, because it is the one that says what happened in
+    /// anybody's language, and then whatever the transport knows — which under
+    /// mosh is the line this whole protocol's diagnostics were written for, and
+    /// under SSH is the channel's own word for how its stream ended. It lands in
+    /// the overlay's technical slot, with a Copy button, which is where a number
+    /// somebody is going to paste into an issue belongs.
+    static func disconnectionReason(for end: TerminalEnd) -> String? {
+        guard case .lost(_, let detail) = end else { return nil }
+
+        let sentence = String(localized: .terminalConnectionLost)
+        guard let detail, !detail.isEmpty else { return sentence }
+        return sentence + "\n\n" + detail
     }
 
     /// Whether a tab coming back from being away has to be dialled again.
@@ -978,6 +1069,76 @@ final class TerminalSession: Identifiable {
     static func needsRedialAfterBeingAway(screenIsSynchronised: Bool, sshIsAlive: Bool) -> Bool {
         if screenIsSynchronised { return false }
         return !sshIsAlive
+    }
+
+    /// Brings the port forwardings back for a tab that survived being away.
+    ///
+    /// Only a mosh tab ever gets here: an SSH one is dialled again from scratch,
+    /// and `startForwarding` runs as part of that.
+    ///
+    /// The forwardings have a session of their own — ``PortForwarder/start(_:params:)``
+    /// dials one — so they died with the network while the terminal did not, and
+    /// nothing else would ever start them again. The terminal's own session is
+    /// *not* dialled again: it is read once, at login, for the command history,
+    /// and the only other thing it answers is whether it is alive.
+    ///
+    /// Everything here is on the condition that it can be done **without asking
+    /// anything**: stored credentials only and a host key already pinned. A tab
+    /// whose terminal is working perfectly must not grow a password prompt over
+    /// it, and a password someone typed by hand is deliberately not kept for
+    /// this — the same rule ``reconnectAutomatically()`` follows. When it cannot
+    /// be done the forwardings stay off until the host is opened again, which is
+    /// what the guide says about mosh.
+    ///
+    /// ⚠️ The forwarded agent cannot come back this way and is not attempted.
+    /// `SSH_AUTH_SOCK` inside the mosh session points at a socket belonging to
+    /// the SSH session that started `mosh-server`, and that session is the one
+    /// that died; a new one would have a new socket, which the running shell
+    /// knows nothing about.
+    private func bringTheForwardingsBack() async {
+        guard let last = lastDialled else { return }
+
+        // The row as it stands now: the host key was pinned after these params
+        // were built, which is exactly the case this has to work in.
+        var record = last.host
+        if let id = last.host.id, let fresh = try? await hosts.fetch(id: id) { record = fresh }
+
+        let planner = ConnectionPlanner(hosts: hosts, keys: keys)
+        let auth = await planner.storedAuth(for: record)
+        let pinned = record.knownHostsEntry ?? ""
+
+        guard Self.forwardingsCanComeBack(
+            forwardings: last.params.portForwardings.count,
+            hasStoredCredentials: auth != nil,
+            hasPinnedHostKey: !pinned.isEmpty
+        ), let auth else { return }
+
+        var params = last.params
+        params.auth = auth
+        params.hostKeyPolicy = .requireMatch(pinned)
+
+        // The old listeners first: they are still bound to the local ports the
+        // new ones want, and a forwarder whose session is dead keeps them.
+        forwardingTask?.cancel()
+        forwarder?.stop()
+        forwarder = nil
+        startForwarding(params)
+    }
+
+    /// Whether the port forwardings can be started again without asking
+    /// anything.
+    ///
+    /// Three conditions, and each of them is a refusal to put a question over a
+    /// working terminal. Something to forward at all; a credential that is
+    /// stored, because a password someone typed by hand is deliberately not kept
+    /// for this; and a host key already pinned, because the alternative is a
+    /// fingerprint to approve that nobody asked to see.
+    static func forwardingsCanComeBack(
+        forwardings: Int,
+        hasStoredCredentials: Bool,
+        hasPinnedHostKey: Bool
+    ) -> Bool {
+        forwardings > 0 && hasStoredCredentials && hasPinnedHostKey
     }
 
     /// Reconnects when it can be done without asking anything.
@@ -1027,6 +1188,7 @@ final class TerminalSession: Identifiable {
     // MARK: - Input
 
     func send(_ data: Data) {
+        noteKeystroke()
         transport?.write(data)
     }
 
@@ -1083,6 +1245,9 @@ final class TerminalSession: Identifiable {
         contactTask?.cancel()
         contactTask = nil
         outOfContactSeconds = 0
+        diagnosticTask?.cancel()
+        diagnosticTask = nil
+        typedAt = nil
         hopTask?.cancel()
         hopTask = nil
         pendingHopCommand = nil

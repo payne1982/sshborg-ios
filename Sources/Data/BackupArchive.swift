@@ -32,6 +32,10 @@ struct BackupArchive: Equatable {
     /// 9 the three mosh settings. Older files still load — their missing
     /// sections simply do not apply, and neither reader branches on the number.
     ///
+    /// ⚠️ The note below is out of date as of 29/10/2026: this app now reads all
+    /// four. The reason they were carried before it did is still the reason the
+    /// format is what it is, so it stays written down.
+    ///
     /// The mosh fields are carried although this app does nothing with them,
     /// because the alternative is worse than not having the feature: a backup
     /// round-tripped through here would hand Android back every host with mosh

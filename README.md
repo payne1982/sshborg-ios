@@ -14,6 +14,17 @@ The iOS counterpart of [SSHBorg for Android](https://github.com/payne1982/sshbor
 - **SFTP file manager** — browse, upload, download, rename, and delete files
 - **SSH keys** — generate Ed25519, ECDSA, and RSA keys on the device, or import your own
 - **Jump hosts** — connect through one or more bastion hosts
+- **Mosh (experimental)** — a terminal that survives a change of network *and* the
+  app being suspended: the screen lives on the server, so the same shell with the
+  same programs running in it is still there when you come back. Per host, and it
+  needs `mosh-server` installed on that host with its UDP ports (60001-60999 by
+  default) reachable. SFTP, port forwarding and the agent still use SSH, which
+  means they stop when the network changes until the host is opened again; the
+  scrollback starts empty, because what the server paints without scrolling
+  leaves nothing behind; and a session stays on the address family it was made
+  on. A host whose first hop has Mosh on is reached the other way round — Mosh to
+  that bastion, then one `ssh` line from there — because Mosh cannot be tunnelled
+  through a jump chain.
 - **Agent and port forwarding** — forward your keys through jump chains, and local ports to the server
 - **Host groups** — organise hosts in groups, in the order you choose
 - **App lock** — Face ID, Touch ID or the device passcode

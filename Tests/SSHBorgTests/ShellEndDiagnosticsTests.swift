@@ -94,4 +94,28 @@ final class ShellEndDiagnosticsTests: XCTestCase {
             "a session killed at the server looked like an orderly close"
         )
     }
+
+    // MARK: - What the panel is given to show
+
+    /// A clean exit says nothing: that tab closes itself, and a panel telling
+    /// somebody their `exit` worked is a second thing to dismiss.
+    ///
+    /// A lost session says the sentence, and then whatever the transport knows —
+    /// under mosh the diagnostic line the protocol's counters exist for, under
+    /// SSH the channel's own word for how its stream ended. It goes in the
+    /// overlay's technical slot, which has the Copy button.
+    @MainActor
+    func testTheDisconnectionPanelGetsTheSentenceAndThenTheNumbers() throws {
+        XCTAssertNil(TerminalSession.disconnectionReason(for: .cleanExit))
+
+        let bare = TerminalSession.disconnectionReason(for: .lost(summary: nil, detail: nil))
+        XCTAssertEqual(bare, String(localized: .terminalConnectionLost))
+
+        let withNumbers = TerminalSession.disconnectionReason(
+            for: .lost(summary: nil, detail: "mosh silent=1800s limit=1800s\nrtt~41ms")
+        )
+        let said = try XCTUnwrap(withNumbers)
+        XCTAssertTrue(said.hasPrefix(String(localized: .terminalConnectionLost)), said)
+        XCTAssertTrue(said.contains("rtt~41ms"), said)
+    }
 }

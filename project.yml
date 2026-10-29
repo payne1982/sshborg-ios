@@ -184,6 +184,18 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         # Biometric lock (phase 1)
         NSFaceIDUsageDescription: SSHBorg uses Face ID to unlock access to your saved hosts and keys.
+        # Mosh talks UDP to the host, and since iOS 14 reaching a machine on the
+        # same network needs the person's permission. Written here rather than
+        # waited for: without the key the system has nothing to show in the
+        # prompt, and what the person would see instead is a session that never
+        # answers — which looks exactly like a blocked port. ⚠️ Unverifiable from
+        # the simulator, which never asks; it wants the phone against a LAN host,
+        # which is the question still open from phase 0 of the mosh plan.
+        #
+        # English only, as `NSFaceIDUsageDescription` above is: these live in the
+        # Info.plist and not in the string catalogue the rest of the app is
+        # translated from.
+        NSLocalNetworkUsageDescription: SSHBorg uses the local network to reach hosts on it over Mosh, which talks UDP directly to the server.
         # Key import/export and SFTP transfers (phases 5-6)
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
