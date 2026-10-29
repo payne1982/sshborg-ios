@@ -149,4 +149,56 @@ final class BastionHopTests: XCTestCase {
             )
         }
     }
+
+    // MARK: - Which arrangement the stored rows describe
+
+    /// The whole decision is the first hop's own switch, and nothing on the
+    /// host's row: a host whose first hop has mosh is walked from it, and one
+    /// whose first hop has mosh off is tunnelled exactly as before.
+    func testTheFirstHopsSwitchDecidesTheArrangement() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let hosts = HostRepository(database)
+        let keys = SSHKeyRepository(database)
+        let planner = ConnectionPlanner(hosts: hosts, keys: keys)
+
+        var bastion = Host(label: "bastion", hostname: "edge.example", username: "me")
+        bastion.mosh = true
+        let savedBastion = try await hosts.save(bastion)
+
+        var middle = Host(label: "middle", hostname: "mid.example", username: "me")
+        middle.port = 2222
+        let savedMiddle = try await hosts.save(middle)
+
+        var target = Host(label: "target", hostname: "inner.example", username: "you")
+        target.jumpMode = Host.JumpMode.hostList.rawValue
+        target.jumpHostIdList = Host.formatIDList([savedBastion.id!, savedMiddle.id!])
+        let savedTarget = try await hosts.save(target)
+
+        let walk = await planner.bastionWalk(for: savedTarget)
+        XCTAssertEqual(walk?.bastion.id, savedBastion.id)
+        XCTAssertEqual(walk?.line, "ssh -J me@mid.example:2222 you@inner.example")
+
+        // The same chain with the switch off is nobody's bastion.
+        var plain = savedBastion
+        plain.mosh = false
+        _ = try await hosts.save(plain)
+        let tunnelled = await planner.bastionWalk(for: savedTarget)
+        XCTAssertNil(tunnelled, "a chain whose first hop has mosh off must be tunnelled")
+    }
+
+    /// Typed text carries no switch to read, which is not a gap: a hop nobody
+    /// has a record of is a hop nothing is known about.
+    func testATypedChainIsNeverWalkedFromABastion() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let hosts = HostRepository(database)
+        let planner = ConnectionPlanner(hosts: hosts, keys: SSHKeyRepository(database))
+
+        var target = Host(label: "target", hostname: "inner.example", username: "you")
+        target.jumpMode = Host.JumpMode.simple.rawValue
+        target.jumpHosts = "me@edge.example"
+        let saved = try await hosts.save(target)
+
+        let walk = await planner.bastionWalk(for: saved)
+        XCTAssertNil(walk)
+    }
 }

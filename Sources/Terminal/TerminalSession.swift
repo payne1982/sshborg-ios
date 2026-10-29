@@ -183,8 +183,13 @@ final class TerminalSession: Identifiable {
     /// user is asked what to do about mosh.
     private struct Dialled {
         let session: SSHSession
+        /// The machine that was dialled: this tab's host, or its bastion.
+        let host: Host
         let params: SSHConnectionParams
         let planner: ConnectionPlanner
+        /// The `ssh` line to type into a bastion once there is a shell, if this
+        /// is one.
+        let hopCommand: String?
     }
 
     @PerceptionIgnored private var dialled: Dialled?
@@ -290,9 +295,24 @@ final class TerminalSession: Identifiable {
         // accept: that is the only moment its banner exists, and it also means
         // the host has answered before anyone types anything. See
         // ``SSHAuth/deferred``.
+        let planner = ConnectionPlanner(hosts: hosts, keys: keys)
+
+        // Mosh cannot be tunnelled, so a host whose first hop has mosh is
+        // reached from the other end: this session is made *to that bastion*,
+        // and the rest of the way is typed into it as one `ssh` line. See
+        // ``ConnectionPlanner/bastionWalk(for:)``.
+        let walk = await planner.bastionWalk(for: host)
+
+        // The machine this session dials and logs in to. Everything about the
+        // login belongs to it — credentials, host key, legacy ciphers, which
+        // `mosh-server` is started — while everything about the destination
+        // still belongs to `host`: the `ssh` line, the connection count, the
+        // SFTP tab, the port forwardings.
+        let dialled = walk?.bastion ?? host
+
         let auth: SSHAuth
         do {
-            auth = try await resolveAuth(typedPassword: password) ?? .deferred
+            auth = try await resolveAuth(typedPassword: password, for: dialled) ?? .deferred
         } catch {
             phase = .failed(error.localizedDescription)
             return
@@ -310,11 +330,11 @@ final class TerminalSession: Identifiable {
         // Bounded wait: a view that never reports a size must not stop the
         // connection from happening at all.
         let geometry = await measuredGeometry()
-        let planner = ConnectionPlanner(hosts: hosts, keys: keys)
         let params = await planner.params(
-            for: host,
+            for: dialled,
+            destination: walk == nil ? nil : host,
             auth: auth,
-            hostKeyPolicy: hostKeyPolicy(acceptHostKey: acceptHostKey)
+            hostKeyPolicy: hostKeyPolicy(acceptHostKey: acceptHostKey, for: dialled)
         )
 
         do {
@@ -325,9 +345,16 @@ final class TerminalSession: Identifiable {
             // cannot be tunnelled through it; a host whose *first hop* has mosh
             // is reached from the other end, which is the bastion and is its own
             // piece of work.
-            if host.mosh, params.jumpHosts.isEmpty {
-                if let mosh = await startMosh(on: session, params: params, geometry: geometry) {
-                    await settle(session: session, transport: mosh, params: params, planner: planner)
+            if dialled.mosh, params.jumpHosts.isEmpty {
+                let mosh = await startMosh(
+                    on: session, dialled: dialled, params: params, geometry: geometry,
+                    hopCommand: walk?.line
+                )
+                if let mosh {
+                    await settle(
+                        session: session, dialled: dialled, transport: mosh,
+                        params: params, planner: planner, hopCommand: walk?.line
+                    )
                 }
                 return
             }
@@ -341,10 +368,11 @@ final class TerminalSession: Identifiable {
             // it, it asks a transport for bytes and does not know which one it
             // has. The sink is given once and is good for the life of the tab,
             // because the emulator is owned here and not by the view.
-            let transport = SSHTerminalTransport(channel: channel) { [weak self] bytes in
-                self?.terminalView.feed(byteArray: ArraySlice(bytes))
-            }
-            await settle(session: session, transport: transport, params: params, planner: planner)
+            let transport = SSHTerminalTransport(channel: channel, apply: sink())
+            await settle(
+                session: session, dialled: dialled, transport: transport,
+                params: params, planner: planner, hopCommand: walk?.line
+            )
         } catch SSHError.needsPassword(let banner) {
             phase = .needsPassword(banner: banner)
         } catch SSHError.unknownHostKey(let info) {
@@ -424,7 +452,10 @@ final class TerminalSession: Identifiable {
     /// Picks the credential to use: an explicitly typed password wins, then the
     /// host's key, then its stored password. Returns `nil` when nothing is
     /// available and the user has to be asked.
-    private func resolveAuth(typedPassword: String?) async throws -> SSHAuth? {
+    /// - Parameter dialled: the machine being logged in to, which is this tab's
+    ///   host or — when the chain is walked from a bastion — the bastion. The
+    ///   credentials are that machine's, because it is the one asking.
+    private func resolveAuth(typedPassword: String?, for dialled: Host) async throws -> SSHAuth? {
         // Falls back to the password typed earlier in this same attempt.
         //
         // Connecting to a new host asks two questions in a row, and the second
@@ -446,7 +477,7 @@ final class TerminalSession: Identifiable {
         // will not come back out of the Keychain, and neither is "the passphrase
         // may be wrong" — which is what the shared case said, about a passphrase
         // the user was never asked for.
-        if let keyId = host.keyId {
+        if let keyId = dialled.keyId {
             guard let key = try await keys.fetch(id: keyId) else {
                 throw SSHError.keyNotFound
             }
@@ -460,25 +491,29 @@ final class TerminalSession: Identifiable {
             return .publicKey(privateKeyPEM: pem)
         }
 
-        return KeychainCrypto.password(for: host).map { SSHAuth.password($0) }
+        return KeychainCrypto.password(for: dialled).map { SSHAuth.password($0) }
     }
 
-    private func hostKeyPolicy(acceptHostKey: Bool) -> HostKeyPolicy {
+    private func hostKeyPolicy(acceptHostKey: Bool, for dialled: Host) -> HostKeyPolicy {
         if acceptHostKey { return .acceptOnce }
         if let accepted = acceptedHostKey { return .requireMatch(accepted) }
-        guard let stored = host.knownHostsEntry, !stored.isEmpty else { return .promptIfUnknown }
+        guard let stored = dialled.knownHostsEntry, !stored.isEmpty else { return .promptIfUnknown }
         return .requireMatch(stored)
     }
 
     /// Records the connection: pins the host key the first time, and stamps the
     /// last-connected time as the Android app does.
-    private func persistAfterConnect(hostKey: HostKeyInfo) async throws {
-        guard let id = host.id else { return }
-
-        if host.knownHostsEntry?.isEmpty ?? true {
+    ///
+    /// The key belongs to the machine that presented it, which is the bastion
+    /// when there is one; the connection count belongs to the row the person
+    /// tapped, which is this tab's host either way.
+    private func persistAfterConnect(hostKey: HostKeyInfo, dialled: Host) async throws {
+        if let id = dialled.id, dialled.knownHostsEntry?.isEmpty ?? true {
             try await hosts.updateKnownHostsEntry(id: id, to: hostKey.knownHostsLine)
         }
-        try await hosts.recordConnection(id: id)
+        if let id = host.id {
+            try await hosts.recordConnection(id: id)
+        }
     }
 
     /// Begins the session as many rows down as the title bar covers, before the
@@ -571,8 +606,10 @@ final class TerminalSession: Identifiable {
     /// and the command history, and it is the one that started the server.
     private func startMosh(
         on session: SSHSession,
+        dialled: Host,
         params: SSHConnectionParams,
-        geometry: (columns: Int, rows: Int)
+        geometry: (columns: Int, rows: Int),
+        hopCommand: String?
     ) async -> MoshTerminalTransport? {
         var started: MoshTerminalTransport?
         let failure: MoshBootstrap.Unavailable
@@ -585,12 +622,10 @@ final class TerminalSession: Identifiable {
                 // family, and resolving the name again is a guess the lab has
                 // already watched fail.
                 dialled: session.dialledAddress ?? params.hostname,
-                program: host.moshCommand,
-                ports: host.moshPorts
+                program: dialled.moshCommand,
+                ports: dialled.moshPorts
             )
-            let mosh = try MoshTerminalTransport(handover: handover) { [weak self] bytes in
-                self?.terminalView.feed(byteArray: ArraySlice(bytes))
-            }
+            let mosh = try MoshTerminalTransport(handover: handover, apply: sink())
             started = mosh
             mosh.start()
             // Before the first datagram, so the server paints for the terminal
@@ -618,7 +653,13 @@ final class TerminalSession: Identifiable {
         }
 
         started?.close()
-        dialled = Dialled(session: session, params: params, planner: ConnectionPlanner(hosts: hosts, keys: keys))
+        self.dialled = Dialled(
+            session: session,
+            host: dialled,
+            params: params,
+            planner: ConnectionPlanner(hosts: hosts, keys: keys),
+            hopCommand: hopCommand
+        )
         phase = .moshUnavailable(failure)
         return nil
     }
@@ -636,14 +677,14 @@ final class TerminalSession: Identifiable {
                 columns: geometry.columns,
                 rows: geometry.rows
             )
-            let transport = SSHTerminalTransport(channel: channel) { [weak self] bytes in
-                self?.terminalView.feed(byteArray: ArraySlice(bytes))
-            }
+            let transport = SSHTerminalTransport(channel: channel, apply: sink())
             await settle(
                 session: dialled.session,
+                dialled: dialled.host,
                 transport: transport,
                 params: dialled.params,
-                planner: dialled.planner
+                planner: dialled.planner,
+                hopCommand: dialled.hopCommand
             )
         } catch {
             phase = .failed(error.localizedDescription)
@@ -657,6 +698,87 @@ final class TerminalSession: Identifiable {
         disconnect()
     }
 
+    // MARK: - The line typed into a bastion
+
+    /// The `ssh` line waiting to be typed, and when it was armed.
+    ///
+    /// On the session rather than on the screen, so a switch between tabs in the
+    /// seconds before it goes out does not leave a session parked on its
+    /// bastion.
+    @PerceptionIgnored private var pendingHopCommand: String?
+    @PerceptionIgnored private var hopArmedAt = Date.distantPast
+    @PerceptionIgnored private var hopLastOutputAt = Date.distantPast
+    @PerceptionIgnored private var hopTask: Task<Void, Never>?
+
+    /// Types the line once the login has settled.
+    ///
+    /// Settled means the output has stopped, not that a prompt has been
+    /// recognised: recognising one is a heuristic over somebody else's PS1, and
+    /// waiting for silence needs to know nothing about the shell. A login that
+    /// has had nothing to say for ``hopQuiet`` is ready to be typed into,
+    /// whatever its prompt looks like.
+    ///
+    /// Two things can trigger it and the first wins: the silence, and
+    /// ``hopGrace`` for a login that never stops printing. Typing blind costs
+    /// little — authentication is long over, so the only thing listening is a
+    /// shell, and a shell keeps a line that arrives while it is still greeting.
+    /// The one thing that must not happen is typing it twice, which is why the
+    /// line is taken rather than read.
+    private func armHopCommand(_ command: String) {
+        pendingHopCommand = command
+        hopArmedAt = Date()
+        // Nothing may ever arrive — a shell that has already said everything it
+        // had to say — so the silence is counted from here and not only from the
+        // last chunk.
+        hopLastOutputAt = Date()
+
+        hopTask?.cancel()
+        hopTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                guard let self, await self.hopIsDue() else { continue }
+                await self.typePendingHopCommand()
+                return
+            }
+        }
+    }
+
+    private func hopIsDue() -> Bool {
+        guard pendingHopCommand != nil else { return true }
+        let now = Date()
+        return now.timeIntervalSince(hopLastOutputAt) >= Self.hopQuiet
+            || now.timeIntervalSince(hopArmedAt) >= Self.hopGrace
+    }
+
+    /// The login has just printed something, so the silence starts again from
+    /// now.
+    ///
+    /// Cheap on purpose: it runs on the path that applies host bytes, and does
+    /// nothing at all once the line has been typed.
+    private func noteHopOutput() {
+        guard pendingHopCommand != nil else { return }
+        hopLastOutputAt = Date()
+    }
+
+    /// Types the pending line, once. Later calls find nothing left to do.
+    ///
+    /// Written straight to the transport rather than through ``send(text:)``:
+    /// this is not a keystroke, and counting it as one would put a line nobody
+    /// typed into the suggestion list the person may be looking at.
+    private func typePendingHopCommand() {
+        guard let command = pendingHopCommand else { return }
+        pendingHopCommand = nil
+        hopTask?.cancel()
+        hopTask = nil
+        transport?.write(Data((command + "\n").utf8))
+    }
+
+    /// How long a login has to be silent before it is taken for ready.
+    static let hopQuiet: TimeInterval = 0.2
+
+    /// And how long it is given to go quiet at all.
+    static let hopGrace: TimeInterval = 5
+
     // MARK: - Connected
 
     /// Everything that happens once there is a transport, whichever one it is.
@@ -667,11 +789,13 @@ final class TerminalSession: Identifiable {
     /// use.
     private func settle(
         session: SSHSession,
+        dialled: Host,
         transport: TerminalTransport,
         params: SSHConnectionParams,
-        planner: ConnectionPlanner
+        planner: ConnectionPlanner,
+        hopCommand: String?
     ) async {
-        dialled = nil
+        self.dialled = nil
         self.sshSession = session
         self.transport = transport
         phase = .connected
@@ -697,11 +821,25 @@ final class TerminalSession: Identifiable {
         // steal focus from the password prompt, which needs it first.
         terminalView.becomeFirstResponder()
 
-        try? await persistAfterConnect(hostKey: session.hostKey)
+        try? await persistAfterConnect(hostKey: session.hostKey, dialled: dialled)
         await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
         startForwarding(params)
         startBelowTheTitleBar()
         startReading(from: transport)
+        // Last, and only once there is a shell to type it into.
+        if let hopCommand { armHopCommand(hopCommand) }
+    }
+
+    /// Where host bytes go: the emulator, and then whatever is waiting on the
+    /// far end having said something.
+    ///
+    /// One place for it because all three roads in need the same sink, and
+    /// because it is the only path that can tell when a login has gone quiet.
+    private func sink() -> TerminalSink {
+        { [weak self] bytes in
+            self?.terminalView.feed(byteArray: ArraySlice(bytes))
+            self?.noteHopOutput()
+        }
     }
 
     // MARK: - Streaming
@@ -889,6 +1027,9 @@ final class TerminalSession: Identifiable {
         acceptedHostKey = nil
         readerTask?.cancel()
         readerTask = nil
+        hopTask?.cancel()
+        hopTask = nil
+        pendingHopCommand = nil
         transport?.close()
         transport = nil
         forwarder?.stop()

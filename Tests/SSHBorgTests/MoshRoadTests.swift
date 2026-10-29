@@ -127,6 +127,62 @@ final class MoshRoadTests: XCTestCase {
         XCTAssertTrue(answered, "the command's output never arrived:\n\(screenText(of: session))")
     }
 
+    /// A host whose **first hop** has mosh is reached from the other end: this
+    /// session is made to the bastion over mosh, and the rest of the way is
+    /// typed into it as one `ssh` line.
+    ///
+    /// Two claims, and the first is the one that could not be guessed: the tab's
+    /// own host has mosh **off**, and the session is a mosh session anyway,
+    /// because the bastion's switch is the whole decision. The second is that
+    /// the line reaches the bastion's shell, which needs the login to have been
+    /// recognised as settled — there is no prompt detector, only silence.
+    ///
+    /// What the inward `ssh` then does belongs to somebody's `known_hosts` and
+    /// is not this test's business. Both rows name the same machine, so the line
+    /// is `ssh <user>@<host>`, and the echo of it on the bastion's own shell is
+    /// the proof it arrived.
+    func testAHostBehindAMoshBastionIsReachedByTypingOneSSHLine() async throws {
+        var bastion = Host(label: "bastion", hostname: target.host, username: target.username)
+        bastion.port = target.port
+        bastion.mosh = true
+        let savedBastion = try await hosts.save(bastion)
+
+        var destination = Host(label: "behind", hostname: target.host, username: target.username)
+        destination.port = target.port
+        destination.jumpMode = Host.JumpMode.hostList.rawValue
+        destination.jumpHostIdList = Host.formatIDList([savedBastion.id!])
+        let savedDestination = try await hosts.save(destination)
+
+        XCTAssertFalse(savedDestination.mosh, "the host being reached must not be the one asking for mosh")
+
+        let session = TerminalSession(host: savedDestination, hosts: hosts, keys: keys)
+        defer {
+            session.disconnect()
+            let until = Date().addingTimeInterval(0.4)
+            while Date() < until { RunLoop.current.run(mode: .default, before: until) }
+        }
+
+        // The questions belong to the bastion, which is the machine being
+        // dialled: its key, then its password.
+        await session.connect()
+        await session.connect(acceptHostKey: true)
+        await session.connect(password: target.password)
+
+        if case .moshUnavailable(let failure) = session.phase {
+            throw XCTSkip("no mosh session on \(target.host): \(failure.reason) — \(failure.detail ?? "")")
+        }
+        guard case .connected = session.phase else {
+            return XCTFail("expected a mosh session to the bastion, got \(session.phase)")
+        }
+        XCTAssertTrue(
+            session.barWouldHideOutput,
+            "the bastion's switch did not decide the road: this is not a mosh session"
+        )
+
+        let typed = await waitForScreen("ssh \(target.username)@\(target.host)", in: session, seconds: 10)
+        XCTAssertTrue(typed, "the ssh line never reached the bastion's shell:\n\(screenText(of: session))")
+    }
+
     // MARK: - Reading the grid
 
     private func waitForScreen(

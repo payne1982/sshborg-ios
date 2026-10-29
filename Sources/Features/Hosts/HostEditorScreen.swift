@@ -49,7 +49,7 @@ struct HostEditorScreen: View {
     // Loaded lists
     @State private var availableKeys: [SSHKey] = []
     @State private var availableGroups: [HostGroup] = []
-    @State private var jumpCandidates: [Host] = []
+    @State private var otherHosts: [Host] = []
     @State private var unusableJumpCandidateCount = 0
 
     @State private var isCreatingGroup = false
@@ -367,7 +367,7 @@ struct HostEditorScreen: View {
                     .plainTextEntry()
 
             case .hostList:
-                if jumpCandidates.isEmpty {
+                if candidates(forHopAt: 0).isEmpty {
                     Text(.iosHostNoJumpCandidates)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -376,7 +376,7 @@ struct HostEditorScreen: View {
                         HStack {
                             Picker(String(localized: .iosHostHopNumber).replacingOccurrences(of: "%1$d", with: "\(index + 1)"), selection: binding(forHopAt: index)) {
                                 Text(.hostJumpSelectPlaceholder).tag(Int64(0))
-                                ForEach(jumpCandidates) { candidate in
+                                ForEach(candidates(forHopAt: index)) { candidate in
                                     Text(candidate.label).tag(candidate.id ?? -1)
                                 }
                             }
@@ -401,6 +401,22 @@ struct HostEditorScreen: View {
     @ViewBuilder
     private var jumpHostsFooter: some View {
         VStack(alignment: .leading, spacing: 4) {
+            // What a chain through a mosh bastion does, said where the hop that
+            // decides it is chosen — and then, when this row logs in with a
+            // password, what becomes of it. Nothing here is a warning: the
+            // session happens either way. Past the bastion the logins are run by
+            // its own ssh, which asks for what it needs in the terminal, so a
+            // password we have saved is simply not the thing that answers it.
+            if let bastion {
+                Text(
+                    String(localized: .hostMoshViaBastion)
+                        .replacingOccurrences(of: "%1$@", with: bastion.label)
+                )
+                if authMode == .password {
+                    Text(.hostJumpMoshPasswordUnused)
+                }
+            }
+
             switch jumpMode {
             case .simple:
                 Text(.hostJumpHostsSupporting)
@@ -492,9 +508,37 @@ struct HostEditorScreen: View {
         // A hop authenticates without anyone at the keyboard, so a host with no
         // saved credential cannot serve as one. Same rule as Android, which
         // greys those entries out.
-        let others = all.filter { $0.id != host?.id }
-        jumpCandidates = others.filter(\.canBeJumpHost)
-        unusableJumpCandidateCount = others.count - jumpCandidates.count
+        otherHosts = all.filter { $0.id != host?.id }
+        // Counted for the first position, which is the one that decides the
+        // arrangement; a later position offers at least as many.
+        unusableJumpCandidateCount = otherHosts.count - candidates(forHopAt: 0).count
+    }
+
+    /// Which hosts may be chosen for the hop at `index`.
+    ///
+    /// Nothing saved is only a problem where *we* have to do the logging in, and
+    /// the reason is older than mosh: a hop's credentials have to be resolved
+    /// before the connect begins, because the password prompt is the host's own,
+    /// raised inside the connect with the server's banner on it, and there is
+    /// exactly one of it. A hop with nothing saved would be dropped from the
+    /// chain, so it is not offered.
+    ///
+    /// Both ways out of that are mosh's. Past a bastion no session of ours dials
+    /// the hop at all — the bastion's own ssh asks, in the terminal, and the
+    /// person answers it there. And a mosh host chosen as the **first** hop
+    /// stops being a hop: it becomes the machine this session dials, where the
+    /// one prompt we have is exactly the right prompt.
+    private func candidates(forHopAt index: Int) -> [Host] {
+        let walked = index > 0 && bastion != nil
+        return otherHosts.filter { candidate in
+            candidate.canBeJumpHost || walked || (index == 0 && candidate.mosh)
+        }
+    }
+
+    /// The first hop, when it has mosh on and so is reached as a bastion.
+    private var bastion: Host? {
+        guard jumpMode == .hostList, let first = jumpHostIds.first, first != 0 else { return nil }
+        return otherHosts.first { $0.id == first && $0.mosh }
     }
 
     private func load() {

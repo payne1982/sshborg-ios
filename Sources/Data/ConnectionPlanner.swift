@@ -30,8 +30,15 @@ struct ConnectionPlanner {
     /// `auth` is passed in rather than resolved here because the caller may have
     /// just asked the user for a password, and that answer has to win over
     /// anything stored.
+    /// - Parameters:
+    ///   - host: the machine this session dials and logs in to. The host itself,
+    ///     or — when the chain is walked from a bastion — the bastion.
+    ///   - destination: the machine actually being reached, when that is not
+    ///     `host`. Passing it says "the rest of the way is walked by the
+    ///     bastion's own ssh", which changes three things and nothing else.
     func params(
         for host: Host,
+        destination: Host? = nil,
         auth: SSHAuth,
         hostKeyPolicy: HostKeyPolicy
     ) async -> SSHConnectionParams {
@@ -49,15 +56,87 @@ struct ConnectionPlanner {
         if host.mosh {
             params.addressPreference = SSHSocket.AddressPreference(column: host.moshFamily)
         }
-        params.agentForwarding = host.agentForwarding
-        params.portForwardings = PortForwarding.parseList(host.portForwardings)
-        params.jumpHosts = await jumpHosts(for: host)
+        if let destination {
+            // Nothing left for SSH to tunnel: what was the first hop is the
+            // machine being dialled, and the hops after it are on the `ssh` line
+            // the bastion runs.
+            params.jumpHosts = []
+            // The destination's rules, on the bastion's session — the one
+            // session SSH still has when the rest of the way is walked by the
+            // bastion's own client. A rule naming a machine reaches it exactly
+            // as before, the bastion being on the same side of the door. A rule
+            // saying `localhost` does not: that name is resolved by the far end
+            // of the session, and that end is now the bastion.
+            params.portForwardings = PortForwarding.parseList(destination.portForwardings)
+            // Either row asking for it is enough. The hop that needs the key is
+            // the bastion, and the host that needs it is the one behind it, so
+            // demanding the switch on both would only mean the `ssh` line
+            // failing for a reason nobody would look for in the other form.
+            params.agentForwarding = destination.agentForwarding || host.agentForwarding
+        } else {
+            params.agentForwarding = host.agentForwarding
+            params.portForwardings = PortForwarding.parseList(host.portForwardings)
+            params.jumpHosts = await jumpHosts(for: host)
+        }
 
-        if host.agentForwarding {
+        if params.agentForwarding {
             params.agentIdentities = await agentIdentities()
         }
 
         return params
+    }
+
+    /// The bastion this host is reached *from*, and the one line that walks the
+    /// rest of the way, or nil when the chain is tunnelled as it always was.
+    ///
+    /// Mosh cannot be tunnelled: a jump hop is an SSH channel inside the hop's
+    /// own connection, and mosh has no channels at all. So a host whose **first
+    /// hop** is itself a mosh host is reached from the other end — the session
+    /// is made to that bastion over mosh, and the rest is typed into it as one
+    /// `ssh` command. See ``BastionHop`` for why one command and not a hop at a
+    /// time.
+    ///
+    /// The bastion's own switch is the whole decision, and there is deliberately
+    /// nothing to tick on the host's row: a second consent would only be a
+    /// second way to be puzzled, and a host's mosh switch already means "reach
+    /// *me* over mosh" wherever it is read from. A chain whose first hop has
+    /// mosh off is tunnelled exactly as before.
+    ///
+    /// Only the terminal takes this road. The SFTP tab opens a session of its
+    /// own through the whole chain as it always did, because that one is SSH and
+    /// can be tunnelled — which is why this is asked for by the terminal and not
+    /// built into ``params(for:destination:auth:hostKeyPolicy:)``.
+    ///
+    /// A saved password on the destination does not change any of it. Past the
+    /// bastion every login is run by the bastion's own ssh, which cannot be
+    /// handed a password we hold — so it asks, in the terminal, and the person
+    /// answers it there. A prompt is not a failure.
+    func bastionWalk(for host: Host) async -> (bastion: Host, line: String)? {
+        // Only the host-list mode has rows to read a switch from. Typed text
+        // carries no mosh flag, which is not a gap: a hop nobody has a record of
+        // is a hop nothing is known about.
+        guard host.parsedJumpMode == .hostList else { return nil }
+
+        var hops: [Host] = []
+        for id in host.jumpHostIDs {
+            guard let record = try? await hosts.fetch(id: id) else { continue }
+            hops.append(record)
+        }
+
+        guard let bastion = hops.first, bastion.mosh else { return nil }
+
+        // A name no shell can be trusted with is the one way out of the
+        // arrangement: the bastion is given up on and the ordinary chain is
+        // walked instead, which is what this host did before any of this
+        // existed.
+        guard let line = BastionHop.compose(
+            target: BastionHop.Endpoint(user: host.username, host: host.hostname, port: host.port),
+            through: hops.dropFirst().map {
+                BastionHop.Endpoint(user: $0.username, host: $0.hostname, port: $0.port)
+            }
+        ) else { return nil }
+
+        return (bastion, line)
     }
 
     /// Credentials stored for a host, with no user interaction.
