@@ -750,7 +750,12 @@ final class TerminalSession: Identifiable {
         hopTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 50_000_000)
-                guard let self, await self.hopIsDue() else { continue }
+                // A session that has gone takes its line with it. Returning
+                // rather than carrying on: there is nobody left to type into,
+                // and a loop that kept going would wake twenty times a second
+                // for as long as the app lived.
+                guard let self else { return }
+                guard await self.hopIsDue() else { continue }
                 await self.typePendingHopCommand()
                 return
             }
