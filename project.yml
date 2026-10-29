@@ -73,7 +73,19 @@ settings:
 packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
-    from: 1.15.0
+    # Pinned exactly, and not `from:`, because SwiftTerm publishes a **1.99.x**
+    # line that is a 2.0 in all but the number: `from: 1.15.0` admits it (SemVer
+    # says anything under 2.0.0), and 1.99.2 removes `TerminalView.getTerminal()`
+    # and pulls swift-png in. Measured on 29/10/2026: a fresh checkout of this
+    # project resolved 1.99.2 and would not compile, while this machine's cached
+    # resolution at 1.20.0 built and passed everything. A build that depends on
+    # which directory it happens to be in is not a build.
+    #
+    # 1.20.0 is what every test and the Release archive of 1.3.0 were built
+    # against. Moving to the 1.99/2.0 line is its own piece of work — the API it
+    # changes is the one the terminal, the oracle and the screen snapshots all
+    # use — and not something a release should discover by itself.
+    exactVersion: 1.20.0
   GRDB:
     url: https://github.com/groue/GRDB.swift
     from: 7.11.1
