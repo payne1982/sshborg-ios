@@ -442,6 +442,64 @@ final class SFTPIntegrationTests: XCTestCase {
 
     // MARK: - Helpers for the saving tests
 
+    /// Saving a symbolic link does what Android does — his decision — and the
+    /// link becomes a regular file. What it must not become is a file with the
+    /// **link's** permissions: a link is usually 0777, so a save that read the
+    /// mode with `lstat` published a 0600 target's contents to every account
+    /// that could reach the directory.
+    func testSavingALinkTakesTheTargetsPermissionsAndNotTheLinks() async throws {
+        let shell = try await shellSession()
+        defer { shell.disconnect() }
+        let directory = workingDirectory!
+        _ = try await shell.execute(
+            "cd \(directory) && printf 'secret\\n' > real.conf && chmod 600 real.conf && ln -s real.conf link.conf"
+        )
+        let before = try await session.lstat("\(directory)/link.conf")
+        XCTAssertEqual(before?.isSymlink, true, "the fixture is not a link")
+
+        try await session.uploadReplacing(
+            from: try scratchFile(containing: "edited\n"), to: "\(directory)/link.conf"
+        )
+
+        let afterSaving = try await session.lstat("\(directory)/link.conf")
+        let saved = try XCTUnwrap(afterSaving)
+        XCTAssertFalse(saved.isSymlink, "the link was kept, which is not what Android does")
+        XCTAssertEqual(saved.permissions, 0o600, "the saved file took the link's mode")
+        let contents = try await text(at: "\(directory)/link.conf")
+        XCTAssertEqual(contents, "edited\n")
+    }
+
+    /// A mode the server's umask would narrow is put back exactly. The scratch
+    /// file is created owner-only and given the real mode explicitly before it
+    /// takes the original's place, so a group-writable 0664 no longer comes back
+    /// 0644.
+    func testASaveKeepsAModeTheUmaskWouldNarrow() async throws {
+        let shell = try await shellSession()
+        defer { shell.disconnect() }
+        let path = "\(workingDirectory!)/shared.conf"
+        _ = try await shell.execute("printf 'one\\n' > \(path) && chmod 664 \(path)")
+        let asMade = try await permissions(of: path)
+        XCTAssertEqual(asMade, 0o664, "the fixture did not get its mode")
+
+        try await session.uploadReplacing(from: try scratchFile(containing: "two\n"), to: path)
+
+        let afterSaving = try await permissions(of: path)
+        XCTAssertEqual(afterSaving, 0o664, "the umask narrowed the saved file")
+    }
+
+    /// A shell on the same host, for the fixtures SFTP cannot make: a link, and
+    /// a mode wider than the umask allows.
+    private func shellSession() async throws -> SSHSession {
+        let target = try XCTUnwrap(SSHTestCredentials.target())
+        var params = SSHConnectionParams(
+            hostname: target.host, port: target.port, username: target.username,
+            auth: .password(target.password)
+        )
+        params.hostKeyPolicy = .acceptOnce
+        params.connectTimeout = 15
+        return try await SSHSession.connect(params)
+    }
+
     private func scratchFile(containing text: String) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("sshborg-test-\(UUID().uuidString)")

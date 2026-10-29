@@ -95,7 +95,15 @@ enum HostKeyPolicy: Equatable {
     /// mechanism decorative.
     case promptIfUnknown
 
-    /// The user has been shown the fingerprint and accepted it.
+    /// Accept whatever key is presented, once.
+    ///
+    /// ⚠️ **The app does not use this any more**, and that is the point of
+    /// ``SSHConnectionParams/approvedHostKeys``: "the person said yes" used to
+    /// be passed down as this, which accepted *any* key on the retry — not the
+    /// one they had been shown — and was inherited by every unpinned hop of a
+    /// chain and by the port forwarder's second connection. Found by an audit on
+    /// 29/10/2026. Kept for the integration tests, which connect to a test host
+    /// nobody has pinned.
     case acceptOnce
 }
 
@@ -128,6 +136,17 @@ struct SSHConnectionParams {
     /// Which address family to try first. Only a mosh host asks for one — see
     /// ``SSHSocket/AddressPreference``.
     var addressPreference: SSHSocket.AddressPreference = .auto
+
+    /// Keys the person has been shown and said yes to during this connection,
+    /// by `known_hosts` marker: which machine, and exactly which key.
+    ///
+    /// Per machine because a chain has several, and each unknown one raises its
+    /// own question — so approving the target's key is not approving a hop's,
+    /// and approving key A is not approving key B. Every attempt that follows
+    /// requires the approved key exactly, for the target here and for each hop in
+    /// ``SSHSession``, and so does any further connection built from these
+    /// params, such as the port forwarder's.
+    var approvedHostKeys: [String: String] = [:]
 
     /// How long to wait for the TCP connection and the SSH handshake.
     var connectTimeout: TimeInterval = 20

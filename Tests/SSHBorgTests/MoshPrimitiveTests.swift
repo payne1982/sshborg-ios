@@ -209,6 +209,26 @@ final class MoshPrimitiveTests: XCTestCase {
         }
     }
 
+    /// The limit means what it says: one byte under, exactly at, one byte over.
+    ///
+    /// The truncation check needs a byte to spare, and the buffer used to be
+    /// exactly `limit`, so the real ceiling was `limit - 1` — an instruction of
+    /// exactly the size allowed was refused.
+    func testTheLimitIsExactAtBothEnds() throws {
+        let limit = 5000
+        for (size, accepted) in [(limit - 1, true), (limit, true), (limit + 1, false)] {
+            let raw = Data((0..<size).map { UInt8($0 % 251) })
+            let frame = try MoshDeflate.deflate(raw)
+            if accepted {
+                XCTAssertEqual(try MoshDeflate.inflate(frame, limit: limit), raw, "\(size) bytes refused")
+            } else {
+                XCTAssertThrowsError(try MoshDeflate.inflate(frame, limit: limit), "\(size) bytes let through") {
+                    XCTAssertEqual($0 as? MoshDeflate.Failure, .tooLarge)
+                }
+            }
+        }
+    }
+
     /// The other side of the same coin: a payload far bigger than the first
     /// guess must inflate, not be refused. A hundred thousand identical bytes
     /// compress 826 to 1, so the opening guess of four kilobytes is five

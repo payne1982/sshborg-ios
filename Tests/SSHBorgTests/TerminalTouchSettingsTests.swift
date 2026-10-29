@@ -285,6 +285,30 @@ final class TerminalTouchSettingsTests: XCTestCase {
         XCTAssertFalse(TerminalTouchHandling.reportsWheel(terminal), "the app gave the mouse back")
     }
 
+    /// Under mosh the alternate screen is never entered here — `?1049h` is
+    /// handled on the server — so the wheel is the app's whenever it has asked
+    /// for the mouse, which is Android's `wheelBelongsToApplication`. Without it
+    /// a swipe in tmux over mosh scrolled our own scrollback instead.
+    func testUnderMoshTheWheelFollowsTheMouseAlone() {
+        let terminal = session.terminalView.getTerminal()
+
+        XCTAssertFalse(
+            TerminalTouchHandling.reportsWheel(terminal, screenIsSynchronised: true),
+            "no mouse asked for, so the swipe still scrolls history"
+        )
+
+        session.terminalView.feed(text: "\u{1B}[?1000h")
+        XCTAssertFalse(terminal.isCurrentBufferAlternate, "the fixture entered the alternate screen")
+        XCTAssertFalse(
+            TerminalTouchHandling.reportsWheel(terminal),
+            "over SSH the main screen keeps its history"
+        )
+        XCTAssertTrue(
+            TerminalTouchHandling.reportsWheel(terminal, screenIsSynchronised: true),
+            "over mosh tmux asked for the mouse and did not get the wheel"
+        )
+    }
+
     /// A finger moving down reads older output, as it does on the main screen:
     /// wheel up. Inverted, the other way.
     func testTheWheelFollowsTheScrollDirection() {

@@ -277,7 +277,10 @@ struct SFTPScreen: View {
             case .needsHostKeyApproval(let info, let isChange):
                 ConnectionPrompt.hostKey(
                     info,
-                    hostname: host.hostname,
+                    // The machine that presented the key, which in a chain may be a
+                    // hop and not the host the tab is for: each unknown one is asked
+                    // about on its own now, and the name has to say which.
+                    hostname: KnownHostsLine.hostAndPort(fromMarker: info.marker)?.host ?? host.hostname,
                     isChange: isChange,
                     onTrust: { Task { await model.connect(acceptHostKey: true) } },
                     onReject: {

@@ -90,10 +90,10 @@ final class SFTPModel {
     /// earlier. Dropped as soon as the browser is up, and on disconnect.
     @PerceptionIgnored private var passwordForThisAttempt: String?
 
-    /// The `known_hosts` line the user accepted, carried across the password
-    /// prompt that now follows it. ``TerminalSession/acceptedHostKey`` explains
-    /// why it is the key and not a yes.
-    @PerceptionIgnored private var acceptedHostKey: String?
+    /// The `known_hosts` lines the user accepted, by machine, carried across the
+    /// prompts that follow. ``TerminalSession/hostKeyPolicy(for:approved:)``
+    /// explains why it is the key and not a yes, and why per machine.
+    @PerceptionIgnored private var approvedHostKeys: [String: String] = [:]
 
     /// Exposed so the screen can hand it to the transfer manager. `nil` until
     /// the connection is up.
@@ -109,9 +109,10 @@ final class SFTPModel {
 
     func connect(password: String? = nil, acceptHostKey: Bool = false) async {
         // The key the Trust button agreed to, read from the question it
-        // answered. See ``TerminalSession/acceptedHostKey`` for why it is kept.
+        // answered, kept for the machine it was about. See
+        // ``TerminalSession/hostKeyPolicy(for:approved:)`` for why.
         if acceptHostKey, case .needsHostKeyApproval(let info, _) = phase {
-            acceptedHostKey = info.knownHostsLine
+            approvedHostKeys[info.marker] = info.knownHostsLine
         }
         phase = .connecting
 
@@ -131,11 +132,12 @@ final class SFTPModel {
         // it matters. Port forwarding rules come along in the parameters and are
         // simply not started — those belong to the terminal session.
         let planner = ConnectionPlanner(hosts: hosts, keys: keys)
-        let params = await planner.params(
+        var params = await planner.params(
             for: host,
             auth: auth,
-            hostKeyPolicy: hostKeyPolicy(acceptHostKey: acceptHostKey)
+            hostKeyPolicy: TerminalSession.hostKeyPolicy(for: host, approved: approvedHostKeys)
         )
+        params.approvedHostKeys = approvedHostKeys
 
         do {
             let session = try await SFTPSession.connect(params)
@@ -147,7 +149,7 @@ final class SFTPModel {
             path = startingPath(home: session.homePath)
             phase = .browsing
             passwordForThisAttempt = nil
-            acceptedHostKey = nil
+            approvedHostKeys = [:]
             await refresh()
         } catch SSHError.needsPassword(let banner) {
             phase = .needsPassword(banner: banner)
@@ -193,12 +195,6 @@ final class SFTPModel {
         return KeychainCrypto.password(for: host).map { SSHAuth.password($0) }
     }
 
-    private func hostKeyPolicy(acceptHostKey: Bool) -> HostKeyPolicy {
-        if acceptHostKey { return .acceptOnce }
-        if let accepted = acceptedHostKey { return .requireMatch(accepted) }
-        guard let stored = host.knownHostsEntry, !stored.isEmpty else { return .promptIfUnknown }
-        return .requireMatch(stored)
-    }
 
     private func persistAfterConnect(hostKey: HostKeyInfo) async throws {
         guard let id = host.id else { return }
@@ -210,7 +206,7 @@ final class SFTPModel {
 
     func disconnect() {
         passwordForThisAttempt = nil
-        acceptedHostKey = nil
+        approvedHostKeys = [:]
         session?.disconnect()
         session = nil
     }

@@ -131,4 +131,36 @@ final class HostJumpConfigurationTests: XCTestCase {
             "typed text counted while the host-list mode was showing"
         )
     }
+
+    // MARK: - What a yes is a yes to
+
+    /// The key the person approved for this machine, exactly; then the stored
+    /// one; then a question — and never "accept whatever answers", which is what
+    /// the Trust button used to be passed down as.
+    @MainActor
+    func testAnApprovalIsForOneKeyOnOneMachine() {
+        var host = Host(label: "h", hostname: "inner.example", username: "u")
+        host.port = 2222
+        let marker = KnownHostsLine.marker(host: "inner.example", port: 2222)
+
+        XCTAssertEqual(TerminalSession.hostKeyPolicy(for: host, approved: [:]), .promptIfUnknown)
+        XCTAssertEqual(
+            TerminalSession.hostKeyPolicy(for: host, approved: [marker: "\(marker) ssh-ed25519 AAAA"]),
+            .requireMatch("\(marker) ssh-ed25519 AAAA"),
+            "the retry after Trust did not ask for the key that was shown"
+        )
+        // A yes about another machine — a hop — is not a yes about this one.
+        XCTAssertEqual(
+            TerminalSession.hostKeyPolicy(for: host, approved: ["edge.example": "edge.example ssh-ed25519 BBBB"]),
+            .promptIfUnknown
+        )
+
+        host.knownHostsEntry = "\(marker) ssh-ed25519 OLD"
+        XCTAssertEqual(TerminalSession.hostKeyPolicy(for: host, approved: [:]), .requireMatch("\(marker) ssh-ed25519 OLD"))
+        // A changed key the person accepted wins over the one it replaces.
+        XCTAssertEqual(
+            TerminalSession.hostKeyPolicy(for: host, approved: [marker: "\(marker) ssh-ed25519 NEW"]),
+            .requireMatch("\(marker) ssh-ed25519 NEW")
+        )
+    }
 }

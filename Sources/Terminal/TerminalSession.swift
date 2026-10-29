@@ -127,8 +127,12 @@ final class TerminalSession: Identifiable {
     /// separate, deliberate act in the host editor.
     @PerceptionIgnored private var passwordForThisAttempt: String?
 
-    /// The `known_hosts` line the user looked at and accepted, until a shell
-    /// comes up and writes it down for good.
+    /// The `known_hosts` lines the user looked at and accepted, by machine,
+    /// until a shell comes up and writes them down for good.
+    ///
+    /// By machine because a chain has several, each unknown one raises its own
+    /// question, and approving one is not approving another. See
+    /// ``SSHConnectionParams/approvedHostKeys``, which is where they travel.
     ///
     /// A first connection to a host asks two questions in a row, and here each
     /// answer costs a connection: the key is accepted, the next attempt gets as
@@ -143,7 +147,7 @@ final class TerminalSession: Identifiable {
     /// to come back rather than accepting whatever answers. A typo in the
     /// password therefore costs a retry and not a second look at the
     /// fingerprint.
-    @PerceptionIgnored private var acceptedHostKey: String?
+    @PerceptionIgnored private var approvedHostKeys: [String: String] = [:]
 
     /// The last size the view actually reported, as opposed to the one the
     /// terminal object carries before it has ever been laid out.
@@ -300,7 +304,7 @@ final class TerminalSession: Identifiable {
         // The Trust button has only a yes to hand back, so the key it was
         // shown is taken from the question still on screen.
         if acceptHostKey, case .needsHostKeyApproval(let info, _) = phase {
-            acceptedHostKey = info.knownHostsLine
+            approvedHostKeys[info.marker] = info.knownHostsLine
         }
         phase = .connecting
 
@@ -344,12 +348,15 @@ final class TerminalSession: Identifiable {
         // Bounded wait: a view that never reports a size must not stop the
         // connection from happening at all.
         let geometry = await measuredGeometry()
-        let params = await planner.params(
+        var params = await planner.params(
             for: dialled,
             destination: walk == nil ? nil : host,
             auth: auth,
-            hostKeyPolicy: hostKeyPolicy(acceptHostKey: acceptHostKey, for: dialled)
+            hostKeyPolicy: Self.hostKeyPolicy(for: dialled, approved: approvedHostKeys)
         )
+        // And the hops' answers, for the chain to require exactly — and for the
+        // port forwarder's own connection, which is built from these params.
+        params.approvedHostKeys = approvedHostKeys
 
         do {
             let session = try await SSHSession.connect(params)
@@ -508,9 +515,20 @@ final class TerminalSession: Identifiable {
         return KeychainCrypto.password(for: dialled).map { SSHAuth.password($0) }
     }
 
-    private func hostKeyPolicy(acceptHostKey: Bool, for dialled: Host) -> HostKeyPolicy {
-        if acceptHostKey { return .acceptOnce }
-        if let accepted = acceptedHostKey { return .requireMatch(accepted) }
+    /// What the machine being dialled has to present.
+    ///
+    /// The key the person approved for it, exactly, when they have approved one
+    /// — which may be a *changed* key they chose to accept, so it comes before
+    /// the stored one. Then the stored key. Then a question.
+    ///
+    /// ⚠️ Never "accept whatever answers". The Trust button used to be passed
+    /// down as exactly that, `.acceptOnce`, so the retry it started took any key
+    /// at all rather than the one on the screen — and every unpinned hop of a
+    /// chain, and the port forwarder's second connection, inherited it. Found by
+    /// an audit on 29/10/2026.
+    static func hostKeyPolicy(for dialled: Host, approved: [String: String]) -> HostKeyPolicy {
+        let marker = KnownHostsLine.marker(host: dialled.hostname, port: dialled.port)
+        if let line = approved[marker] { return .requireMatch(line) }
         guard let stored = dialled.knownHostsEntry, !stored.isEmpty else { return .promptIfUnknown }
         return .requireMatch(stored)
     }
@@ -825,12 +843,15 @@ final class TerminalSession: Identifiable {
         // Asked of the transport rather than remembered, so a session that fell
         // back to SSH does not keep the answer the host's switch gave.
         barWouldHideOutput = transport.screenIsSynchronised
+        // And to the gestures, which have to know that the alternate screen will
+        // never be entered here: under mosh it lives on the server.
+        touch?.screenIsSynchronised = transport.screenIsSynchronised
         // Nothing else needs the credential now: the history is read on this
         // very session, so there is no second login to hold one for. The
         // key is written down a few lines below, so the acceptance that was
         // standing in for it is finished too.
         passwordForThisAttempt = nil
-        acceptedHostKey = nil
+        approvedHostKeys = [:]
 
         // Open a session and the keyboard is there, as on Android, where the
         // terminal takes focus on attach and `reattachIme()` raises the IME.
@@ -1247,7 +1268,7 @@ final class TerminalSession: Identifiable {
     func disconnect() {
         closedByUser = true
         passwordForThisAttempt = nil
-        acceptedHostKey = nil
+        approvedHostKeys = [:]
         readerTask?.cancel()
         readerTask = nil
         contactTask?.cancel()

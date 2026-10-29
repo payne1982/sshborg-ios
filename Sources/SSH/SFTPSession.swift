@@ -305,6 +305,22 @@ final class SFTPSession: @unchecked Sendable {
         try await attributes(of: path, following: false)
     }
 
+    /// `chmod`, over SFTP: only the permission bits are sent, so nothing else
+    /// about the file is touched.
+    func setPermissions(_ mode: UInt32, at path: String) async throws {
+        try await run { sftp in
+            var attributes = LIBSSH2_SFTP_ATTRIBUTES()
+            attributes.flags = UInt(LIBSSH2_SFTP_ATTR_PERMISSIONS)
+            attributes.permissions = UInt(mode & 0o7777)
+            let result = path.withCString { remote in
+                libssh2_sftp_stat_ex(
+                    sftp, remote, UInt32(strlen(remote)), LIBSSH2_SFTP_SETSTAT, &attributes
+                )
+            }
+            guard result == 0 else { throw Self.error(sftp, path: path) }
+        }
+    }
+
     private func attributes(of path: String, following: Bool) async throws -> SFTPEntry? {
         try await run { sftp in
             var attributes = LIBSSH2_SFTP_ATTRIBUTES()
@@ -408,6 +424,10 @@ final class SFTPSession: @unchecked Sendable {
     /// this side.
     static let createExclusively = UInt(LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_EXCL)
 
+    /// `0600`: what a scratch file is created with, and what a file whose own
+    /// mode could not be read is saved as — the safe way for it to be wrong.
+    static let ownerOnly: UInt32 = 0o600
+
     /// The bytes, however the caller wants the file opened.
     ///
     /// `mode` is only consulted when the file is **created**: an existing file
@@ -464,8 +484,17 @@ final class SFTPSession: @unchecked Sendable {
         }
     }
 
-    /// Writes `localURL` over `remotePath` **atomically**, keeping the file's own
-    /// permissions, and leaving the original untouched if anything fails.
+    /// Writes `localURL` over `remotePath` without ever cutting it short,
+    /// keeping the file's own permissions, and leaving the original in place —
+    /// or, in one narrow case, under a name the error gives — if anything fails.
+    ///
+    /// ⚠️ Not atomic, and it used to say so. The new contents are never half on
+    /// the name the user is editing, which is the promise that matters; but the
+    /// swap is three renames, and between the first two the destination has no
+    /// file under it. OpenSSH offers no single-step replacing rename through
+    /// libssh2 (see ``rename(from:to:)``), so this is as close as it gets, and
+    /// ``replace(source:destination:)`` names the parked original if the
+    /// connection goes in that gap.
     ///
     /// What this buys over a truncating write is the half-saved file. A save
     /// writes straight onto the name the user is editing, so a network that goes
@@ -510,16 +539,51 @@ final class SFTPSession: @unchecked Sendable {
             return
         }
 
+        // The mode of what is being edited, which for a symbolic link is its
+        // **target's**, read with `stat` because `stat` follows. This is what
+        // Android does, and the reason it matters: a link's own mode is usually
+        // 0777, so taking it from `lstat` gave a file read through a 0600
+        // target the permissions of the link — readable by every account that
+        // can reach the directory. A target that cannot be read is saved
+        // owner-only, which is the safe way for that to be wrong.
+        //
+        // The save then replaces the link with a regular file, as Android's
+        // does; his decision on 29/10/2026, over writing through the link.
+        let wanted: UInt32
+        if existing.isSymlink {
+            wanted = try await stat(remotePath)?.permissions ?? Self.ownerOnly
+        } else {
+            wanted = existing.permissions
+        }
+
         let scratch = try await freeName(besides: remotePath, marker: "saving")
         do {
+            // Created owner-only, whatever the file will end up as: the contents
+            // go in while nobody else could read them.
             try await write(
                 localURL,
                 to: scratch,
                 flags: Self.createExclusively,
-                mode: Int(existing.permissions),
+                mode: Int(Self.ownerOnly),
                 isCancelled: isCancelled,
                 onProgress: onProgress
             )
+            // And the real mode set explicitly, then looked at. What `open` is
+            // given goes through the server's umask, so a 0664 original used to
+            // come back 0644 — Android sets and checks, and so does this now. A
+            // mode that cannot be put on is a save that does not happen, rather
+            // than one that quietly changes the file it is saving. A filesystem
+            // without modes reads every file back the same, so `wanted` already
+            // matches there and nothing is refused.
+            if try await stat(scratch)?.permissions != wanted {
+                try? await setPermissions(wanted, at: scratch)
+                guard try await stat(scratch)?.permissions == wanted else {
+                    throw SSHError.library(
+                        code: 0,
+                        message: "\(scratch) could not be given the file's own permissions"
+                    )
+                }
+            }
             try await replace(source: scratch, destination: remotePath)
         } catch {
             // One `catch` for both steps, and the test is why: a cancelled save
@@ -549,11 +613,23 @@ final class SFTPSession: @unchecked Sendable {
         do {
             try await rename(from: source, to: destination)
         } catch {
-            // Best effort, and deliberately not reported over the top of the
-            // error that caused it: the original failure is the one the user
-            // needs, and if this one fails too the parked name is in the listing
-            // where it can be seen.
-            try? await rename(from: parked, to: destination)
+            // Putting it back, and if that works the original failure is the
+            // one to report. If it does not — the connection went between the
+            // two renames — the original is safe but under the parked name, and
+            // that name is the one thing the person needs: without it the file
+            // looks lost. ⚠️ Which is also why this is not called atomic: on
+            // OpenSSH there is no rename that replaces a name in one step through
+            // libssh2, so for the length of one round trip the destination has
+            // no file under it.
+            do {
+                try await rename(from: parked, to: destination)
+            } catch {
+                throw SSHError.library(
+                    code: 0,
+                    message: "The file was not replaced, and the original is kept on the server as "
+                        + "\((parked as NSString).lastPathComponent)."
+                )
+            }
             throw error
         }
         try? await removeFile(at: parked)

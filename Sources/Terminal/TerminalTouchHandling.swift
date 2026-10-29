@@ -331,9 +331,20 @@ final class TerminalTouchHandling: NSObject {
     /// there the swipe is better spent on the app, which scrolls itself; in
     /// tmux that is its own history rather than the shell underneath. And only
     /// once the app has asked for mouse events, or the notches mean nothing.
-    static func reportsWheel(_ terminal: Terminal) -> Bool {
-        terminal.isCurrentBufferAlternate && terminal.mouseMode != .off
+    ///
+    /// **Or when the screen is the far side's**, which is mosh, and the second
+    /// half of Android's `wheelBelongsToApplication`. Mosh keeps the terminal on
+    /// the server and sends what it looks like, so `?1049h` is handled over
+    /// there and never reaches us: the alternate screen here is never entered,
+    /// and without this a swipe in tmux over mosh scrolled our own scrollback
+    /// instead of reaching tmux. Mouse reporting *is* forwarded, so it is still
+    /// the app asking for the wheel that decides.
+    static func reportsWheel(_ terminal: Terminal, screenIsSynchronised: Bool = false) -> Bool {
+        terminal.mouseMode != .off && (terminal.isCurrentBufferAlternate || screenIsSynchronised)
     }
+
+    /// Set by the session once it knows its transport. See ``reportsWheel(_:screenIsSynchronised:)``.
+    var screenIsSynchronised = false
 
     /// The wheel button for a drag of `lines`, positive being a finger moving
     /// down. Unless inverted, that reads older output, as the main screen's
@@ -375,7 +386,7 @@ final class TerminalTouchHandling: NSObject {
         let emulator = terminal.getTerminal()
         // The app may have left the alternate screen, or dropped the mouse,
         // while a flick was still coasting.
-        guard Self.reportsWheel(emulator) else {
+        guard Self.reportsWheel(emulator, screenIsSynchronised: screenIsSynchronised) else {
             stopCoasting()
             return
         }
@@ -498,7 +509,9 @@ extension TerminalTouchHandling: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
         guard let terminal else { return false }
         if terminal.selectionActive { return false }
-        if recognizer === wheelPan { return Self.reportsWheel(terminal.getTerminal()) }
+        if recognizer === wheelPan {
+            return Self.reportsWheel(terminal.getTerminal(), screenIsSynchronised: screenIsSynchronised)
+        }
         return true
     }
 

@@ -101,4 +101,33 @@ final class MoshBootstrapTests: XCTestCase {
         XCTAssertEqual(MoshBootstrap.reason(for: "something odd happened", exitStatus: 1), .noConnectLine)
         XCTAssertEqual(MoshBootstrap.reason(for: "", exitStatus: 0), .noConnectLine)
     }
+
+    // MARK: - The program a host asks for
+
+    /// The field arrives in a backup as well as from the form, and the line it
+    /// goes into is typed into somebody's shell. A plain name or path is kept;
+    /// anything a shell would read as more than one word means `mosh-server`.
+    func testOnlyAPlainProgramReachesTheShell() {
+        for plain in ["mosh-server", "/usr/local/bin/mosh-server", "~/bin/mosh-server",
+                      "./mosh-server", "mosh-server-1.4", "c++-built/mosh_server"] {
+            XCTAssertEqual(MoshBootstrap.serverProgram(plain), plain, "\(plain) was refused")
+        }
+        for hostile in ["mosh-server; touch /tmp/x; #", "$(id)", "`id`", "mosh-server && reboot",
+                        "mosh server", "mosh-server|tee x", "a\nb", "mosh-server>x", "\"quoted\"",
+                        "-oProxyCommand=evil", "--help"] {
+            XCTAssertNil(MoshBootstrap.serverProgram(hostile), "\(hostile) was let through")
+        }
+        XCTAssertNil(MoshBootstrap.serverProgram(nil))
+        XCTAssertNil(MoshBootstrap.serverProgram("   "))
+        XCTAssertEqual(MoshBootstrap.serverProgram("  mosh-server  "), "mosh-server")
+    }
+
+    /// And a refused one falls back to `mosh-server` rather than failing the
+    /// session: the command is whole, and nothing of the hostile text is in it.
+    func testARefusedProgramFallsBackToTheDefault() {
+        let line = MoshBootstrap.command(program: "mosh-server; touch /tmp/sshborg-marker; #")
+        XCTAssertFalse(line.contains("touch"), line)
+        XCTAssertFalse(line.contains(";"), line)
+        XCTAssertTrue(line.contains(" mosh-server new -s"), line)
+    }
 }

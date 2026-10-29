@@ -485,4 +485,63 @@ final class SSHIntegrationTests: XCTestCase {
         let alive = await session.isAlive()
         XCTAssertTrue(alive)
     }
+
+    // MARK: - An approval is for one key
+
+    /// A hop approved with one key refuses another. The approval here is a key
+    /// the hop does not have, which is what an attacker swapping the machine in
+    /// between two attempts looks like from this side — and before 29/10/2026
+    /// the chain inherited "the target was accepted" and took it anyway.
+    func testAHopApprovedForOneKeyRefusesAnother() async throws {
+        let target = try target()
+        var params = params(target, policy: .promptIfUnknown)
+        params.jumpHosts = [hop(target)]
+        let marker = KnownHostsLine.marker(host: target.host, port: target.port)
+        params.approvedHostKeys[marker] = "\(marker) ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHNvbWVib2R5IGVsc2UncyBrZXkgaGVyZSE="
+
+        do {
+            let session = try await SSHSession.connect(params)
+            session.disconnect()
+            XCTFail("the chain connected through a hop that presented a different key")
+        } catch SSHError.hostKeyMismatch {
+            // The right refusal.
+        } catch {
+            XCTFail("refused for the wrong reason: \(error)")
+        }
+    }
+
+    // MARK: - One command, with a deadline and a ceiling
+
+    /// A command that prints for ever and never says what we are waiting for is
+    /// stopped by the ceiling, in a fraction of the time the deadline allows.
+    /// It used to be kept alive by its own output, because libssh2's timeout is
+    /// per read.
+    func testACommandThatNeverStopsTalkingIsCutOff() async throws {
+        let target = try target()
+        let session = try await SSHSession.connect(params(target))
+        defer { session.disconnect() }
+
+        let started = Date()
+        do {
+            _ = try await session.execute("yes", timeout: 10) { _ in false }
+            XCTFail("`yes` finished")
+        } catch {
+            XCTAssertLessThan(Date().timeIntervalSince(started), 8, "it ran into the deadline instead")
+        }
+        let alive = await session.isAlive()
+        XCTAssertTrue(alive, "cutting the command off took the session with it")
+    }
+
+    /// The error stream arrives with the output, in order, and cannot stall the
+    /// call by filling up while we wait for the other one.
+    func testTheErrorStreamArrivesWithTheOutput() async throws {
+        let target = try target()
+        let session = try await SSHSession.connect(params(target))
+        defer { session.disconnect() }
+
+        let answer = try await session.execute(
+            "head -c 16000 /dev/zero | tr '\\0' e 1>&2; echo DONE-AFTER-STDERR", timeout: 20
+        ) { $0.contains("DONE-AFTER-STDERR") }
+        XCTAssertTrue(answer.output.contains("DONE-AFTER-STDERR"))
+    }
 }

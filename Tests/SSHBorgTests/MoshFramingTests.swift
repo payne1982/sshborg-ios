@@ -217,6 +217,42 @@ final class MoshFramingTests: XCTestCase {
         }
     }
 
+    /// And the ceiling is a limit on memory, not a number in an error message:
+    /// what happens **after** the first refusal is the test.
+    ///
+    /// The audit's own probe on the Android original, run here: 5000 pieces of
+    /// 1100 bytes with the same id and no last one. Over there it ended with 5.5
+    /// MB held against a 4 MB ceiling after 1187 refusals, because each refused
+    /// piece had already been kept. Here nothing past the ceiling is kept, and
+    /// nothing for that id is accepted again.
+    func testNothingIsKeptOnceTheCeilingHasBeenReached() {
+        let assembly = MoshFragmentAssembly()
+        let piece = Data(repeating: 0x42, count: 1100)
+        var refused = 0
+        var mostHeld = 0
+
+        for number in 0..<5000 {
+            do {
+                _ = try assembly.add(MoshFragment(id: 9, number: number, isFinal: false, contents: piece))
+            } catch {
+                refused += 1
+            }
+            mostHeld = max(mostHeld, assembly.heldBytes)
+        }
+
+        XCTAssertLessThanOrEqual(mostHeld, 4 * 1024 * 1024, "the ceiling was a message, not a limit")
+        XCTAssertGreaterThan(refused, 0, "5.5 MB of pieces were never refused")
+        XCTAssertEqual(assembly.heldBytes, 0, "the instruction that broke the ceiling was kept")
+
+        // The refused id stays refused, even with the piece that would finish it.
+        XCTAssertThrowsError(
+            try assembly.add(MoshFragment(id: 9, number: 5000, isFinal: true, contents: piece))
+        )
+        // And the next instruction is not punished for it.
+        let next = try? assembly.add(MoshFragment(id: 10, number: 0, isFinal: true, contents: piece))
+        XCTAssertEqual(next, piece, "a new instruction after a refused one did not assemble")
+    }
+
     // MARK: - Fragmenting
 
     func testASmallInstructionIsOneFragment() throws {

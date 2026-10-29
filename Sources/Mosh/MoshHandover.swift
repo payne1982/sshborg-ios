@@ -14,7 +14,8 @@ import Foundation
 /// Translated from Android's `MoshBootstrap`, whose shape is worth keeping: the
 /// parsing and the redaction are pure functions, so they are tested as such
 /// rather than through a connection.
-struct MoshHandover: Equatable {
+struct MoshHandover: Equatable, CustomStringConvertible, CustomDebugStringConvertible,
+    CustomReflectable {
 
     let host: String
     let port: Int
@@ -22,7 +23,20 @@ struct MoshHandover: Equatable {
 
     /// Deliberately says nothing: the key is the session's secret and must not
     /// reach a log.
+    ///
+    /// And it has to be *the* description, not a property that happens to share
+    /// the name. Until 29/10/2026 it was the latter, so `"\(handover)"`,
+    /// `String(reflecting:)` and `dump` all fell back to printing every field —
+    /// the key among them. An audit noticed; nothing printed one yet.
     var description: String { "MoshHandover(\(host):\(port))" }
+
+    var debugDescription: String { description }
+
+    /// What `dump` and the debugger walk, which ignore `description`: the
+    /// address only.
+    var customMirror: Mirror {
+        Mirror(self, children: ["host": host, "port": port], displayStyle: .struct)
+    }
 
     /// `MOSH CONNECT <port> <key>`, the whole of the handover.
     ///

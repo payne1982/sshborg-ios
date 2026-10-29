@@ -76,7 +76,13 @@ enum MoshDeflate {
         // checksum below would refuse a perfectly good frame that merely
         // needed a bigger buffer, which is a defect that reads as a corrupt
         // network.
-        var capacity = min(limit, max(4096, deflated.count * 16))
+        //
+        // Which is also why the room is one byte more than the limit. "Stopped
+        // before filling it" needs a byte to spare, so a buffer of exactly
+        // `limit` made the real ceiling `limit - 1`: an instruction of exactly
+        // the size allowed was refused. An audit on 29/10/2026 noticed.
+        let room = limit + 1
+        var capacity = min(room, max(4096, deflated.count * 16))
         while true {
             if let inflated = Self.inflate(deflated, into: capacity), inflated.count < capacity {
                 let got = adler32(inflated)
@@ -85,8 +91,8 @@ enum MoshDeflate {
                 }
                 return inflated
             }
-            guard capacity < limit else { throw Failure.tooLarge }
-            capacity = min(limit, capacity * 2)
+            guard capacity < room else { throw Failure.tooLarge }
+            capacity = min(room, capacity * 2)
         }
     }
 

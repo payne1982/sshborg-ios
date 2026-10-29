@@ -83,9 +83,39 @@ enum MoshBootstrap {
         ports: String? = nil
     ) -> String {
         let range = MoshHandover.portRange(ports).map { " -p \($0)" } ?? ""
-        let runnable = program?.trimmingCharacters(in: .whitespaces).nilIfEmpty ?? defaultProgram
+        let runnable = serverProgram(program) ?? defaultProgram
         return "env MOSH_SERVER_NETWORK_TMOUT=\(networkTimeout) \(runnable) new -s\(range) -c 256"
     }
+
+    /// The program a host asked for, if it is a plain name or path — or nil, which
+    /// means `mosh-server`.
+    ///
+    /// This line is typed into somebody's shell, and the field it comes from is
+    /// not only the form: it arrives in a **backup** too. So it is checked here,
+    /// where it is used, and not where it is typed: `mosh-server; touch x; #` or
+    /// `$(id)` would otherwise run on the server as part of the bootstrap. Found
+    /// by an audit on 29/10/2026 — Android already filtered it, with
+    /// `MoshBootstrap.serverCommand`, and this is the same character set.
+    ///
+    /// One difference, on purpose: a name that **begins with `-`** is refused as
+    /// well, because `env` would read it as one of its own options.
+    ///
+    /// Anything refused falls back to `mosh-server` rather than failing the
+    /// session, as Android does: a host does not become unusable because a
+    /// backup carried a value nobody can run.
+    static func serverProgram(_ asked: String?) -> String? {
+        guard let text = asked?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty,
+              !text.hasPrefix("-")
+        else { return nil }
+        return text.unicodeScalars.allSatisfy(plainProgram.contains) ? text : nil
+    }
+
+    /// Letters, digits and `. _ - / ~ +`: everything a path to an executable
+    /// needs, and nothing a shell would read as more than one word.
+    private static let plainProgram = CharacterSet(
+        charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-/~+"
+    )
 
     /// Runs it, and reads the handover.
     ///

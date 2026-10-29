@@ -159,13 +159,20 @@ final class SSHSession: @unchecked Sendable {
                 username: hop.username ?? params.username,
                 auth: hop.auth ?? params.auth
             )
-            // A hop with a stored key must match it. Without one, the hop
-            // follows the target's policy: when the user has accepted this
-            // connection they have accepted its path, and there is otherwise no
-            // way to complete a first connection through a bastion at all.
-            // A key that is stored and *differs* still stops the chain, which is
-            // the case that matters.
-            if let entry = hop.knownHostsEntry, !entry.isEmpty {
+            // A key the person approved for this machine during this
+            // connection comes first, and must match exactly: it is the answer to
+            // a question about *this* hop, and it may be the approval of a key
+            // that has changed, which the stored one would refuse.
+            //
+            // Then a stored key, which must match. Without either, the hop is
+            // asked about: its unknown key raises its own question, with its own
+            // fingerprint, and the next attempt carries the answer here. It used
+            // to inherit "the target was accepted" instead, which meant one yes
+            // covered every unpinned machine on the way, whatever they presented.
+            let marker = KnownHostsLine.marker(host: hop.host, port: hop.port)
+            if let approved = params.approvedHostKeys[marker] {
+                hopParams.hostKeyPolicy = .requireMatch(approved)
+            } else if let entry = hop.knownHostsEntry, !entry.isEmpty {
                 hopParams.hostKeyPolicy = .requireMatch(entry)
             } else {
                 hopParams.hostKeyPolicy = params.hostKeyPolicy == .acceptOnce
@@ -627,9 +634,16 @@ final class SSHSession: @unchecked Sendable {
     /// started to let go of it, and a daemon never does: the handover line is
     /// the first thing `mosh-server` prints and the only thing we are there for.
     ///
-    /// Standard error is read only once standard output has ended, which by then
-    /// cannot block — and only then is it worth having, because what it carries
-    /// is a diagnosis of something that did not work.
+    /// Standard error is **merged** into standard output, in the order the far
+    /// end wrote them. It used to be read only once standard output had ended,
+    /// and an audit on 29/10/2026 saw why that is not safe: a process that fills
+    /// the error stream before finishing the other one waits for us to read it,
+    /// while we wait for it to finish. One stream cannot do that.
+    ///
+    /// And the call has a deadline of its own and a ceiling on what it keeps.
+    /// `timeout` used to be libssh2's, which is per operation — so something
+    /// that printed steadily and never said the line we were waiting for kept
+    /// the call alive indefinitely, and kept everything it said.
     func execute(
         _ command: String,
         timeout: TimeInterval = 20,
@@ -652,6 +666,20 @@ final class SSHSession: @unchecked Sendable {
             }
             defer { libssh2_channel_free(channel) }
 
+            // The error stream into the output one: see above.
+            libssh2_channel_handle_extended_data2(channel, LIBSSH2_CHANNEL_EXTENDED_DATA_MERGE)
+
+            // Asked for here as the shell asks for it, and for the same reason:
+            // this command is the one that starts `mosh-server`, so the agent
+            // the session forwards has to be in *its* environment, or the shell
+            // mosh runs never has an `SSH_AUTH_SOCK` — and the `ssh` line typed
+            // into a bastion is exactly the place the phone's keys are wanted.
+            // A server that refuses forwarding is not worth failing over: the
+            // command still runs, without an agent.
+            if self.agentForwarder != nil {
+                _ = libssh2_channel_request_auth_agent(channel)
+            }
+
             let started = command.withCString { line in
                 libssh2_channel_process_startup(
                     channel, "exec", 4, line, UInt32(strlen(line))
@@ -662,12 +690,25 @@ final class SSHSession: @unchecked Sendable {
             }
 
             var said = ""
+            var kept = 0
             var ended = false
             var buffer = [CChar](repeating: 0, count: 4096)
+            let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(timeout * 1_000_000_000)
 
             while true {
+                guard DispatchTime.now().uptimeNanoseconds < deadline else {
+                    throw SSHError.timedOut
+                }
                 let count = libssh2_channel_read_ex(channel, 0, &buffer, buffer.count)
                 if count > 0 {
+                    kept += Int(count)
+                    guard kept <= Self.executeOutputLimit else {
+                        throw SSHError.library(
+                            code: 0,
+                            message: "\(command) printed more than \(Self.executeOutputLimit / 1024) KB "
+                                + "without finishing"
+                        )
+                    }
                     said += String(
                         decoding: buffer[0..<Int(count)].map { UInt8(bitPattern: $0) }, as: UTF8.self
                     )
@@ -680,18 +721,6 @@ final class SSHSession: @unchecked Sendable {
                 }
                 if count == Int(LIBSSH2_ERROR_EAGAIN) { continue }
                 throw SSHError.fromSession(raw, fallback: "reading from \(command)")
-            }
-
-            // Only now, and only because stdout has ended: the process is gone,
-            // so whatever it put on the error stream is already there.
-            if ended {
-                while true {
-                    let count = libssh2_channel_read_ex(channel, 1, &buffer, buffer.count)
-                    guard count > 0 else { break }
-                    said += String(
-                        decoding: buffer[0..<Int(count)].map { UInt8(bitPattern: $0) }, as: UTF8.self
-                    )
-                }
             }
 
             // The exit status needs the channel *closed*, not merely at the end
@@ -710,6 +739,12 @@ final class SSHSession: @unchecked Sendable {
             return (said, libssh2_channel_get_exit_status(channel))
         }
     }
+
+    /// How much one ``execute(_:timeout:stopWhen:)`` keeps before giving up.
+    /// The handover is one line; a screenful of a login banner is a few
+    /// kilobytes; anything past this is a command that is not going to say what
+    /// we are waiting for.
+    static let executeOutputLimit = 64 * 1024
 
     /// How far the forwarded agent got, or `nil` when forwarding is off.
     /// Exists for diagnosis: a failure on the far end is silent from here.

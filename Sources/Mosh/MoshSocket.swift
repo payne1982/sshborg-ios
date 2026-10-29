@@ -43,6 +43,11 @@ actor MoshSocket {
     /// As in mosh: the one in use plus eight on their way out.
     static let maximumPorts = 9
 
+    /// How many datagrams may wait for the loop. The loop comes round at least
+    /// every 250 ms and a busy session sends a few dozen a second, so this is
+    /// seconds of ordinary traffic and about a megabyte at most.
+    static let arrivalBacklog = 1024
+
     private let peer: Peer
     private let grace: TimeInterval
     private let queue = DispatchQueue(label: "com.sshborg.mosh.socket")
@@ -68,10 +73,16 @@ actor MoshSocket {
     /// we hopped, and the sequence number is what decides whether it is news.
     /// `nonisolated` on purpose: the framework delivers on its own queue and
     /// the consumer is the loop, so neither end of this is the actor's. An
-    /// `AsyncStream.Continuation` is `Sendable`, which is what makes that safe —
-    /// and the stream itself is unbounded, as Android's channel is, because a
-    /// datagram dropped for want of buffer is a frame the server has to send
-    /// again.
+    /// `AsyncStream.Continuation` is `Sendable`, which is what makes that safe.
+    ///
+    /// **Bounded, and that is the opposite of the screen's queue.** This one is
+    /// filled *before* anything is authenticated: whatever reaches the port goes
+    /// in, so a flood of rubbish from anywhere could grow it without limit while
+    /// the loop works through it. Dropping is what UDP does anyway, and the
+    /// protocol is built on it — a lost datagram is a frame the server sends
+    /// again. The screen's queue is the other way round: what is in it has
+    /// already been authenticated and is ordered, and dropping from it would
+    /// corrupt the screen. Ours since 29/10/2026, after an audit asked about both.
     nonisolated let arrivals: AsyncStream<Data>
     nonisolated private let deliver: AsyncStream<Data>.Continuation
 
@@ -94,7 +105,9 @@ actor MoshSocket {
         self.grace = retiredGrace
 
         var continuation: AsyncStream<Data>.Continuation!
-        self.arrivals = AsyncStream { continuation = $0 }
+        self.arrivals = AsyncStream(bufferingPolicy: .bufferingNewest(Self.arrivalBacklog)) {
+            continuation = $0
+        }
         self.deliver = continuation
     }
 

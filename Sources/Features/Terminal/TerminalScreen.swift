@@ -641,7 +641,10 @@ struct TerminalScreen: View {
             // the measurements behind it are in `ConnectionPrompt`.
             ConnectionPrompt.hostKey(
                 info,
-                hostname: session.host.hostname,
+                // The machine that presented the key, which in a chain may be a
+                // hop and not the host the tab is for: each unknown one is asked
+                // about on its own now, and the name has to say which.
+                hostname: KnownHostsLine.hostAndPort(fromMarker: info.marker)?.host ?? session.host.hostname,
                 isChange: isChange,
                 onTrust: { Task { await session.connect(acceptHostKey: true) } },
                 onReject: { manager.close(session) }

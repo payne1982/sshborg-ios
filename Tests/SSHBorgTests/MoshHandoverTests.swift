@@ -124,4 +124,20 @@ final class MoshHandoverTests: XCTestCase {
         XCTAssertNil(MoshHandover.portRange("1-70000"), "no port 70000")
         XCTAssertNil(MoshHandover.portRange("1-2-3"), "three of them")
     }
+
+    // MARK: - Nothing prints the key
+
+    /// Every way Swift has of turning a value into text, and the debugger's too.
+    /// It used to be a property that happened to be called `description`, so
+    /// all of these fell back to printing every field, the key among them.
+    func testNoFormattingOfAHandoverCarriesItsKey() {
+        let handover = MoshHandover(host: "a.example", port: 60001, key: "SECRETKEYSECRETKEYSECR")
+        var dumped = ""
+        dump(handover, to: &dumped)
+
+        for text in ["\(handover)", String(describing: handover), String(reflecting: handover), dumped] {
+            XCTAssertFalse(text.contains("SECRETKEY"), "the key escaped: \(text)")
+            XCTAssertTrue(text.contains("60001"), "and it no longer says where: \(text)")
+        }
+    }
 }

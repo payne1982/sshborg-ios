@@ -115,6 +115,14 @@ final class MoshFragmentAssembly {
     private var fragments: [MoshFragment?] = []
     private var bytesHeld = 0
 
+    /// An instruction that went over the ceiling, whose further pieces are
+    /// refused without being kept.
+    private var poisonedID: UInt64?
+
+    /// What is being held right now for an instruction nobody has finished
+    /// sending. Diagnostic, and what the ceiling's test asserts on.
+    var heldBytes: Int { bytesHeld }
+
     /// How many fragments the largest instruction we have assembled was split
     /// into.
     private(set) var largestAssembly = 0
@@ -142,6 +150,11 @@ final class MoshFragmentAssembly {
     /// slot 0. In Kotlin that dereferenced null; here it would have been a force
     /// unwrap, which is a crash and not an exception.
     func add(_ fragment: MoshFragment) throws -> Data? {
+        // Refused outright, and before anything is kept: see the ceiling below.
+        if fragment.id == poisonedID {
+            throw MoshProtocolError.unassembledTooLarge(id: fragment.id, bytes: bytesHeld)
+        }
+
         if fragment.id != currentID {
             currentID = fragment.id
             arrived = 0
@@ -186,17 +199,35 @@ final class MoshFragmentAssembly {
         if let held = fragments[fragment.number] {
             if held.contents != fragment.contents { conflictingFragments += 1 }
         } else {
-            fragments[fragment.number] = fragment
-            arrived += 1
             // What is being held for an instruction nobody has finished sending.
             // The ceiling on a *decompressed* instruction applies after assembly,
             // and with fifteen bits of fragment numbers to fill there is room for
             // many times that much to sit here waiting for a last fragment that
             // never comes.
-            bytesHeld += fragment.contents.count
-            guard bytesHeld <= Self.maximumHeldBytes else {
-                throw MoshProtocolError.unassembledTooLarge(id: fragment.id, bytes: bytesHeld)
+            //
+            // Checked **before** keeping the piece, and then the whole instruction
+            // is let go and its id refused. It used to be the other way round —
+            // keep, count, then throw — and the caller carries on after a throw,
+            // so every further piece with the same id was kept too: the ceiling
+            // was a number in an error message, not a limit on memory. An audit
+            // on 29/10/2026 measured it on the Android original: 5000 pieces of
+            // 1100 bytes, 1187 refusals, 5.5 MB held against a 4 MB ceiling. Our
+            // code was the same in the place that matters.
+            //
+            // It takes the session key to get here — pieces are parsed after OCB
+            // — so this is a broken or hostile server, not the network.
+            let afterThis = bytesHeld + fragment.contents.count
+            guard afterThis <= Self.maximumHeldBytes else {
+                poisonedID = fragment.id
+                fragments = Array(repeating: nil, count: Self.initialSlots)
+                bytesHeld = 0
+                arrived = 0
+                total = -1
+                throw MoshProtocolError.unassembledTooLarge(id: fragment.id, bytes: afterThis)
             }
+            fragments[fragment.number] = fragment
+            arrived += 1
+            bytesHeld = afterThis
         }
 
         guard total >= 0, arrived >= total, !delivered else { return nil }

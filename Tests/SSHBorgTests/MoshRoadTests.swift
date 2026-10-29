@@ -39,11 +39,14 @@ final class MoshRoadTests: XCTestCase {
     /// A host with mosh on, and no credentials stored: the key and the password
     /// are asked for in that order, as `FirstConnectionQuestionsTests` pins, and
     /// the third attempt is the one that reaches the mosh question.
-    private func connectedSession(moshCommand: String? = nil) async throws -> TerminalSession {
+    private func connectedSession(
+        moshCommand: String? = nil, agentForwarding: Bool = false
+    ) async throws -> TerminalSession {
         var host = Host(label: "mosh", hostname: target.host, username: target.username)
         host.port = target.port
         host.mosh = true
         host.moshCommand = moshCommand
+        host.agentForwarding = agentForwarding
         let saved = try await hosts.save(host)
 
         let session = TerminalSession(host: saved, hosts: hosts, keys: keys)
@@ -181,6 +184,35 @@ final class MoshRoadTests: XCTestCase {
 
         let typed = await waitForScreen("ssh \(target.username)@\(target.host)", in: session, seconds: 10)
         XCTAssertTrue(typed, "the ssh line never reached the bastion's shell:\n\(screenText(of: session))")
+    }
+
+    /// The forwarded agent reaches the shell **mosh** runs, not only an SSH one.
+    ///
+    /// It used to be asked for only by the shell channel, which a mosh session
+    /// never opens: `mosh-server` was started on an exec channel that had not
+    /// asked, so the shell it ran had no `SSH_AUTH_SOCK` — and the `ssh` line
+    /// typed into a bastion is exactly where the phone's keys are wanted. An
+    /// audit found it on 29/10/2026.
+    func testTheAgentReachesTheShellMoshRuns() async throws {
+        let session = try await connectedSession(agentForwarding: true)
+        defer {
+            session.disconnect()
+            let until = Date().addingTimeInterval(0.4)
+            while Date() < until { RunLoop.current.run(mode: .default, before: until) }
+        }
+        if case .moshUnavailable(let failure) = session.phase {
+            throw XCTSkip("no mosh session on \(target.host): \(failure.reason)")
+        }
+        guard case .connected = session.phase else {
+            return XCTFail("expected a mosh session, got \(session.phase)")
+        }
+
+        // The prefix and suffix are typed, the path between them is not: only a
+        // socket that exists can fill it.
+        session.send(text: "echo AGENT=[${SSH_AUTH_SOCK:-none}]\r")
+
+        let answered = await waitForScreen("AGENT=[/", in: session, seconds: 10)
+        XCTAssertTrue(answered, "no agent in the mosh shell:\n\(screenText(of: session))")
     }
 
     // MARK: - Reading the grid

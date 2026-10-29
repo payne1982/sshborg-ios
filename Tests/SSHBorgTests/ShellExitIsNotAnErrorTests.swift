@@ -38,7 +38,7 @@ final class ShellExitIsNotAnErrorTests: XCTestCase {
         host.password = target.password
         let session = TerminalSession(host: try await hosts.save(host), hosts: hosts, keys: keys)
 
-        await session.connect(acceptHostKey: true)
+        await connectTrustingTheKey(session)
         guard case .connected = session.phase else {
             return XCTFail("could not connect: \(session.phase)")
         }
@@ -75,7 +75,7 @@ final class ShellExitIsNotAnErrorTests: XCTestCase {
         host.password = target.password
         let session = manager.open(host: try await hosts.save(host), hosts: hosts, keys: keys)
 
-        await session.connect(acceptHostKey: true)
+        await connectTrustingTheKey(session)
         guard case .connected = session.phase else {
             return XCTFail("could not connect: \(session.phase)")
         }
@@ -107,7 +107,7 @@ final class ShellExitIsNotAnErrorTests: XCTestCase {
         host.password = target.password
         let session = manager.open(host: try await hosts.save(host), hosts: hosts, keys: keys)
 
-        await session.connect(acceptHostKey: true)
+        await connectTrustingTheKey(session)
         guard case .connected = session.phase else {
             return XCTFail("could not connect: \(session.phase)")
         }
@@ -125,5 +125,18 @@ final class ShellExitIsNotAnErrorTests: XCTestCase {
         }
         XCTAssertEqual(manager.sessions.count, 1, "the tab vanished, taking the red dot with it")
         XCTAssertNotNil(reason, "no word about why the session ended")
+    }
+
+    /// The real two steps: connect, be shown the key, trust it.
+    ///
+    /// These tests used to call `connect(acceptHostKey: true)` straight away,
+    /// before any question had been asked — and it worked, because a yes was
+    /// passed down as "accept whatever answers". Since 29/10/2026 a yes is an
+    /// approval of the key that was on the screen, so there has to have been one.
+    private func connectTrustingTheKey(_ session: TerminalSession) async {
+        await session.connect()
+        if case .needsHostKeyApproval = session.phase {
+            await session.connect(acceptHostKey: true)
+        }
     }
 }
