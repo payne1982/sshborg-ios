@@ -192,6 +192,30 @@ extension Host {
         return usable.map(String.init).joined(separator: ",")
     }
 
+    /// Whether these editing values describe a chain for SSH to walk.
+    ///
+    /// Mosh and a chain exclude each other — mosh has no channels, so a chain
+    /// cannot be tunnelled through it — and an exclusion enforced from one side
+    /// only is not one: Android's `dfd57ff` is the commit that found that out.
+    /// So the switch cannot be turned on while this is true, and while the
+    /// switch is on there is nothing in the section to build a chain with.
+    ///
+    /// A static over the three values rather than a property of a saved row,
+    /// because the form has to ask it of what is being typed — and because one
+    /// expression of the rule is the whole point.
+    ///
+    /// Note that a stored row *can* have both, from an older database or a
+    /// hand-edited backup. That row shows its chain and its switch off, so the
+    /// chain can be seen and removed.
+    static func jumpConfigured(mode: JumpMode, text: String, hostIDs: [Int64]) -> Bool {
+        switch mode {
+        case .simple:
+            return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .hostList:
+            return hostIDs.contains { $0 != 0 }
+        }
+    }
+
     /// Whether this host can serve as a hop for another one.
     ///
     /// A hop authenticates with nobody at the keyboard, so it needs a stored

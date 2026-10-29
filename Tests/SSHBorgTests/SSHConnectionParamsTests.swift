@@ -114,4 +114,38 @@ final class SSHConnectionParamsTests: XCTestCase {
         XCTAssertTrue(JumpHost.parseList("", knownHostKeys: nil).isEmpty)
         XCTAssertTrue(JumpHost.parseList(" , , ", knownHostKeys: nil).isEmpty)
     }
+
+    // MARK: - Which family to try first
+
+    /// A preference and never a filter: every resolved address is still tried,
+    /// the preferred family simply goes first. A host that only has one of the
+    /// two must still connect, which is what a filter would break.
+    func testThePreferredFamilyGoesFirstAndNothingIsDropped() {
+        let families = [AF_INET6, AF_INET, AF_INET6]
+
+        XCTAssertEqual(
+            SSHSocket.attemptOrder(of: families, preferring: .auto),
+            [0, 1, 2],
+            "no preference must leave the resolver's own order alone"
+        )
+        XCTAssertEqual(SSHSocket.attemptOrder(of: families, preferring: .ipv4), [1, 0, 2])
+        XCTAssertEqual(SSHSocket.attemptOrder(of: families, preferring: .ipv6), [0, 2, 1])
+    }
+
+    /// Asking for a family a name does not have is not an error: there is
+    /// nothing to put first, and the rest is tried in order.
+    func testAPreferenceForAFamilyThatIsNotThereChangesNothing() {
+        XCTAssertEqual(SSHSocket.attemptOrder(of: [AF_INET], preferring: .ipv6), [0])
+        XCTAssertEqual(SSHSocket.attemptOrder(of: [], preferring: .ipv4), [])
+    }
+
+    /// Anything else in the column means no preference, which is what a database
+    /// written before the setting existed has to keep doing.
+    func testAnUnreadableColumnMeansNoPreference() {
+        XCTAssertEqual(SSHSocket.AddressPreference(column: nil), .auto)
+        XCTAssertEqual(SSHSocket.AddressPreference(column: ""), .auto)
+        XCTAssertEqual(SSHSocket.AddressPreference(column: "IPv4"), .auto)
+        XCTAssertEqual(SSHSocket.AddressPreference(column: "ipv4"), .ipv4)
+        XCTAssertEqual(SSHSocket.AddressPreference(column: "ipv6"), .ipv6)
+    }
 }

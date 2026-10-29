@@ -242,7 +242,8 @@ final class SSHSession: @unchecked Sendable {
             socket = try SSHSocket.connect(
                 host: params.hostname,
                 port: params.port,
-                timeout: params.connectTimeout
+                timeout: params.connectTimeout,
+                preferring: params.addressPreference
             )
         }
 

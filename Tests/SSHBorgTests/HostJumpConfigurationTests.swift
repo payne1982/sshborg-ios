@@ -98,4 +98,37 @@ final class HostJumpConfigurationTests: XCTestCase {
         XCTAssertEqual(Host.SFTPStartMode.fixed.rawValue, "fixed")
         XCTAssertEqual(Host.SFTPStartMode.home.rawValue, "home")
     }
+
+    // MARK: - Mosh and a chain exclude each other
+
+    /// What counts as a chain, in each of the two ways the form offers one.
+    ///
+    /// The rule it serves is the exclusion: the Mosh switch cannot be turned on
+    /// while this is true, and while it is on there is nothing in the section to
+    /// build a chain with. One expression of it, because an exclusion enforced
+    /// from one side only is not one.
+    func testWhatCountsAsAChainForSSHToWalk() {
+        XCTAssertFalse(Host.jumpConfigured(mode: .hostList, text: "", hostIDs: []))
+        XCTAssertFalse(
+            Host.jumpConfigured(mode: .hostList, text: "", hostIDs: [0, 0]),
+            "rows that have not been filled in are not a chain"
+        )
+        XCTAssertTrue(Host.jumpConfigured(mode: .hostList, text: "", hostIDs: [0, 7]))
+
+        XCTAssertFalse(Host.jumpConfigured(mode: .simple, text: "   ", hostIDs: []))
+        XCTAssertTrue(Host.jumpConfigured(mode: .simple, text: "me@bastion", hostIDs: []))
+    }
+
+    /// Each mode asks only about its own field, so switching between them cannot
+    /// leave the other one deciding.
+    func testEachModeAsksOnlyAboutItsOwnField() {
+        XCTAssertFalse(
+            Host.jumpConfigured(mode: .simple, text: "", hostIDs: [7]),
+            "a saved host-list chain counted while the text mode was showing"
+        )
+        XCTAssertFalse(
+            Host.jumpConfigured(mode: .hostList, text: "me@bastion", hostIDs: []),
+            "typed text counted while the host-list mode was showing"
+        )
+    }
 }

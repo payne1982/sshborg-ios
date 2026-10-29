@@ -125,6 +125,10 @@ struct SSHConnectionParams {
     /// Appends legacy/weak algorithms to the negotiation list, for old servers.
     var allowLegacyCiphers: Bool = false
 
+    /// Which address family to try first. Only a mosh host asks for one — see
+    /// ``SSHSocket/AddressPreference``.
+    var addressPreference: SSHSocket.AddressPreference = .auto
+
     /// How long to wait for the TCP connection and the SSH handshake.
     var connectTimeout: TimeInterval = 20
 

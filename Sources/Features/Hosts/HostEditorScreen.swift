@@ -31,6 +31,10 @@ struct HostEditorScreen: View {
     // Advanced
     @State private var agentForwarding = false
     @State private var allowLegacyCiphers = false
+    @State private var mosh = false
+    @State private var moshFamily: SSHSocket.AddressPreference = .auto
+    @State private var moshPorts = ""
+    @State private var moshCommand = ""
     // The default for a host being created; `load(from:)` overwrites it for one
     // being edited. It follows the column's own default — see `Host.jumpMode`.
     @State private var jumpMode: Host.JumpMode = .hostList
@@ -76,6 +80,7 @@ struct HostEditorScreen: View {
                 colourSection
                 authenticationSection
                 optionsSection
+                moshSection
                 jumpHostsSection
                 portForwardingSection
                 startDirectorySection
@@ -231,6 +236,83 @@ struct HostEditorScreen: View {
         }
     }
 
+    /// The switch, and the three settings it reveals.
+    ///
+    /// Immediately above the jump-host section, as on Android, and for the same
+    /// two reasons: the settings it opens are the next thing you see, and the
+    /// section whose first hop can change what mosh does is the one after.
+    ///
+    /// The three settings are about somebody else's network and somebody else's
+    /// server, so none of them can be decided here — they belong to the machine
+    /// that runs `mosh-server`. They are hidden with the chain rather than
+    /// disabled, because three settings for a session that will not happen read
+    /// as a promise, and their values are kept, so clearing the chain brings
+    /// them back as they were.
+    @ViewBuilder
+    private var moshSection: some View {
+        Section {
+            // Off and immovable while a chain exists, and the footer says why.
+            // An exclusion enforced from one side only is not one: Android's
+            // `dfd57ff` is the commit that found that out.
+            Toggle(isOn: $mosh) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(.hostMoshLabel)
+                    Text(.hostMoshExperimental)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .disabled(jumpConfigured)
+
+            if mosh, !jumpConfigured {
+                Picker(String(localized: .hostMoshFamilyLabel), selection: $moshFamily) {
+                    Text(.hostMoshFamilyAuto).tag(SSHSocket.AddressPreference.auto)
+                    Text(.hostMoshFamilyIpv4).tag(SSHSocket.AddressPreference.ipv4)
+                    Text(.hostMoshFamilyIpv6).tag(SSHSocket.AddressPreference.ipv6)
+                }
+
+                TextField(
+                    String(localized: .hostMoshPortsLabel),
+                    text: $moshPorts,
+                    prompt: Text(.hostMoshPortsPlaceholder)
+                )
+                .keyboardType(.URL)
+                .plainTextEntry()
+
+                TextField(
+                    String(localized: .hostMoshCommandLabel),
+                    text: $moshCommand,
+                    prompt: Text(.hostMoshCommandPlaceholder)
+                )
+                .keyboardType(.URL)
+                .plainTextEntry()
+            }
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                if jumpConfigured {
+                    // Why the switch will not move, and nothing else. What
+                    // happens *instead* depends on the first hop, so it is said
+                    // where the first hop is chosen.
+                    Text(.hostMoshDisabledWithJump)
+                } else if mosh {
+                    Text(.hostMoshFamilySupporting)
+                    Text(.hostMoshPortsSupporting)
+                    Text(.hostMoshCommandSupporting)
+                }
+            }
+        }
+    }
+
+    /// Whether this host already has a chain for SSH to walk, in whichever of
+    /// the two ways the form offers.
+    ///
+    /// A row can arrive with both this and mosh set — an older database, a
+    /// backup edited by hand — and that is why it is a question about the fields
+    /// rather than about the switch.
+    private var jumpConfigured: Bool {
+        Host.jumpConfigured(mode: jumpMode, text: jumpHostsText, hostIDs: jumpHostIds)
+    }
+
     @ViewBuilder
     private var jumpHostsSection: some View {
         Section {
@@ -244,6 +326,32 @@ struct HostEditorScreen: View {
             // on the left, and the one on the left is the one that can carry a
             // hop's own key or password. The text field keeps its place as the
             // fallback, for a hop that is not a host of yours.
+            // Mosh and a chain exclude each other, so while mosh is on there is
+            // nothing here to build one with. What stays is the line that says
+            // how to reach a host *through* a mosh bastion, which is what
+            // somebody who has arrived in this corner is usually after.
+            //
+            // `jumpConfigured` is in the condition because a row can arrive with
+            // both set. The switch above already shows off in that case, so the
+            // section stays usable: a chain that exists can be seen and removed
+            // rather than hidden behind a switch the form says is off.
+            if mosh, !jumpConfigured {
+                Text(.hostJumpMoshChain)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                jumpHostsPicker
+            }
+        } header: {
+            Text(.hostSectionJumpHosts)
+        } footer: {
+            if !(mosh && !jumpConfigured) { jumpHostsFooter }
+        }
+    }
+
+    @ViewBuilder
+    private var jumpHostsPicker: some View {
+        Group {
             Picker(selection: $jumpMode) {
                 Text(.hostJumpModeHostList).tag(Host.JumpMode.hostList)
                 Text(.hostJumpModeSimple).tag(Host.JumpMode.simple)
@@ -287,10 +395,6 @@ struct HostEditorScreen: View {
                     }
                 }
             }
-        } header: {
-            Text(.hostSectionJumpHosts)
-        } footer: {
-            jumpHostsFooter
         }
     }
 
@@ -408,6 +512,10 @@ struct HostEditorScreen: View {
 
         agentForwarding = host.agentForwarding
         allowLegacyCiphers = host.allowLegacyCiphers
+        mosh = host.mosh
+        moshFamily = SSHSocket.AddressPreference(column: host.moshFamily)
+        moshPorts = host.moshPorts ?? ""
+        moshCommand = host.moshCommand ?? ""
         jumpMode = host.parsedJumpMode
         jumpHostsText = host.jumpHosts ?? ""
         jumpHostIds = host.jumpHostIDs
@@ -438,6 +546,14 @@ struct HostEditorScreen: View {
 
         updated.agentForwarding = agentForwarding
         updated.allowLegacyCiphers = allowLegacyCiphers
+        // The switch cannot be on together with a chain: the form enforces it
+        // from both sides, and a row that arrived with both — an older
+        // database, a hand-edited backup — is saved with mosh off, which is what
+        // the form was showing.
+        updated.mosh = mosh && !jumpConfigured
+        updated.moshFamily = moshFamily.rawValue
+        updated.moshPorts = moshPorts.trimmed.nilIfEmpty
+        updated.moshCommand = moshCommand.trimmed.nilIfEmpty
         updated.jumpMode = jumpMode.rawValue
         updated.jumpHosts = jumpHostsText.trimmed.nilIfEmpty
         // Drops unfilled rows rather than storing a hop with no host.

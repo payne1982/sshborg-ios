@@ -43,6 +43,12 @@ struct ConnectionPlanner {
             allowLegacyCiphers: host.allowLegacyCiphers
         )
         params.hostKeyPolicy = hostKeyPolicy
+        // Only for a mosh host, as Android does it: the setting is about the
+        // family a mosh session will be stuck on, and asking a plain SSH host to
+        // prefer one would be a different promise.
+        if host.mosh {
+            params.addressPreference = SSHSocket.AddressPreference(column: host.moshFamily)
+        }
         params.agentForwarding = host.agentForwarding
         params.portForwardings = PortForwarding.parseList(host.portForwardings)
         params.jumpHosts = await jumpHosts(for: host)
