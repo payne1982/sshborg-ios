@@ -196,10 +196,16 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
                 guard let self else { return }
                 self.apply(write.bytes)
                 let waited = self.clock() - write.at
-                self.lock.lock()
-                self.figures.applied += 1
-                if waited > self.figures.worstScreenWait { self.figures.worstScreenWait = waited }
-                self.lock.unlock()
+                // `withLock` rather than lock/unlock: the compiler refuses the
+                // pair inside an async function, rightly — a lock held across a
+                // suspension is a lock held by nobody — and this scope has no
+                // `await` in it, which is the thing the closure makes visible.
+                self.lock.withLock {
+                    self.figures.applied += 1
+                    if waited > self.figures.worstScreenWait {
+                        self.figures.worstScreenWait = waited
+                    }
+                }
             }
         })
 
@@ -452,18 +458,18 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
         let hops = await socket.hops
         let refused = await socket.refusedSends
 
-        lock.lock()
-        figures.roundTrip = Int(mosh.timing.smoothedRoundTrip)
-        figures.stale = mosh.staleFrames
-        figures.got = mosh.receivedDatagrams
-        figures.missed = mosh.missedDatagrams
-        figures.back = mosh.returnedToState
-        figures.bad = mosh.protocolErrors
-        figures.stray = mosh.strayDatagrams
-        figures.lastStale = mosh.lastStaleFrame
-        figures.hops = hops
-        figures.refused = refused
-        lock.unlock()
+        lock.withLock {
+            figures.roundTrip = Int(mosh.timing.smoothedRoundTrip)
+            figures.stale = mosh.staleFrames
+            figures.got = mosh.receivedDatagrams
+            figures.missed = mosh.missedDatagrams
+            figures.back = mosh.returnedToState
+            figures.bad = mosh.protocolErrors
+            figures.stray = mosh.strayDatagrams
+            figures.lastStale = mosh.lastStaleFrame
+            figures.hops = hops
+            figures.refused = refused
+        }
     }
 
     private func report(outOfContact seconds: Int) {

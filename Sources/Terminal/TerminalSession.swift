@@ -755,8 +755,11 @@ final class TerminalSession: Identifiable {
                 // and a loop that kept going would wake twenty times a second
                 // for as long as the app lived.
                 guard let self else { return }
-                guard await self.hopIsDue() else { continue }
-                await self.typePendingHopCommand()
+                // No `await` on either: a `Task` started inside a main-actor
+                // class stays on it, which is also why typing the line from here
+                // is allowed at all.
+                guard self.hopIsDue() else { continue }
+                self.typePendingHopCommand()
                 return
             }
         }

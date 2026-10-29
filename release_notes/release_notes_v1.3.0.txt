@@ -1,0 +1,70 @@
+<en-US>
+• Mosh (experimental): a terminal that survives a change of network and the phone being put away. The screen lives on the server, so the same shell with the same programs still running in it is there when you come back. Turn it on per host — the server needs mosh-server installed and its UDP ports reachable.
+• Mosh through a bastion: a host whose first hop has Mosh on is reached the other way round — Mosh to that machine, then one ssh line from there — so the terminal sits where the network does not change.
+• The file editor now saves without ever leaving a half-written file: if a save is interrupted, what was on the server is still what was on the server.
+• SFTP: file names sent by a server are checked before they are used, so a server cannot point the app outside the folder you are looking at.
+• Jump hosts: choosing them now starts from your own host list, with the typed form a tap away.
+</en-US>
+<it-IT>
+• Mosh (sperimentale): un terminale che sopravvive al cambio di rete e al telefono messo via. Lo schermo sta sul server, quindi al ritorno trovi la stessa shell con gli stessi programmi ancora in esecuzione. Si accende host per host — sul server serve mosh-server installato e le sue porte UDP raggiungibili.
+• Mosh attraverso un bastione: un host la cui prima tappa ha Mosh acceso si raggiunge al contrario — Mosh fino a quella macchina, e da lì una riga ssh — così il terminale sta dove la rete non cambia.
+• L'editor di file ora salva senza lasciare mai un file scritto a metà: se un salvataggio si interrompe, sul server resta quello che c'era.
+• SFTP: i nomi dei file che manda un server vengono controllati prima di essere usati, così un server non può puntare l'app fuori dalla cartella che stai guardando.
+• Jump host: la scelta parte dal tuo elenco di host, e la forma scritta a mano è a un tocco di distanza.
+</it-IT>
+<de-DE>
+• Mosh (experimentell): ein Terminal, das einen Netzwechsel und das Weglegen des Telefons übersteht. Der Bildschirm liegt auf dem Server, also finden Sie bei der Rückkehr dieselbe Shell mit denselben noch laufenden Programmen. Pro Host einschaltbar — auf dem Server muss mosh-server installiert und seine UDP-Ports erreichbar sein.
+• Mosh über einen Bastion-Host: ein Host, dessen erster Sprung Mosh aktiviert hat, wird umgekehrt erreicht — Mosh bis zu dieser Maschine, von dort eine ssh-Zeile — damit das Terminal dort sitzt, wo das Netz sich nicht ändert.
+• Der Dateieditor hinterlässt beim Speichern keine halb geschriebene Datei mehr: wird ein Speichern unterbrochen, bleibt auf dem Server, was dort war.
+• SFTP: Dateinamen, die ein Server sendet, werden vor der Verwendung geprüft, damit ein Server die App nicht aus dem Ordner herausführen kann, den Sie gerade ansehen.
+• Jump-Hosts: die Auswahl beginnt jetzt bei Ihrer eigenen Hostliste, die getippte Form ist einen Fingertipp entfernt.
+</de-DE>
+<es-ES>
+• Mosh (experimental): un terminal que sobrevive a un cambio de red y a guardar el teléfono. La pantalla vive en el servidor, así que al volver encuentras la misma shell con los mismos programas aún en marcha. Se activa host por host — en el servidor hace falta mosh-server instalado y sus puertos UDP accesibles.
+• Mosh a través de un bastión: un host cuyo primer salto tiene Mosh activado se alcanza al revés — Mosh hasta esa máquina y desde allí una línea ssh — para que el terminal quede donde la red no cambia.
+• El editor de archivos ya nunca deja un archivo a medio escribir: si se interrumpe un guardado, en el servidor queda lo que había.
+• SFTP: los nombres de archivo que envía un servidor se comprueban antes de usarlos, de modo que un servidor no puede llevar la app fuera de la carpeta que estás viendo.
+• Saltos (jump hosts): la elección empieza por tu propia lista de hosts, y la forma escrita a mano está a un toque.
+</es-ES>
+<fr-FR>
+• Mosh (expérimental) : un terminal qui survit à un changement de réseau et au téléphone rangé dans la poche. L'écran vit sur le serveur : au retour, vous retrouvez le même shell avec les mêmes programmes toujours en cours. À activer hôte par hôte — le serveur doit avoir mosh-server installé et ses ports UDP joignables.
+• Mosh à travers un rebond : un hôte dont le premier saut a Mosh activé est atteint dans l'autre sens — Mosh jusqu'à cette machine, puis une ligne ssh depuis là — pour que le terminal soit là où le réseau ne change pas.
+• L'éditeur de fichiers ne laisse plus jamais un fichier à moitié écrit : si un enregistrement est interrompu, le serveur garde ce qu'il avait.
+• SFTP : les noms de fichiers envoyés par un serveur sont vérifiés avant d'être utilisés, pour qu'un serveur ne puisse pas emmener l'app hors du dossier que vous regardez.
+• Hôtes de rebond : le choix part désormais de votre propre liste d'hôtes, la forme saisie à la main restant à portée de doigt.
+</fr-FR>
+<pt-PT>
+• Mosh (experimental): um terminal que sobrevive a uma mudança de rede e ao telefone guardado. O ecrã vive no servidor, por isso ao voltar encontra a mesma shell com os mesmos programas ainda a correr. Liga-se host a host — no servidor é preciso ter o mosh-server instalado e as suas portas UDP acessíveis.
+• Mosh através de um bastião: um host cujo primeiro salto tem o Mosh ligado é alcançado ao contrário — Mosh até essa máquina e, de lá, uma linha ssh — para que o terminal fique onde a rede não muda.
+• O editor de ficheiros já nunca deixa um ficheiro escrito a meio: se uma gravação for interrompida, no servidor fica o que lá estava.
+• SFTP: os nomes de ficheiros enviados por um servidor são verificados antes de serem usados, para que um servidor não possa levar a app fora da pasta que está a ver.
+• Jump hosts: a escolha começa pela sua própria lista de hosts, com a forma escrita à mão a um toque de distância.
+</pt-PT>
+<uk>
+• Mosh (експериментально): термінал, який переживає зміну мережі та телефон, прибраний у кишеню. Екран живе на сервері, тому після повернення ви бачите ту саму оболонку з тими самими програмами, що й далі працюють. Увімкніть для окремого хоста — на сервері потрібен встановлений mosh-server і доступні його UDP-порти.
+• Mosh через бастіон: хост, у якого перший стрибок має увімкнений Mosh, досягається у зворотному порядку — Mosh до тієї машини, а звідти один рядок ssh — щоб термінал був там, де мережа не змінюється.
+• Редактор файлів більше ніколи не залишає файл, записаний наполовину: якщо збереження перервалося, на сервері залишається те, що було.
+• SFTP: імена файлів, які надсилає сервер, перевіряються перед використанням, щоб сервер не міг вивести програму за межі теки, яку ви дивитеся.
+• Проміжні хости: вибір тепер починається з вашого власного списку хостів, а введення вручну — за один дотик.
+</uk>
+<ru-RU>
+• Mosh (экспериментально): терминал, который переживает смену сети и убранный в карман телефон. Экран живёт на сервере, поэтому по возвращении вы находите ту же оболочку с теми же работающими программами. Включается для каждого хоста отдельно — на сервере нужен установленный mosh-server и доступные его UDP-порты.
+• Mosh через бастион: хост, у которого на первом переходе включён Mosh, достигается наоборот — Mosh до этой машины, а оттуда одна строка ssh — чтобы терминал оказался там, где сеть не меняется.
+• Редактор файлов больше никогда не оставляет файл записанным наполовину: если сохранение прервалось, на сервере остаётся то, что было.
+• SFTP: имена файлов, которые присылает сервер, проверяются перед использованием, чтобы сервер не мог вывести приложение за пределы папки, которую вы смотрите.
+• Промежуточные хосты: выбор теперь начинается с вашего собственного списка хостов, а ввод вручную — в одно касание.
+</ru-RU>
+<zh-CN>
+• Mosh（实验性）：终端可以经受网络切换和手机放进口袋。屏幕保存在服务器上，所以回来时还是同一个 shell，里面的程序仍在运行。按主机单独开启——服务器上需要装有 mosh-server，并且它的 UDP 端口可以连通。
+• 通过堡垒机使用 Mosh：如果某台主机的第一跳开启了 Mosh，就反过来连接——先用 Mosh 连到那台机器，再从那里执行一行 ssh——这样终端就待在网络不会变化的地方。
+• 文件编辑器保存时不再留下写了一半的文件：保存中断时，服务器上仍是原来的内容。
+• SFTP：服务器发来的文件名在使用前会先检查，这样服务器无法把应用指向你正在查看的目录之外。
+• 跳板主机：现在从你自己的主机列表开始选择，手工输入的方式仍然只差一次点按。
+</zh-CN>
+<ja-JP>
+• Mosh（実験的）: ネットワークの切り替えや、端末をしまっても生き残るターミナルです。画面はサーバー側にあるので、戻ってきても同じシェルがそのまま、同じプログラムが動いたままです。ホストごとに有効にできます — サーバーに mosh-server が入っていて、その UDP ポートに届く必要があります。
+• 踏み台ごしの Mosh: 最初の経由ホストで Mosh が有効なホストには、逆向きに接続します — その機械まで Mosh でつなぎ、そこから ssh を一行 — こうしてターミナルはネットワークが変わらない場所に置かれます。
+• ファイルエディタは、書きかけのファイルを残さずに保存します。保存が中断されても、サーバー上には元のままのものが残ります。
+• SFTP: サーバーが送ってくるファイル名は使う前に検査されるので、いま見ているフォルダの外へアプリを向けさせることはできません。
+• 経由ホスト: 選択は自分のホスト一覧から始まり、手で入力する形式もワンタップで使えます。
+</ja-JP>
