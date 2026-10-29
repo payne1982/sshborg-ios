@@ -98,6 +98,26 @@ final class TerminalTouchSettingsTests: XCTestCase {
         XCTAssertEqual(TerminalSession.rowsCovered(by: 44, viewHeight: 480, rows: 0), 0)
     }
 
+    // MARK: - Saying that nothing is arriving
+
+    /// Seconds up to a minute, then minutes, which is the shape of Android's two
+    /// lines — so the same silence reads the same in both apps.
+    ///
+    /// The line itself only appears after six seconds: mosh's heartbeat is every
+    /// three, so anything shorter would flicker on an ordinary lost packet.
+    func testTheOutOfContactLineCountsInSecondsThenMinutes() {
+        XCTAssertTrue(TerminalScreen.outOfContactLabel(6).contains("6"))
+        XCTAssertTrue(TerminalScreen.outOfContactLabel(59).contains("59"))
+        // A minute in, and it is the minutes line with a 1 in it rather than 60.
+        let aMinute = TerminalScreen.outOfContactLabel(60)
+        XCTAssertTrue(aMinute.contains("1"), aMinute)
+        XCTAssertFalse(aMinute.contains("60"), aMinute)
+        XCTAssertTrue(TerminalScreen.outOfContactLabel(600).contains("10"))
+        // And no placeholder survives into either of them.
+        XCTAssertFalse(TerminalScreen.outOfContactLabel(6).contains("%"))
+        XCTAssertFalse(aMinute.contains("%"))
+    }
+
     /// None at all when the screen is the far side's, whatever the bar covers.
     ///
     /// Not a refinement: under mosh the first frame homes the cursor and paints

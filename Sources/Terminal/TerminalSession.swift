@@ -179,6 +179,14 @@ final class TerminalSession: Identifiable {
     /// corrected the same way, so the two cannot drift apart.
     private(set) var barWouldHideOutput: Bool
 
+    /// Whole seconds since the far end was last heard from, 0 while in contact.
+    ///
+    /// Zero for ever under SSH, which cannot tell: TCP acknowledges and
+    /// retransmits below us, so silence there is indistinguishable from a server
+    /// with nothing to say. A protocol that keeps its own session alive with a
+    /// heartbeat knows exactly, and owes the screen the number.
+    private(set) var outOfContactSeconds = 0
+
     /// What the SSH half of a connection needs to carry on with, kept while the
     /// user is asked what to do about mosh.
     private struct Dialled {
@@ -194,6 +202,7 @@ final class TerminalSession: Identifiable {
 
     @PerceptionIgnored private var dialled: Dialled?
     @PerceptionIgnored private var readerTask: Task<Void, Never>?
+    @PerceptionIgnored private var contactTask: Task<Void, Never>?
     @PerceptionIgnored private var bridge: TerminalDelegateBridge?
 
     init(host: Host, hosts: HostRepository, keys: SSHKeyRepository) {
@@ -851,6 +860,20 @@ final class TerminalSession: Identifiable {
     /// must be answered on time deliver them on a thread of its own. What is
     /// left is the end, and what to do about it.
     private func startReading(from transport: TerminalTransport) {
+        // Whatever this transport knows about being out of contact, passed on to
+        // the screen. SSH knows nothing, the number stays at zero, and no line
+        // is ever shown.
+        contactTask?.cancel()
+        outOfContactSeconds = 0
+        if let seconds = transport.outOfContactSeconds {
+            contactTask = Task { [weak self] in
+                for await value in seconds {
+                    guard let self else { return }
+                    await MainActor.run { self.outOfContactSeconds = value }
+                }
+            }
+        }
+
         readerTask?.cancel()
         readerTask = Task { [weak self] in
             let end = await transport.run()
@@ -906,7 +929,11 @@ final class TerminalSession: Identifiable {
     func handleReturnToForeground() async {
         switch phase {
         case .connected:
-            guard let sshSession, await sshSession.isAlive() == false else { return }
+            let alive = await sshSession?.isAlive() ?? false
+            guard Self.needsRedialAfterBeingAway(
+                screenIsSynchronised: transport?.screenIsSynchronised == true,
+                sshIsAlive: alive
+            ) else { return }
             endedByRemote = false
             phase = .disconnected(reason: nil)
             await reconnectAutomatically()
@@ -925,6 +952,32 @@ final class TerminalSession: Identifiable {
         case .connecting, .needsPassword, .needsHostKeyApproval, .moshUnavailable, .failed:
             return
         }
+    }
+
+    /// Whether a tab coming back from being away has to be dialled again.
+    ///
+    /// Under SSH, being away kills the connection — iOS suspends the app within
+    /// about thirty seconds — and a new shell is the only thing on offer. That
+    /// is why the reconnection is announced in the scrollback: whatever was
+    /// running is gone, with its working directory and its environment.
+    ///
+    /// **A synchronised screen changes the answer.** The terminal lives on the
+    /// server and the session is kept alive by the loop, so coming back it is
+    /// the same terminal, with the same programs still running in it — which is
+    /// the whole reason mosh is worth more here than on Android, where a
+    /// foreground service keeps an SSH session alive anyway. So the tab is left
+    /// exactly as it is, and nothing is announced, because nothing happened to
+    /// it.
+    ///
+    /// ⚠️ What *is* lost is our SSH session, and with it the port forwardings,
+    /// the forwarded agent and the command history, until the host is opened
+    /// again. Dialling it again quietly in the background is the remaining half
+    /// of this and is written down in PIANO.md: it has to be done without
+    /// asking anything, or a password prompt appears over a terminal that is
+    /// working perfectly.
+    static func needsRedialAfterBeingAway(screenIsSynchronised: Bool, sshIsAlive: Bool) -> Bool {
+        if screenIsSynchronised { return false }
+        return !sshIsAlive
     }
 
     /// Reconnects when it can be done without asking anything.
@@ -1027,6 +1080,9 @@ final class TerminalSession: Identifiable {
         acceptedHostKey = nil
         readerTask?.cancel()
         readerTask = nil
+        contactTask?.cancel()
+        contactTask = nil
+        outOfContactSeconds = 0
         hopTask?.cancel()
         hopTask = nil
         pendingHopCommand = nil

@@ -132,6 +132,23 @@ struct TerminalScreen: View {
     /// area as the terminal — its top edge *is* the grid's first row.
     private static let barHeight: CGFloat = 44
 
+    /// How long the far end has to be silent before it is worth saying so.
+    ///
+    /// Mosh's own heartbeat is every three seconds, so anything shorter would
+    /// flicker on an ordinary lost packet. Android's figure, for that reason.
+    private static let outOfContactAfter = 6
+
+    /// Seconds up to a minute, then minutes: the two lines Android has, so the
+    /// same silence reads the same in both apps.
+    static func outOfContactLabel(_ seconds: Int) -> String {
+        if seconds < 60 {
+            return String(localized: .terminalNoContactSeconds)
+                .replacingOccurrences(of: "%1$d", with: "\(seconds)")
+        }
+        return String(localized: .terminalNoContactMinutes)
+            .replacingOccurrences(of: "%1$d", with: "\(seconds / 60)")
+    }
+
     /// Whether the title bar is ours and retracts, or the system's and stays.
     private var autoHidesBar: Bool {
         environment.preferences.terminalBarAutoHide
@@ -301,6 +318,32 @@ struct TerminalScreen: View {
             // ran from y=89 under a bar covering 62 to 106.
             overlay(for: session)
                 .padding(.top, autoHidesBar && isBarShown ? Self.barHeight : 0)
+
+            // Contact lost, and still trying. The one thing a synchronised
+            // screen owes whoever is looking at it: a terminal nothing is
+            // arriving at looks exactly like a terminal with nothing to say, and
+            // without this the difference is invisible for as long as the
+            // transport is willing to wait — half an hour, by design. It appears
+            // by itself and goes by itself.
+            //
+            // Below the bar rather than at the very top, and well above the
+            // middle: Android put it a quarter down for two reasons that hold
+            // here as well. At the top edge it landed on the front camera strip
+            // of the first tablet it was tried on, and at the centre the
+            // keyboard covers it, because the terminal does not always get its
+            // space back when the keyboard comes up.
+            if session.outOfContactSeconds >= Self.outOfContactAfter {
+                Text(Self.outOfContactLabel(session.outOfContactSeconds))
+                    .font(.footnote)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(.systemRed).opacity(0.9), in: .capsule)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 96)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
 
             // Drawn over the terminal's first rows rather than above them, so
             // the grid underneath never changes size. Last in the stack, so it

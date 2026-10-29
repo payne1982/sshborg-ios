@@ -106,4 +106,35 @@ final class SessionResumeTests: XCTestCase {
         XCTAssertNil(manager.selectedID, "the last tab closing has to send the stack back to the host list")
         XCTAssertNil(manager.selected)
     }
+
+    // MARK: - What a synchronised screen changes about coming back
+
+    /// Under SSH, being away kills the connection and a new shell is the only
+    /// thing on offer, which is why it is announced. Under mosh the terminal
+    /// lives on the server and the session is kept alive by its own loop: coming
+    /// back, it is the same terminal with the same programs running in it, so
+    /// the tab is left alone and nothing is announced.
+    ///
+    /// This is the one thing iOS gets from mosh that Android does not, since a
+    /// foreground service keeps an SSH session alive over there anyway.
+    func testAMoshSessionIsNotThrownAwayByComingBack() {
+        XCTAssertTrue(
+            TerminalSession.needsRedialAfterBeingAway(
+                screenIsSynchronised: false, sshIsAlive: false
+            ),
+            "a dead SSH session has to be dialled again"
+        )
+        XCTAssertFalse(
+            TerminalSession.needsRedialAfterBeingAway(
+                screenIsSynchronised: false, sshIsAlive: true
+            ),
+            "a session that survived must not be replaced"
+        )
+        XCTAssertFalse(
+            TerminalSession.needsRedialAfterBeingAway(
+                screenIsSynchronised: true, sshIsAlive: false
+            ),
+            "a mosh terminal was thrown away because our SSH session had died"
+        )
+    }
 }
