@@ -98,6 +98,27 @@ final class TerminalTouchSettingsTests: XCTestCase {
         XCTAssertEqual(TerminalSession.rowsCovered(by: 44, viewHeight: 480, rows: 0), 0)
     }
 
+    /// None at all when the screen is the far side's, whatever the bar covers.
+    ///
+    /// Not a refinement: under mosh the first frame homes the cursor and paints
+    /// at absolute positions, so rows we wrote ourselves either vanish or leave
+    /// our screen sitting below the one the server is differencing against. The
+    /// bar is kept out of the way instead.
+    func testNothingIsWrittenWhenTheScreenBelongsToTheServer() {
+        XCTAssertEqual(
+            TerminalSession.blankRowsUnderTheBar(
+                overlap: 44, viewHeight: 480, rows: 24, screenIsSynchronised: false
+            ),
+            3
+        )
+        XCTAssertEqual(
+            TerminalSession.blankRowsUnderTheBar(
+                overlap: 44, viewHeight: 480, rows: 24, screenIsSynchronised: true
+            ),
+            0
+        )
+    }
+
     /// And never the whole grid: a terminal squeezed shorter than the bar —
     /// Split View dragged almost shut — must keep a row to write the prompt on,
     /// or the padding would scroll the login away as it wrote it.

@@ -662,6 +662,9 @@ private struct SessionPickerSheet: View {
         case .connecting: String(localized: .sessionStatusConnecting)
         case .needsPassword: String(localized: .iosSessionStatusNeedsPassword)
         case .needsHostKeyApproval: String(localized: .iosSessionStatusNeedsHostKey)
+        // A question like the other two: the session is up and waiting to be
+        // told whether to go on without mosh.
+        case .moshUnavailable: String(localized: .moshFailedTitle)
         case .failed: String(localized: .sessionStatusError)
         case .disconnected: String(localized: .sessionStatusDisconnected)
         }

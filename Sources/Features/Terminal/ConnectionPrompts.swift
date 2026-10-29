@@ -118,6 +118,59 @@ enum ConnectionPrompt {
         )
     }
 
+    /// Says why mosh could not start, and offers the two answers there are.
+    ///
+    /// A question rather than a failure, which is what it is: the SSH session is
+    /// already open — it is the one that started the server — so carrying on
+    /// without mosh costs nothing but the feature. There is no silent fall back,
+    /// because the switch is per host and explicit.
+    ///
+    /// Three of the four reasons are on the server and arrive as "the app does
+    /// not work", so each says what to do about it. The fourth is only ever
+    /// silence.
+    @MainActor
+    static func moshUnavailable(
+        _ failure: MoshBootstrap.Unavailable,
+        onCarryOn: @escaping () -> Void,
+        onLeave: @escaping () -> Void
+    ) -> some View {
+        StatusOverlay(
+            kind: .question,
+            // What happened, and then what to do about it. Two lines in the one
+            // slot the overlay has for them, because the second is the half
+            // somebody has to act on.
+            message: String(localized: .moshFailedTitle)
+                + "\n"
+                + String(localized: explanation(of: failure.reason)),
+            // What the server actually said, where that is the diagnosis, and
+            // where we were trying to talk when it was not. Monospaced,
+            // selectable and copyable, which the overlay gives for nothing. The
+            // handover line never reaches here: the session key is taken out of
+            // the text before anything else happens to it.
+            detail: failure.detail,
+            showsDetailOutright: true,
+            actions: AnyView(
+                HStack {
+                    Button(String(localized: .moshActionCarryOn), action: onCarryOn)
+                        .buttonStyle(.borderedProminent)
+
+                    Button(String(localized: .moshActionLeave), action: onLeave)
+                }
+            )
+        )
+    }
+
+    private static func explanation(
+        of reason: MoshBootstrap.Unavailable.Reason
+    ) -> LocalizedStringResource {
+        switch reason {
+        case .notInstalled: .moshFailedNotInstalled
+        case .localeNotUTF8: .moshFailedLocale
+        case .noConnectLine: .moshFailedNoAnswer
+        case .noUDPAnswer: .moshFailedNoUdp
+        }
+    }
+
     static func detail(_ info: HostKeyInfo, hostname: String, isChange: Bool) -> String {
         let host = String(localized: .hostkeyTerminalHost)
             .replacingOccurrences(of: "%1$@", with: hostname)

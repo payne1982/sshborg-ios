@@ -497,6 +497,13 @@ struct TerminalScreen: View {
             // Only drive the first connection; a reconnect is user-initiated.
             if session.phase == .connecting {
                 session.titleBarOverlap = autoHidesBar ? Self.barHeight : 0
+                // Out of the way from the start when the screen is going to be
+                // the server's. Under mosh the first screenful cannot be kept
+                // clear by line feeds of our own — the screen is the far end's
+                // and the client may not write into it — so the bar retracts
+                // instead of covering it. The host's switch answers this,
+                // because the bar's countdown is shorter than a login.
+                if session.barWouldHideOutput { isBarShown = false }
                 await session.connect()
             }
         }
@@ -508,6 +515,21 @@ struct TerminalScreen: View {
         // the one moment the value has to already be right.
         .task(id: autoHidesBar) {
             session.titleBarOverlap = autoHidesBar ? Self.barHeight : 0
+        }
+        .task(id: session.barWouldHideOutput) {
+            // The transport's own answer, which arrives a login later than the
+            // host's switch and is the one to believe. A session that fell back
+            // to SSH gets its bar back; one that got mosh keeps it away.
+            guard autoHidesBar else { return }
+            if session.barWouldHideOutput {
+                withAnimation(.easeInOut(duration: Self.barExit)) { isBarShown = false }
+            } else if session.phase == .connected {
+                // Only for a session that *became* an SSH one, which is the
+                // stale answer this exists to correct. Not on the way in, where
+                // the bar is already where it belongs and showing it again would
+                // restart a countdown the user may have ended with a tap.
+                withAnimation(.easeOut(duration: 0.2)) { isBarShown = true }
+            }
         }
         .task(id: session.phase == .connected) {
             // History comes over its own SFTP connection, so it can only be
@@ -593,6 +615,20 @@ struct TerminalScreen: View {
                 isFocused: $isPasswordFocused,
                 onConnect: { submitPassword(for: session) },
                 onCancel: { manager.close(session) }
+            )
+
+        case .moshUnavailable(let failure):
+            // The same in-layout panel as the other two questions, for the
+            // reasons recorded in `ConnectionPrompt`, and with the two answers
+            // Android settled on. Carrying on costs nothing: the SSH session is
+            // already open and is the one that started the server.
+            ConnectionPrompt.moshUnavailable(
+                failure,
+                onCarryOn: { Task { await session.continueOverSSH() } },
+                onLeave: {
+                    session.leaveAfterMoshFailed()
+                    manager.close(session)
+                }
             )
 
         case .connected:
@@ -815,7 +851,7 @@ private struct SessionTabRow: View {
 
     private func needsAnswer(_ phase: TerminalSession.Phase) -> Bool {
         switch phase {
-        case .needsPassword, .needsHostKeyApproval: true
+        case .needsPassword, .needsHostKeyApproval, .moshUnavailable: true
         default: false
         }
     }

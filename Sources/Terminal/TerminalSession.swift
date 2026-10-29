@@ -25,6 +25,13 @@ final class TerminalSession: Identifiable {
         /// what it had to say is in front of the person before they type.
         case needsPassword(banner: String?)
         case needsHostKeyApproval(HostKeyInfo, isChange: Bool)
+        /// Mosh was asked for and could not be had.
+        ///
+        /// There is no silent fall back to SSH: the switch is per host and
+        /// explicit, so somebody who asked for mosh and did not get it is owed
+        /// the reason and the choice. Carrying on costs nothing — the SSH
+        /// session is already open, and it is the one that started the server.
+        case moshUnavailable(MoshBootstrap.Unavailable)
         case failed(String)
         case disconnected(reason: String?)
     }
@@ -161,6 +168,26 @@ final class TerminalSession: Identifiable {
     /// Where the terminal's bytes come from, and the only thing here that knows
     /// which protocol carries them. See ``TerminalTransport``.
     @PerceptionIgnored private var transport: TerminalTransport?
+
+    /// Whether writing into our own grid would put us out of step with the far
+    /// end — which is to say whether the screen belongs to the server.
+    ///
+    /// Asked of the host's switch before there is a transport and corrected from
+    /// the transport as soon as there is one, because the title bar's countdown
+    /// is shorter than a login: a bar that only retracts once mosh has answered
+    /// has already covered the first frame. A session that fell back to SSH is
+    /// corrected the same way, so the two cannot drift apart.
+    private(set) var barWouldHideOutput: Bool
+
+    /// What the SSH half of a connection needs to carry on with, kept while the
+    /// user is asked what to do about mosh.
+    private struct Dialled {
+        let session: SSHSession
+        let params: SSHConnectionParams
+        let planner: ConnectionPlanner
+    }
+
+    @PerceptionIgnored private var dialled: Dialled?
     @PerceptionIgnored private var readerTask: Task<Void, Never>?
     @PerceptionIgnored private var bridge: TerminalDelegateBridge?
 
@@ -169,6 +196,7 @@ final class TerminalSession: Identifiable {
         self.hosts = hosts
         self.keys = keys
         self.title = host.label
+        self.barWouldHideOutput = host.mosh
         // SwiftTerm's view with one gesture fewer — see SessionTerminalView.
         //
         // Narrowing the paste item to "only when the
@@ -291,6 +319,19 @@ final class TerminalSession: Identifiable {
 
         do {
             let session = try await SSHSession.connect(params)
+
+            // Mosh when the machine being dialled asks for it and there is no
+            // chain left for SSH to walk. Mosh has no channels, so a chain
+            // cannot be tunnelled through it; a host whose *first hop* has mosh
+            // is reached from the other end, which is the bastion and is its own
+            // piece of work.
+            if host.mosh, params.jumpHosts.isEmpty {
+                if let mosh = await startMosh(on: session, params: params, geometry: geometry) {
+                    await settle(session: session, transport: mosh, params: params, planner: planner)
+                }
+                return
+            }
+
             let channel = try await session.openShell(
                 columns: geometry.columns,
                 rows: geometry.rows
@@ -303,34 +344,7 @@ final class TerminalSession: Identifiable {
             let transport = SSHTerminalTransport(channel: channel) { [weak self] bytes in
                 self?.terminalView.feed(byteArray: ArraySlice(bytes))
             }
-
-            self.sshSession = session
-            self.transport = transport
-            phase = .connected
-            // Nothing else needs the credential now: the history is read on this
-            // very session, so there is no second login to hold one for. The
-            // key is written down a few lines below, so the acceptance that was
-            // standing in for it is finished too.
-            passwordForThisAttempt = nil
-            acceptedHostKey = nil
-
-            // Open a session and the keyboard is there, as on Android, where the
-            // terminal takes focus on attach and `reattachIme()` raises the IME.
-            // Arriving at a shell prompt and having to tap before typing is a
-            // step nobody wants.
-            //
-            // Here rather than in the view, and so once per connection: the view
-            // is rebuilt on every SwiftUI update, and asking there would drag the
-            // keyboard back up each time — including right after the user put it
-            // away with the bar's hide key. It waits for `connected` so it cannot
-            // steal focus from the password prompt, which needs it first.
-            terminalView.becomeFirstResponder()
-
-            try? await persistAfterConnect(hostKey: session.hostKey)
-            await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
-            startForwarding(params)
-            startBelowTheTitleBar()
-            startReading(from: transport)
+            await settle(session: session, transport: transport, params: params, planner: planner)
         } catch SSHError.needsPassword(let banner) {
             phase = .needsPassword(banner: banner)
         } catch SSHError.unknownHostKey(let info) {
@@ -498,13 +512,37 @@ final class TerminalSession: Identifiable {
         guard !hasLoggedIn else { return }
         hasLoggedIn = true
 
-        let covered = Self.rowsCovered(
-            by: titleBarOverlap,
+        let rows = Self.blankRowsUnderTheBar(
+            overlap: titleBarOverlap,
             viewHeight: terminalView.bounds.height,
-            rows: terminalView.getTerminal().rows
+            rows: terminalView.getTerminal().rows,
+            screenIsSynchronised: transport?.screenIsSynchronised == true
         )
-        guard covered > 0 else { return }
-        terminalView.feed(text: String(repeating: "\n", count: covered))
+        guard rows > 0 else { return }
+        terminalView.feed(text: String(repeating: "\n", count: rows))
+    }
+
+    /// How many blank rows go in before the first byte: as many as the bar
+    /// covers, or **none at all** when the screen is the far side's.
+    ///
+    /// The second half is not a refinement. Writing into our own emulator under
+    /// mosh puts us out of step with the frames being computed against it:
+    /// mosh's first frame homes the cursor, clears the screen and paints at
+    /// absolute positions, so these rows are wiped — and if they land *after*
+    /// that clear, our screen sits three rows below the one the server is
+    /// differencing against, and every frame after it is corrupt. Measured on
+    /// Android, not argued: it showed up as "sometimes three blank rows,
+    /// sometimes not, and then the typed line jumps to the top after a few
+    /// words", because it was a race as well as a mistake. The bar is kept out
+    /// of the way instead — see ``barWouldHideOutput``.
+    static func blankRowsUnderTheBar(
+        overlap: CGFloat,
+        viewHeight: CGFloat,
+        rows: Int,
+        screenIsSynchronised: Bool
+    ) -> Int {
+        guard !screenIsSynchronised else { return 0 }
+        return rowsCovered(by: overlap, viewHeight: viewHeight, rows: rows)
     }
 
     /// How many whole rows something `points` tall, lying over the top of the
@@ -521,6 +559,149 @@ final class TerminalSession: Identifiable {
         guard points > 0, viewHeight > 0, rows > 0 else { return 0 }
         let cell = viewHeight / CGFloat(rows)
         return min(Int((points / cell).rounded(.up)), rows - 1)
+    }
+
+    // MARK: - Mosh
+
+    /// Starts `mosh-server` over the SSH session just opened and hands back the
+    /// transport that rides it, or nil when the user is being asked about it.
+    ///
+    /// The SSH session is kept either way, which is the difference from the
+    /// stock client: it goes on carrying SFTP, the port forwardings, the agent
+    /// and the command history, and it is the one that started the server.
+    private func startMosh(
+        on session: SSHSession,
+        params: SSHConnectionParams,
+        geometry: (columns: Int, rows: Int)
+    ) async -> MoshTerminalTransport? {
+        var started: MoshTerminalTransport?
+        let failure: MoshBootstrap.Unavailable
+
+        do {
+            let handover = try await MoshBootstrap.start(
+                on: session,
+                // The address SSH actually reached, not the name that was typed:
+                // `mosh-server -s` listens on that one address of that one
+                // family, and resolving the name again is a guess the lab has
+                // already watched fail.
+                dialled: session.dialledAddress ?? params.hostname,
+                program: host.moshCommand,
+                ports: host.moshPorts
+            )
+            let mosh = try MoshTerminalTransport(handover: handover) { [weak self] bytes in
+                self?.terminalView.feed(byteArray: ArraySlice(bytes))
+            }
+            started = mosh
+            mosh.start()
+            // Before the first datagram, so the server paints for the terminal
+            // we have rather than for the 80x24 it would otherwise assume.
+            mosh.resize(columns: geometry.columns, rows: geometry.rows)
+
+            if await mosh.awaitFirstContact() { return mosh }
+
+            // Nothing came back. There is no handshake in the protocol and no
+            // error from the far end for a blocked path, so silence is the whole
+            // symptom — and what is worth saying about it is where we were
+            // trying to talk.
+            failure = MoshBootstrap.Unavailable(
+                reason: .noUDPAnswer, detail: await mosh.peerDescription()
+            )
+        } catch let unavailable as MoshBootstrap.Unavailable {
+            failure = unavailable
+        } catch {
+            // The exec channel refused, the key would not decode: from here it
+            // is the same thing as a server that said something unreadable, and
+            // the detail is what there is to go on.
+            failure = MoshBootstrap.Unavailable(
+                reason: .noConnectLine, detail: error.localizedDescription
+            )
+        }
+
+        started?.close()
+        dialled = Dialled(session: session, params: params, planner: ConnectionPlanner(hosts: hosts, keys: keys))
+        phase = .moshUnavailable(failure)
+        return nil
+    }
+
+    /// The first of the two answers to ``Phase/moshUnavailable(_:)``: open the
+    /// shell on the session that is already there and carry on as an SSH tab.
+    func continueOverSSH() async {
+        guard case .moshUnavailable = phase, let dialled else { return }
+        self.dialled = nil
+        phase = .connecting
+
+        do {
+            let geometry = await measuredGeometry()
+            let channel = try await dialled.session.openShell(
+                columns: geometry.columns,
+                rows: geometry.rows
+            )
+            let transport = SSHTerminalTransport(channel: channel) { [weak self] bytes in
+                self?.terminalView.feed(byteArray: ArraySlice(bytes))
+            }
+            await settle(
+                session: dialled.session,
+                transport: transport,
+                params: dialled.params,
+                planner: dialled.planner
+            )
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// The other answer: nothing here is wanted, and the session that was opened
+    /// to start the server is not kept for anything else.
+    func leaveAfterMoshFailed() {
+        dialled = nil
+        disconnect()
+    }
+
+    // MARK: - Connected
+
+    /// Everything that happens once there is a transport, whichever one it is.
+    ///
+    /// One place for it because there are now three ways in — an SSH login, a
+    /// mosh session that answered, and a mosh session that did not and was
+    /// carried on over SSH — and the order of these steps has been settled by
+    /// use.
+    private func settle(
+        session: SSHSession,
+        transport: TerminalTransport,
+        params: SSHConnectionParams,
+        planner: ConnectionPlanner
+    ) async {
+        dialled = nil
+        self.sshSession = session
+        self.transport = transport
+        phase = .connected
+        // Asked of the transport rather than remembered, so a session that fell
+        // back to SSH does not keep the answer the host's switch gave.
+        barWouldHideOutput = transport.screenIsSynchronised
+        // Nothing else needs the credential now: the history is read on this
+        // very session, so there is no second login to hold one for. The
+        // key is written down a few lines below, so the acceptance that was
+        // standing in for it is finished too.
+        passwordForThisAttempt = nil
+        acceptedHostKey = nil
+
+        // Open a session and the keyboard is there, as on Android, where the
+        // terminal takes focus on attach and `reattachIme()` raises the IME.
+        // Arriving at a shell prompt and having to tap before typing is a
+        // step nobody wants.
+        //
+        // Here rather than in the view, and so once per connection: the view
+        // is rebuilt on every SwiftUI update, and asking there would drag the
+        // keyboard back up each time — including right after the user put it
+        // away with the bar's hide key. It waits for `connected` so it cannot
+        // steal focus from the password prompt, which needs it first.
+        terminalView.becomeFirstResponder()
+
+        try? await persistAfterConnect(hostKey: session.hostKey)
+        await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
+        startForwarding(params)
+        startBelowTheTitleBar()
+        startReading(from: transport)
     }
 
     // MARK: - Streaming
@@ -595,9 +776,15 @@ final class TerminalSession: Identifiable {
         case .disconnected:
             await reconnectAutomatically()
 
-        // Nothing to do while connecting, and the two `needs…` cases are
-        // questions already in front of the user.
-        case .connecting, .needsPassword, .needsHostKeyApproval, .failed:
+        // Nothing to do while connecting, and the three questions are already in
+        // front of the user.
+        //
+        // The mosh one is the odd member: the SSH session it kept to carry on
+        // with may not have survived being away, in which case answering
+        // "continue over SSH" fails and says so, with a Retry. Better than
+        // taking the question down and dialling again behind the user's back,
+        // which would ask it a second time anyway.
+        case .connecting, .needsPassword, .needsHostKeyApproval, .moshUnavailable, .failed:
             return
         }
     }

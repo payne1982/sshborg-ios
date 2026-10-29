@@ -44,6 +44,40 @@ enum SSHSocket {
         throw SSHError.connectionFailed(lastError)
     }
 
+    /// The address this descriptor is actually connected to, numerically.
+    ///
+    /// Mosh is why it exists. `mosh-server -s` listens on the one address the
+    /// SSH connection arrived on, and the handover line says nothing about
+    /// which — so resolving the name a second time to find the server is a
+    /// guess, and the lab measured the way it fails: a name that resolves to
+    /// IPv6 first while the server had bound IPv4, which looks exactly like a
+    /// blocked port. The cure is to talk to the address we are already talking
+    /// to.
+    ///
+    /// nil for anything that is not an internet socket, which includes the
+    /// socket pair a tunnelled session is driven through.
+    static func peerAddress(of descriptor: Int32) -> String? {
+        var peer = sockaddr_storage()
+        var length = socklen_t(MemoryLayout<sockaddr_storage>.size)
+        let asked = withUnsafeMutablePointer(to: &peer) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                getpeername(descriptor, $0, &length)
+            }
+        }
+        guard asked == 0, peer.ss_family == AF_INET || peer.ss_family == AF_INET6 else {
+            return nil
+        }
+
+        var name = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        let named = withUnsafePointer(to: &peer) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                getnameinfo($0, length, &name, socklen_t(name.count), nil, 0, NI_NUMERICHOST)
+            }
+        }
+        guard named == 0 else { return nil }
+        return String(cString: name)
+    }
+
     private static func connect(to address: addrinfo, timeout: TimeInterval) throws -> Int32 {
         let descriptor = socket(address.ai_family, address.ai_socktype, address.ai_protocol)
         guard descriptor >= 0 else {

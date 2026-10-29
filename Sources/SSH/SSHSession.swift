@@ -30,6 +30,15 @@ final class SSHSession: @unchecked Sendable {
 
     let hostname: String
 
+    /// The address the socket is connected to, numerically, or nil for a session
+    /// that travels through a tunnel — where the descriptor is a local pair and
+    /// the real peer is the chain's first hop.
+    ///
+    /// Read once, at connect, and kept: see ``SSHSocket/peerAddress(of:)`` for
+    /// what it is for. Mosh is the only caller, and it is only ever used on a
+    /// direct session, so the nil case is honest rather than a gap.
+    let dialledAddress: String?
+
     private let queue: DispatchQueue
     private var session: OpaquePointer?
     private var socket: Int32
@@ -65,6 +74,7 @@ final class SSHSession: @unchecked Sendable {
         socket: Int32,
         hostKey: HostKeyInfo,
         hostname: String,
+        dialledAddress: String?,
         queue: DispatchQueue,
         tunnel: SSHTunnel? = nil,
         context: Unmanaged<SSHSessionContext>? = nil,
@@ -74,6 +84,7 @@ final class SSHSession: @unchecked Sendable {
         self.socket = socket
         self.hostKey = hostKey
         self.hostname = hostname
+        self.dialledAddress = dialledAddress
         self.queue = queue
         self.tunnel = tunnel
         self.context = context
@@ -293,6 +304,7 @@ final class SSHSession: @unchecked Sendable {
             socket: ownsSocket ? socket : -1,
             hostKey: hostKey,
             hostname: params.hostname,
+            dialledAddress: ownsSocket ? SSHSocket.peerAddress(of: socket) : nil,
             queue: queue,
             tunnel: tunnel,
             context: context,

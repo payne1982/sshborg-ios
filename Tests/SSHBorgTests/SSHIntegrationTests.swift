@@ -431,6 +431,28 @@ final class SSHIntegrationTests: XCTestCase {
     /// `mosh-server` that no client reaches exits on its own after sixty
     /// seconds. That is also why this test cannot go on to drive the session —
     /// the lab does that, and needs the handover by hand.
+    /// The address the socket actually reached, numerically.
+    ///
+    /// Mosh is the only caller and the reason it exists: `mosh-server -s`
+    /// listens on the one address the SSH connection arrived on, so resolving
+    /// the name a second time to find it is a guess. What this pins is that the
+    /// answer is an address and not the name that was dialled — the two are the
+    /// same string when a test target is given by IP, which is why the name is
+    /// also rejected as an answer only when it is not one.
+    func testTheDialledAddressIsTheOneTheSocketReached() async throws {
+        let target = try target()
+        let session = try await SSHSession.connect(params(target))
+        defer { session.disconnect() }
+
+        let address = try XCTUnwrap(session.dialledAddress, "a direct session reported no peer")
+        XCTAssertFalse(address.isEmpty)
+        // Numeric: either dotted quad or a colon in it. `getnameinfo` with
+        // NI_NUMERICHOST never gives a name back, and that is the whole promise.
+        let numeric = address.contains(":")
+            || address.split(separator: ".").allSatisfy { UInt8($0) != nil }
+        XCTAssertTrue(numeric, "\(address) is not a numeric address")
+    }
+
     func testTheBootstrapStartsAMoshServerAndLeavesTheSSHSessionAlone() async throws {
         let target = try target()
         let session = try await SSHSession.connect(params(target))
