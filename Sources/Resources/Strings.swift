@@ -468,6 +468,12 @@ extension LocalizedStringResource {
     /// Add jump host
     static let hostJumpAdd = LocalizedStringResource("host_jump_add")
 
+    /// Key authentication
+    static let hostJumpAuthKey = LocalizedStringResource("host_jump_auth_key")
+
+    /// Password authentication
+    static let hostJumpAuthPassword = LocalizedStringResource("host_jump_auth_password")
+
     /// host1:22,user@host2:2222
     static let hostJumpHostsPlaceholder = LocalizedStringResource("host_jump_hosts_placeholder")
 
@@ -477,8 +483,14 @@ extension LocalizedStringResource {
     /// Host list
     static let hostJumpModeHostList = LocalizedStringResource("host_jump_mode_host_list")
 
-    /// Simple
+    /// Text
     static let hostJumpModeSimple = LocalizedStringResource("host_jump_mode_simple")
+
+    /// Mosh is on for this host, so no chain. For a bastion, turn Mosh off and pick a first …
+    static let hostJumpMoshChain = LocalizedStringResource("host_jump_mosh_chain")
+
+    /// Saved password ignored
+    static let hostJumpMoshPasswordUnused = LocalizedStringResource("host_jump_mosh_password_unused")
 
     /// No saved password
     static let hostJumpNoPassword = LocalizedStringResource("host_jump_no_password")
@@ -512,6 +524,51 @@ extension LocalizedStringResource {
 
     /// Resume terminal (%1$d)
     static let hostMenuResumeTerminal = LocalizedStringResource("host_menu_resume_terminal")
+
+    /// mosh-server command
+    static let hostMoshCommandLabel = LocalizedStringResource("host_mosh_command_label")
+
+    /// mosh-server
+    static let hostMoshCommandPlaceholder = LocalizedStringResource("host_mosh_command_placeholder")
+
+    /// Default mosh-server. A full path if it is not on the PATH.
+    static let hostMoshCommandSupporting = LocalizedStringResource("host_mosh_command_supporting")
+
+    /// Not available with a jump host
+    static let hostMoshDisabledWithJump = LocalizedStringResource("host_mosh_disabled_with_jump")
+
+    /// (experimental)
+    static let hostMoshExperimental = LocalizedStringResource("host_mosh_experimental")
+
+    /// Automatic
+    static let hostMoshFamilyAuto = LocalizedStringResource("host_mosh_family_auto")
+
+    /// Prefer IPv4
+    static let hostMoshFamilyIpv4 = LocalizedStringResource("host_mosh_family_ipv4")
+
+    /// Prefer IPv6
+    static let hostMoshFamilyIpv6 = LocalizedStringResource("host_mosh_family_ipv6")
+
+    /// IPv4 / IPv6
+    static let hostMoshFamilyLabel = LocalizedStringResource("host_mosh_family_label")
+
+    /// A Mosh session stays on the address family it started on.
+    static let hostMoshFamilySupporting = LocalizedStringResource("host_mosh_family_supporting")
+
+    /// Mosh
+    static let hostMoshLabel = LocalizedStringResource("host_mosh_label")
+
+    /// UDP ports
+    static let hostMoshPortsLabel = LocalizedStringResource("host_mosh_ports_label")
+
+    /// 60001-60999
+    static let hostMoshPortsPlaceholder = LocalizedStringResource("host_mosh_ports_placeholder")
+
+    /// Default 60001-60999. One port per session open at once.
+    static let hostMoshPortsSupporting = LocalizedStringResource("host_mosh_ports_supporting")
+
+    /// Terminal: Mosh to %1$@, then ssh to this host. SFTP uses the whole chain.
+    static let hostMoshViaBastion = LocalizedStringResource("host_mosh_via_bastion")
 
     /// 8080:localhost:8080 bindAddr:8443:server:443
     static let hostPortForwardingPlaceholder = LocalizedStringResource("host_port_forwarding_placeholder")
@@ -548,6 +605,9 @@ extension LocalizedStringResource {
 
     /// Home
     static let hostStartModeHome = LocalizedStringResource("host_start_mode_home")
+
+    /// Starting directory
+    static let hostStartModeLabel = LocalizedStringResource("host_start_mode_label")
 
     /// Last visited folder
     static let hostStartModeLast = LocalizedStringResource("host_start_mode_last")
@@ -882,6 +942,30 @@ extension LocalizedStringResource {
     /// Too short
     static let lockTooShort = LocalizedStringResource("lock_too_short")
 
+    /// Unlock
+    static let lockUnlockAction = LocalizedStringResource("lock_unlock_action")
+
+    /// Continue over SSH
+    static let moshActionCarryOn = LocalizedStringResource("mosh_action_carry_on")
+
+    /// Leave
+    static let moshActionLeave = LocalizedStringResource("mosh_action_leave")
+
+    /// mosh-server will not run because the host’s locale is not UTF-8. Set a UTF-8 locale o…
+    static let moshFailedLocale = LocalizedStringResource("mosh_failed_locale")
+
+    /// mosh-server did not answer the way it should. What it said is below.
+    static let moshFailedNoAnswer = LocalizedStringResource("mosh_failed_no_answer")
+
+    /// Nothing came back over UDP. The network between here and the host is probably blockin…
+    static let moshFailedNoUdp = LocalizedStringResource("mosh_failed_no_udp")
+
+    /// There is no mosh-server on this host. Install mosh there, or turn the Mosh switch off…
+    static let moshFailedNotInstalled = LocalizedStringResource("mosh_failed_not_installed")
+
+    /// Mosh could not start
+    static let moshFailedTitle = LocalizedStringResource("mosh_failed_title")
+
     /// %d active sessions
     static let notificationActiveSessions = LocalizedStringResource("notification_active_sessions")
 
@@ -1170,7 +1254,7 @@ extension LocalizedStringResource {
     /// Always-visible suggestion bar
     static let settingsSuggestionsBarStickyTitle = LocalizedStringResource("settings_suggestions_bar_sticky_title")
 
-    /// In the terminal, the bar slides away and comes back when you tap the screen. Off keeps it always visible.
+    /// In the terminal, the bar slides away and comes back when you tap the screen. Off keep…
     static let settingsTerminalBarAutohideSubtitle = LocalizedStringResource("settings_terminal_bar_autohide_subtitle")
 
     /// Auto-hide the title bar
@@ -1181,6 +1265,12 @@ extension LocalizedStringResource {
 
     /// Terminal colors
     static let settingsTerminalColorsTitle = LocalizedStringResource("settings_terminal_colors_title")
+
+    /// In the terminal, hide Android's clock and notification strip as well. Swipe down from…
+    static let settingsTerminalHideStatusBarSubtitle = LocalizedStringResource("settings_terminal_hide_status_bar_subtitle")
+
+    /// Hide the status bar
+    static let settingsTerminalHideStatusBarTitle = LocalizedStringResource("settings_terminal_hide_status_bar_title")
 
     /// Dark
     static let settingsThemeDark = LocalizedStringResource("settings_theme_dark")
@@ -1209,6 +1299,12 @@ extension LocalizedStringResource {
     /// Background downloads
     static let sftpBackgroundDownloadsTitle = LocalizedStringResource("sftp_background_downloads_title")
 
+    /// "%1$@" already exists in Downloads. Download skipped.
+    static let sftpBackgroundSkippedExists = LocalizedStringResource("sftp_background_skipped_exists")
+
+    /// %1$d of %2$d files already exist in Downloads. What would you like to do?
+    static let sftpBatchConflictMessage = LocalizedStringResource("sftp_batch_conflict_message")
+
     /// Some files already exist
     static let sftpBatchConflictTitle = LocalizedStringResource("sftp_batch_conflict_title")
 
@@ -1227,11 +1323,20 @@ extension LocalizedStringResource {
     /// Cancelled: %1$@
     static let sftpCancelledAt = LocalizedStringResource("sftp_cancelled_at")
 
+    /// "%1$@" already exists in %2$@.
+    static let sftpConflictMessage = LocalizedStringResource("sftp_conflict_message")
+
     /// File already exists
     static let sftpConflictTitle = LocalizedStringResource("sftp_conflict_title")
 
     /// Cancel the move
     static let sftpCutCancelCd = LocalizedStringResource("sftp_cut_cancel_cd")
+
+    /// Cut
+    static let sftpCutCd = LocalizedStringResource("sftp_cut_cd")
+
+    /// %1$d items to move from %2$@
+    static let sftpCutPending = LocalizedStringResource("sftp_cut_pending")
 
     /// Delete file
     static let sftpDeleteFileTitle = LocalizedStringResource("sftp_delete_file_title")
@@ -1314,7 +1419,7 @@ extension LocalizedStringResource {
     /// New folder
     static let sftpMkdirTitle = LocalizedStringResource("sftp_mkdir_title")
 
-    /// %1$d of %2$d names are already taken here, and one of them is a folder: two folders cannot be merged.
+    /// %1$d of %2$d names are already taken here, and one of them is a folder: two folders c…
     static let sftpMoveBatchFolderExists = LocalizedStringResource("sftp_move_batch_folder_exists")
 
     /// A folder called "%1$@" is already here, and two folders cannot be merged.
@@ -1352,6 +1457,9 @@ extension LocalizedStringResource {
 
     /// Downloaded %1$d of %2$d
     static let sftpReportDownloadedNOfM = LocalizedStringResource("sftp_report_downloaded_n_of_m")
+
+    /// Could not create the file in Downloads
+    static let sftpReportLocalFileFailed = LocalizedStringResource("sftp_report_local_file_failed")
 
     /// Not attempted: %1$@
     static let sftpReportNotAttempted = LocalizedStringResource("sftp_report_not_attempted")
@@ -1430,6 +1538,12 @@ extension LocalizedStringResource {
 
     /// Show or hide keyboard
     static let terminalKeyboardCd = LocalizedStringResource("terminal_keyboard_cd")
+
+    /// No contact for %1$d min — still trying
+    static let terminalNoContactMinutes = LocalizedStringResource("terminal_no_contact_minutes")
+
+    /// No contact for %1$d s — still trying
+    static let terminalNoContactSeconds = LocalizedStringResource("terminal_no_contact_seconds")
 
     /// Paste
     static let terminalPasteCd = LocalizedStringResource("terminal_paste_cd")
