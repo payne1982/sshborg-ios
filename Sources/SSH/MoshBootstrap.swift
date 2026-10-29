@@ -49,6 +49,12 @@ enum MoshBootstrap {
             /// It ran and said something we could not read. The detail carries
             /// what it said.
             case noConnectLine
+            /// It started, and no datagram ever came back. Almost always
+            /// inbound UDP blocked by a firewall: there is no error from the
+            /// far end for that, only silence, which is why the only honest
+            /// test is to send and wait — see
+            /// ``MoshTerminalTransport/awaitFirstContact(timeout:)``.
+            case noUDPAnswer
         }
 
         let reason: Reason

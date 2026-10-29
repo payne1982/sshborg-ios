@@ -79,6 +79,10 @@ actor MoshSocket {
     private(set) var refusedSends = 0
     private(set) var closed = false
 
+    /// Set when the stack refused a datagram as too long, and cleared by
+    /// whoever acts on it. The loop drops the MTU.
+    private var messageTooLarge = false
+
     /// Set when a send was refused outright or the system reported the path
     /// changed, and cleared by whoever acts on it. The loop hops.
     private var hopWanted = false
@@ -137,6 +141,16 @@ actor MoshSocket {
     func takeHopRequest() -> Bool {
         defer { hopWanted = false }
         return hopWanted
+    }
+
+    /// True once, when the stack has refused a datagram for being too long.
+    ///
+    /// Reported rather than acted on here, because what to do about it is the
+    /// protocol's: the datagram is gone, and the state it carried goes out again
+    /// — smaller — on the next tick.
+    func takeMessageTooLarge() -> Bool {
+        defer { messageTooLarge = false }
+        return messageTooLarge
     }
 
     /// Retires what is past its grace, and keeps the number of ports under the
@@ -236,13 +250,19 @@ actor MoshSocket {
     }
 
     /// `EMSGSIZE` is the one thing that proves the path's budget wrong, and the
-    /// caller drops the MTU for it. Everything else here means the interface we
-    /// were using is not usable, which is cured by a new local port rather than
-    /// by ending the session.
+    /// caller drops the MTU for it rather than moving: the path is fine, our
+    /// guess about what it would carry was not. Everything else here means the
+    /// interface we were using is not usable, which is what an interface going
+    /// away looks like from here and is cured by a new local port rather than by
+    /// ending the session.
     private func sendFailed(_ error: Error) {
         guard !closed else { return }
         refusedSends += 1
-        hopWanted = true
+        if let network = error as? NWError, case .posix(.EMSGSIZE) = network {
+            messageTooLarge = true
+        } else {
+            hopWanted = true
+        }
     }
 
     private func watchThePath() {
