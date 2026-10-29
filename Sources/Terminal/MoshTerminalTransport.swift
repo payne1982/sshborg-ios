@@ -60,7 +60,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
 
     /// Where host bytes end up. The emulator is the main thread's, so this is
     /// called from the one task that consumes ``screen`` and nowhere else.
-    private let apply: @MainActor (Data) -> Void
+    private let apply: TerminalSink
 
     private let screen: AsyncStream<ScreenWrite>
     private let toScreen: AsyncStream<ScreenWrite>.Continuation
@@ -99,7 +99,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
         handover: MoshHandover,
         silenceLimit: MoshTime = MoshTerminalTransport.silenceLimit,
         clock: @escaping @Sendable () -> MoshTime = MoshTerminalTransport.uptimeMilliseconds,
-        apply: @escaping @MainActor (Data) -> Void
+        apply: @escaping TerminalSink
     ) throws {
         self.clock = clock
         self.silenceLimit = silenceLimit

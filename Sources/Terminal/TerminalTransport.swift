@@ -33,7 +33,7 @@ import Foundation
 /// within about thirty seconds of leaving the screen, so the distinction has no
 /// reader here: what matters on this side is what survives coming *back*, which
 /// is the session's business and not the transport's contract.
-protocol TerminalTransport: AnyObject {
+protocol TerminalTransport: AnyObject, Sendable {
 
     /// False once the far end has gone, as far as this transport can tell
     /// without asking.
@@ -90,6 +90,13 @@ extension TerminalTransport {
     var outOfContactSeconds: AsyncStream<Int>? { nil }
     func close() {}
 }
+
+/// Where a transport puts the bytes it is handed, which is the emulator and so
+/// the main thread's.
+///
+/// Given once, at construction, and good from the first byte to the last: see
+/// the note on ``TerminalTransport`` about why there is only ever one.
+typealias TerminalSink = @MainActor @Sendable (Data) -> Void
 
 /// Why a session ended.
 enum TerminalEnd: Equatable {

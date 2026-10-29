@@ -158,7 +158,9 @@ final class TerminalSession: Identifiable {
     @PerceptionIgnored private let hosts: HostRepository
     @PerceptionIgnored private let keys: SSHKeyRepository
     @PerceptionIgnored private var sshSession: SSHSession?
-    @PerceptionIgnored private var channel: SSHShellChannel?
+    /// Where the terminal's bytes come from, and the only thing here that knows
+    /// which protocol carries them. See ``TerminalTransport``.
+    @PerceptionIgnored private var transport: TerminalTransport?
     @PerceptionIgnored private var readerTask: Task<Void, Never>?
     @PerceptionIgnored private var bridge: TerminalDelegateBridge?
 
@@ -294,8 +296,16 @@ final class TerminalSession: Identifiable {
                 rows: geometry.rows
             )
 
+            // The seam. Above this line the app is opening an SSH shell; below
+            // it, it asks a transport for bytes and does not know which one it
+            // has. The sink is given once and is good for the life of the tab,
+            // because the emulator is owned here and not by the view.
+            let transport = SSHTerminalTransport(channel: channel) { [weak self] bytes in
+                self?.terminalView.feed(byteArray: ArraySlice(bytes))
+            }
+
             self.sshSession = session
-            self.channel = channel
+            self.transport = transport
             phase = .connected
             // Nothing else needs the credential now: the history is read on this
             // very session, so there is no second login to hold one for. The
@@ -320,7 +330,7 @@ final class TerminalSession: Identifiable {
             await planner.persistJumpHostKeys(session.newJumpHostKeys, for: host)
             startForwarding(params)
             startBelowTheTitleBar()
-            startReading(from: channel)
+            startReading(from: transport)
         } catch SSHError.needsPassword(let banner) {
             phase = .needsPassword(banner: banner)
         } catch SSHError.unknownHostKey(let info) {
@@ -515,44 +525,33 @@ final class TerminalSession: Identifiable {
 
     // MARK: - Streaming
 
-    private func startReading(from channel: SSHShellChannel) {
+    /// Starts the transport and waits for it to end.
+    ///
+    /// The bytes do not come through here any more: the transport pushes them at
+    /// the sink it was built with, which is what lets a protocol whose session
+    /// must be answered on time deliver them on a thread of its own. What is
+    /// left is the end, and what to do about it.
+    private func startReading(from transport: TerminalTransport) {
         readerTask?.cancel()
         readerTask = Task { [weak self] in
-            for await chunk in channel.output {
-                guard !Task.isCancelled else { return }
-                await MainActor.run { self?.terminalView.feed(byteArray: ArraySlice(chunk)) }
-            }
-            await MainActor.run { self?.handleStreamEnded() }
+            let end = await transport.run()
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.handleStreamEnded(end) }
         }
     }
 
-    private func handleStreamEnded() {
+    private func handleStreamEnded(_ end: TerminalEnd) {
         guard case .connected = phase else { return }
 
-        // A clean shell exit and a dropped link both land here, and what tells
-        // them apart is *whether* an exit status arrived — not what it was.
+        // A clean exit and a dropped link both land here, and which it was is
+        // the transport's judgement rather than this screen's — under SSH it is
+        // whether an exit status arrived, which carries a ⚠️ about killed shells
+        // worth reading before changing anything (``SSHTerminalTransport/run()``).
         //
-        // ⚠️ A shell that is *killed* counts as a clean exit here, and its tab
-        // closes. SSH does distinguish the two — `exit-signal` rather than
-        // `exit-status` — and Android keeps the panel for a killed shell, because
-        // JSch reports "no status received" as -1 while libssh2 reports 0 for
-        // that and for a genuine exit 0 alike. Reading the signal was tried on
-        // 14/08/2026 and removed the same day: it worked in a test that killed
-        // the shell from inside, and made no difference to killing it from
-        // another session, which is the case that prompted it. Deliberate, and
-        // the user's call — not an oversight to fix on sight.
-        //
-        // This used to report `exit status 1` as the reason for disconnecting,
-        // which turned an ordinary goodbye into something that read like a
-        // fault. `exit` with no argument carries the status of the last command,
-        // so any failed command before leaving produces a non-zero value; it
-        // describes the shell's last act, not the connection. Android draws the
-        // line the same way: `if (session.exitStatus != -1) cleanExit = true`,
-        // and it never shows the number.
-        //
-        // A dropped link, by contrast, has no status at all, and that is the
-        // case that deserves words — it used to be the silent one.
-        let endedCleanly = channel?.exitStatus != nil
+        // A dropped link is the case that deserves words: it used to be the
+        // silent one, while an ordinary goodbye was reported as `exit status 1`,
+        // which read like a fault.
+        let endedCleanly = end == .cleanExit
 
         // A shell that exited on its own is finished, and reconnecting it would
         // undo what the user just did by typing `exit`.
@@ -650,7 +649,7 @@ final class TerminalSession: Identifiable {
     // MARK: - Input
 
     func send(_ data: Data) {
-        channel?.send(data)
+        transport?.write(data)
     }
 
     func send(text: String) {
@@ -692,7 +691,7 @@ final class TerminalSession: Identifiable {
     }
 
     func resize(columns: Int, rows: Int) {
-        channel?.resize(columns: columns, rows: rows)
+        transport?.resize(columns: columns, rows: rows)
     }
 
     // MARK: - Teardown
@@ -703,8 +702,8 @@ final class TerminalSession: Identifiable {
         acceptedHostKey = nil
         readerTask?.cancel()
         readerTask = nil
-        channel?.close()
-        channel = nil
+        transport?.close()
+        transport = nil
         forwarder?.stop()
         forwarder = nil
         forwardingStatus = []
