@@ -165,4 +165,14 @@ final class SSHAgentTests: XCTestCase {
         XCTAssertNil(framing.nextRequest())
         XCTAssertTrue(framing.isPoisoned)
     }
+
+    /// The answers waiting on one agent channel have a ceiling, and the sum that
+    /// checks it cannot wrap round. Proposed by an audit on 30/10/2026.
+    func testTheAnswersWaitingOnAChannelHaveACeiling() {
+        let limit = AgentForwarder.maximumPendingResponseBytes
+        XCTAssertTrue(AgentForwarder.canBufferResponse(queuedBytes: limit - 5, responseBytes: 5))
+        XCTAssertFalse(AgentForwarder.canBufferResponse(queuedBytes: limit - 5, responseBytes: 6))
+        XCTAssertFalse(AgentForwarder.canBufferResponse(queuedBytes: Int.max, responseBytes: 1))
+        XCTAssertFalse(AgentForwarder.canBufferResponse(queuedBytes: 1, responseBytes: Int.max))
+    }
 }

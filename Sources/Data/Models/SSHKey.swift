@@ -39,7 +39,7 @@ struct SSHKey: Identifiable, Equatable, Codable, FetchableRecord, MutablePersist
 
 extension SSHKey {
 
-    enum KeyType: String, CaseIterable {
+    enum KeyType: String, CaseIterable, Sendable {
         case ed25519 = "ED25519"
         case ecdsa = "ECDSA"
         case rsa = "RSA"

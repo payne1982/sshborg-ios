@@ -358,7 +358,7 @@ private struct KeyImportSheet: View {
                 defer { url.stopAccessingSecurityScopedResource() }
 
                 do {
-                    text = try String(contentsOf: url, encoding: .utf8)
+                    text = try Self.readKeyFile(at: url)
                 } catch {
                     self.error = String(localized: .iosKeysFileNotText)
                 }
@@ -386,6 +386,23 @@ private struct KeyImportSheet: View {
                 self.error = error.localizedDescription
             }
         }
+    }
+
+    /// The largest file read as a key. An RSA key of 16384 bits is about 12 KB;
+    /// this is only so that picking the wrong file — a video, a disk image — is
+    /// a refusal rather than all of it in memory. Proposed by an audit on
+    /// 30/10/2026.
+    static let largestKeyFile = 1024 * 1024
+
+    static func readKeyFile(at url: URL) throws -> String {
+        let input = try FileHandle(forReadingFrom: url)
+        defer { try? input.close() }
+        let bytes = try input.read(upToCount: largestKeyFile + 1) ?? Data()
+        // Not a key, whatever it is: said as the unreadable file it is to us.
+        guard bytes.count <= largestKeyFile, let text = String(data: bytes, encoding: .utf8) else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+        return text
     }
 }
 

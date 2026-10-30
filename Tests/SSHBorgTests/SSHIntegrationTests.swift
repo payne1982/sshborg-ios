@@ -333,6 +333,60 @@ final class SSHIntegrationTests: XCTestCase {
         }
     }
 
+    // MARK: - A terminal slower than the network
+
+    /// Output nobody is taking stops being read, and none of it is lost.
+    ///
+    /// Ten megabytes, more than the backlog limit and the channel's window
+    /// together, while nothing reads `output` for three seconds: what waits stays
+    /// at the limit, give or take one read, and then every byte arrives. An audit
+    /// on 30/10/2026 proposed ending the session past a budget; SSH's own flow
+    /// control makes that unnecessary, and this is the claim that it does.
+    func testOutputNobodyTakesStopsBeingReadAndNoneOfItIsLost() async throws {
+        let session = try await SSHSession.connect(params(try target()))
+        defer { session.disconnect() }
+        let channel = try await session.openShell(columns: 80, rows: 24)
+        defer { channel.close() }
+
+        let total = 10_000_000
+        let marker = "FLOOD_END_\(UUID().uuidString.prefix(6))"
+        // Echo off first, on its own line and given time to take effect, so the
+        // command line below is not echoed into the count or the marker.
+        channel.send(Data("stty -echo\n".utf8))
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        channel.send(Data("head -c \(total) /dev/zero | tr '\\000' Q; echo; echo \(marker)\n".utf8))
+
+        try await Task.sleep(nanoseconds: 3_000_000_000)
+        let waiting = channel.waitingOutput
+        XCTAssertGreaterThan(waiting, 0, "nothing arrived while nobody was reading")
+        XCTAssertLessThanOrEqual(
+            waiting, 4 * 1024 * 1024 + 32 * 1024,
+            "the channel kept reading for a terminal that was not taking anything"
+        )
+
+        let collector = Task { () -> (count: Int, ended: Bool, tail: String) in
+            var count = 0
+            var tail = ""
+            for await chunk in channel.output {
+                if Task.isCancelled { break }
+                count += chunk.reduce(0) { $0 + ($1 == UInt8(ascii: "Q") ? 1 : 0) }
+                // Longer than a coloured prompt, which follows the marker.
+                tail = String((tail + String(decoding: chunk.suffix(512), as: UTF8.self)).suffix(512))
+                if tail.contains(marker) { return (count, true, tail) }
+            }
+            return (count, false, tail)
+        }
+        let watchdog = Task {
+            try await Task.sleep(nanoseconds: 60_000_000_000)
+            collector.cancel()
+        }
+        defer { watchdog.cancel() }
+
+        let result = await collector.value
+        XCTAssertTrue(result.ended, "the output never finished arriving: \(result.tail.debugDescription)")
+        XCTAssertEqual(result.count, total, "bytes were lost while the channel was held back")
+    }
+
     // MARK: - Resizing
 
     func testResizeIsAccepted() async throws {

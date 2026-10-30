@@ -80,6 +80,31 @@ final class SFTPIntegrationTests: XCTestCase {
 
     // MARK: - Transfers
 
+    /// A limit counts what arrives, with no `stat` before it: a file that grew,
+    /// or a server that said the wrong size, is stopped all the same, and the
+    /// partial copy is gone. Proposed by an audit on 30/10/2026.
+    func testADownloadStopsAtItsLimitByWhatArrives() async throws {
+        try await upload(text: String(repeating: "x", count: 100_000), named: "over-limit.txt")
+        let local = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: local) }
+        do {
+            try await session.download(from: "\(workingDirectory!)/over-limit.txt", to: local, maximumBytes: 40_000)
+            XCTFail("a download went past its limit")
+        } catch let tooLarge as SFTPSession.TooLarge {
+            XCTAssertGreaterThan(tooLarge.received, 40_000)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: local.path), "the partial copy was left")
+        }
+    }
+
+    /// And a file of exactly the limit is not too large.
+    func testADownloadOfExactlyItsLimitArrives() async throws {
+        try await upload(text: "12345", named: "exact-limit.txt")
+        let local = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: local) }
+        try await session.download(from: "\(workingDirectory!)/exact-limit.txt", to: local, maximumBytes: 5)
+        XCTAssertEqual(try Data(contentsOf: local), Data("12345".utf8))
+    }
+
     func testUploadThenDownloadRoundTrip() async throws {
         let contents = "SSHBorg round trip \(UUID().uuidString)\nsecond line\n"
         try await upload(text: contents, named: "round-trip.txt")

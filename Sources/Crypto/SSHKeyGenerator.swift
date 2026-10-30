@@ -13,7 +13,7 @@ import Security
 /// than just round-tripping them through our own reader.
 enum SSHKeyGenerator {
 
-    struct GeneratedKey {
+    struct GeneratedKey: Sendable {
         /// PEM-armoured `openssh-key-v1`, what goes in `~/.ssh/id_…`.
         let privateKeyPEM: String
         /// One line, `ssh-ed25519 AAAA… comment`, for `authorized_keys`.

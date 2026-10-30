@@ -12,7 +12,7 @@ import Foundation
 /// forwarding — reads it from the shared parser directly.
 enum OpenSSHKeyImporter {
 
-    struct ImportedKey {
+    struct ImportedKey: Sendable {
         /// Line-ending-normalised original text, which is what gets stored and
         /// later handed to libssh2 verbatim.
         let privateKeyPEM: String

@@ -168,6 +168,17 @@ final class AgentForwarder: @unchecked Sendable {
         case closed
     }
 
+    /// The most answers one agent channel may have waiting to be written.
+    /// An answer is a signature or a list of keys, a few kilobytes; a far end
+    /// that sends questions and never reads what comes back would otherwise
+    /// have us keep every answer. Proposed by an audit on 30/10/2026.
+    static let maximumPendingResponseBytes = 1024 * 1024
+
+    static func canBufferResponse(queuedBytes: Int, responseBytes: Int) -> Bool {
+        queuedBytes >= 0 && queuedBytes <= maximumPendingResponseBytes
+            && responseBytes >= 0 && responseBytes <= maximumPendingResponseBytes - queuedBytes
+    }
+
     private func service(_ connection: Connection) -> Outcome {
         var didWork = false
 
@@ -177,6 +188,12 @@ final class AgentForwarder: @unchecked Sendable {
             case .working: didWork = true
             case .idle: break
             }
+        }
+
+        // No more questions while half that is still unwritten: the far end is
+        // not reading, and the window it has not drained is its own brake.
+        if connection.pendingWrite.count >= Self.maximumPendingResponseBytes / 2 {
+            return didWork ? .working : .idle
         }
 
         var buffer = [UInt8](repeating: 0, count: Pump.readBufferSize)
@@ -204,7 +221,10 @@ final class AgentForwarder: @unchecked Sendable {
         while let request = connection.framing.nextRequest() {
             didWork = true
             count { $0.requestsHandled += 1 }
-            connection.pendingWrite += SSHAgentFraming.frame(agent.respond(to: request))
+            let response = SSHAgentFraming.frame(agent.respond(to: request))
+            guard Self.canBufferResponse(queuedBytes: connection.pendingWrite.count, responseBytes: response.count)
+            else { return .closed }
+            connection.pendingWrite += response
         }
         if connection.framing.isPoisoned { return .closed }
 

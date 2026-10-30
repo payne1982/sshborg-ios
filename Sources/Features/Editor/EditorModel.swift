@@ -94,6 +94,7 @@ final class EditorModel {
             try await session.download(
                 from: path,
                 to: scratch,
+                maximumBytes: Self.maximumBytes,
                 isCancelled: nil,
                 onProgress: { [weak self] bytes in
                     Task { @MainActor in
@@ -103,6 +104,10 @@ final class EditorModel {
                 }
             )
             raw = try Data(contentsOf: scratch)
+        } catch let tooLarge as SFTPSession.TooLarge {
+            // The size checked above was the server's word; this is what came.
+            phase = .unsupported(.tooLarge, size: tooLarge.received)
+            return
         } catch {
             phase = .failed(
                 ErrorReport(title: String(localized: .editorFailed), name: name, error: error)

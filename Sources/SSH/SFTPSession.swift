@@ -346,13 +346,25 @@ final class SFTPSession: @unchecked Sendable {
 
     // MARK: - Transfers
 
+    /// A download that went past the `maximumBytes` it was given.
+    struct TooLarge: Error, Equatable {
+        /// What had arrived when it stopped, the chunk that crossed included.
+        let received: UInt64
+    }
+
     /// Downloads to a local file, reporting cumulative bytes.
     ///
     /// Streamed to disk rather than gathered in memory: a phone cannot hold a
     /// multi-gigabyte file, and this is a file manager.
+    ///
+    /// `maximumBytes` counts what arrives, not what the server said the size
+    /// was: a file that grows while it is read, or a server whose `stat` is
+    /// wrong, would otherwise take a caller past a limit it had checked. Nil
+    /// for a transfer, which has none. Proposed by an audit on 30/10/2026.
     func download(
         from remotePath: String,
         to localURL: URL,
+        maximumBytes: UInt64? = nil,
         isCancelled: (@Sendable () -> Bool)? = nil,
         onProgress: (@Sendable (UInt64) -> Void)? = nil
     ) async throws {
@@ -381,10 +393,11 @@ final class SFTPSession: @unchecked Sendable {
                     if count == 0 { break }
                     guard count > 0 else { throw Self.error(sftp, path: remotePath) }
 
+                    total += UInt64(count)
+                    if let maximumBytes, total > maximumBytes { throw TooLarge(received: total) }
+
                     let chunk = Data(bytes: buffer, count: Int(count))
                     try output.write(contentsOf: chunk)
-
-                    total += UInt64(count)
                     onProgress?(total)
                 }
             }

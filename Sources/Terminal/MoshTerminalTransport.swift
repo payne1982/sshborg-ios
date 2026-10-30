@@ -65,6 +65,11 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
     private let screen: AsyncStream<ScreenWrite>
     private let toScreen: AsyncStream<ScreenWrite>.Continuation
 
+    /// What ``screen`` holds and the main thread has yet to apply. While it is
+    /// over ``screenBacklogLimit`` the loop does not open datagrams — see the
+    /// datagram case in the loop for why that loses nothing.
+    private let screenBacklog = ByteBacklog()
+
     private let mailbox = Mailbox()
     private let ended = Once<TerminalEnd>()
     private let firstContact = Once<Bool>()
@@ -113,7 +118,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
         self.outOfContact = AsyncStream(bufferingPolicy: .bufferingNewest(1)) { seconds = $0 }
         self.reportOutOfContact = seconds
 
-        self.ears = Ears(toScreen: writes, clock: clock)
+        self.ears = Ears(toScreen: writes, clock: clock, backlog: screenBacklog)
         self.mosh = MoshTransport(crypto: try MoshCrypto(printableKey: handover.key), listener: ears)
         self.socket = MoshSocket(
             peer: MoshSocket.Peer(host: handover.host, port: UInt16(handover.port))
@@ -195,6 +200,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
             for await write in stream {
                 guard let self else { return }
                 self.apply(write.bytes)
+                self.screenBacklog.taken(write.bytes.count)
                 let waited = self.clock() - write.at
                 // `withLock` rather than lock/unlock: the compiler refuses the
                 // pair inside an async function, rightly — a lock held across a
@@ -335,6 +341,15 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
                     // cannot be put back, and for about a round trip the far
                     // end's frames are still painted for the old one.
                 case .datagram(let datagram):
+                    // The screen is behind: this one is left unopened, which
+                    // to SSP is a datagram lost on the way. Nothing is — the
+                    // server sends its next state as a diff from the last one
+                    // we acknowledged, and this one was not acknowledged. So
+                    // what waits for the main thread stays bounded without
+                    // ending the session, which is what an audit on 30/10/2026
+                    // proposed, nor dropping bytes the screen needed.
+                    if screenBacklog.waiting >= Self.screenBacklogLimit { continue }
+
                     // Nothing is believed yet. `MoshSocket` connects its ports,
                     // so the system has already dropped anything from another
                     // address — but an address is a claim and not a proof in any
@@ -511,14 +526,21 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
     private final class Ears: MoshTransportListener {
         private let toScreen: AsyncStream<ScreenWrite>.Continuation
         private let clock: @Sendable () -> MoshTime
+        private let backlog: ByteBacklog
 
-        init(toScreen: AsyncStream<ScreenWrite>.Continuation, clock: @escaping @Sendable () -> MoshTime) {
+        init(
+            toScreen: AsyncStream<ScreenWrite>.Continuation,
+            clock: @escaping @Sendable () -> MoshTime,
+            backlog: ByteBacklog
+        ) {
             self.toScreen = toScreen
             self.clock = clock
+            self.backlog = backlog
         }
 
         /// Handed over, not applied: see the first of the three rules above.
         func onHostBytes(_ bytes: Data) {
+            backlog.added(bytes.count)
             toScreen.yield(ScreenWrite(bytes: bytes, at: clock()))
         }
 
@@ -674,6 +696,11 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
 
     /// The ceiling on how long the loop sleeps, so its own clocks stay honest.
     static let maximumWait: MoshTime = 250
+
+    /// How far the screen may fall behind before datagrams wait. Ours, not
+    /// mosh's: a full repaint is tens of kilobytes, so this is dozens of frames
+    /// the main thread has not got to.
+    static let screenBacklogLimit = 1024 * 1024
 
     /// How long a session with no answer at all is given before it is a failure.
     static let firstContactTimeout: TimeInterval = 10

@@ -26,7 +26,45 @@ final class SSHShellChannel {
 
     /// Everything the remote writes. Finishes when the shell exits or the
     /// connection drops.
-    let output: AsyncStream<Data>
+    let output: Output
+
+    /// The output, counted as it is taken: what has been read from the channel
+    /// and not yet taken by the terminal is a ``ByteBacklog``, and the pump stops
+    /// reading while there is too much of it.
+    ///
+    /// The stream it wraps is unbounded, and a terminal slower than the network
+    /// — a `cat` of a large file on a fast link, with SwiftTerm parsing on the
+    /// main thread — kept everything the far end sent. An audit on 30/10/2026
+    /// proposed ending the session past a budget; not reading is better, because
+    /// SSH has flow control: the channel's window fills, and the server stops
+    /// sending until there is room. Nothing is lost and nothing is closed.
+    struct Output: AsyncSequence {
+        typealias Element = Data
+
+        fileprivate let stream: AsyncStream<Data>
+        fileprivate let backlog: ByteBacklog
+
+        struct AsyncIterator: AsyncIteratorProtocol {
+            fileprivate var base: AsyncStream<Data>.AsyncIterator
+            fileprivate let backlog: ByteBacklog
+
+            mutating func next() async -> Data? {
+                guard let chunk = await base.next() else { return nil }
+                backlog.taken(chunk.count)
+                return chunk
+            }
+        }
+
+        func makeAsyncIterator() -> AsyncIterator {
+            AsyncIterator(base: stream.makeAsyncIterator(), backlog: backlog)
+        }
+    }
+
+    private let backlog = ByteBacklog()
+
+    /// Read and not yet taken from ``output``. For a test: the limit on it is
+    /// the whole of the backpressure, and nothing else shows it working.
+    var waitingOutput: Int { backlog.waiting }
 
     private let queue: DispatchQueue
     private let session: OpaquePointer
@@ -72,6 +110,9 @@ final class SSHShellChannel {
         static let cellWidth = 8
         static let cellHeight = 16
         static let readBufferSize = 32 * 1024
+        /// How much may wait for the terminal before reading stops. Twice the
+        /// window: the server can have that much more in flight anyway.
+        static let backlogLimit = 4 * 1024 * 1024
     }
 
     /// Must be called on the session queue, with the session still blocking.
@@ -89,7 +130,7 @@ final class SSHShellChannel {
         self.owner = owner
 
         var streamContinuation: AsyncStream<Data>.Continuation!
-        self.output = AsyncStream { streamContinuation = $0 }
+        self.output = Output(stream: AsyncStream { streamContinuation = $0 }, backlog: backlog)
         self.continuation = streamContinuation
 
         guard let channel = libssh2_channel_open_ex(
@@ -187,7 +228,12 @@ final class SSHShellChannel {
 
         guard channel != nil else { return }
 
-        if readAny {
+        // Held back, not idle: the terminal is behind, and the next look is
+        // soon, so that reading resumes as soon as it has caught up.
+        if backlog.waiting >= Defaults.backlogLimit {
+            idleDelay = Pump.minimumDelay
+            schedulePump(after: Pump.minimumDelay)
+        } else if readAny {
             idleDelay = Pump.minimumDelay
             schedulePump(after: 0)
         } else {
@@ -204,7 +250,7 @@ final class SSHShellChannel {
         var buffer = [UInt8](repeating: 0, count: Defaults.readBufferSize)
         var readAny = false
 
-        while true {
+        while backlog.waiting < Defaults.backlogLimit {
             // Stream 0 only: with a PTY attached the server merges stderr into
             // stdout, so there is no second stream to service.
             let count = buffer.withUnsafeMutableBytes { raw in
@@ -217,6 +263,7 @@ final class SSHShellChannel {
             }
 
             if count > 0 {
+                backlog.added(Int(count))
                 continuation.yield(Data(buffer[0..<Int(count)]))
                 readAny = true
                 continue
@@ -243,6 +290,8 @@ final class SSHShellChannel {
             finish()
             return readAny
         }
+        // Stopped at the limit; ``pump()`` looks again shortly.
+        return readAny
     }
 
     // MARK: - Writing
@@ -346,4 +395,17 @@ final class SSHShellChannel {
         pendingWrite.removeAll()
         continuation.finish()
     }
+}
+
+/// Bytes handed towards the terminal and not yet taken by it, for a producer
+/// to look at before it reads more. Written from two threads, the producer's
+/// and the consumer's. Used by the SSH shell and by mosh, each its own way of
+/// not reading: see ``SSHShellChannel/Output`` and `MoshTerminalTransport`.
+final class ByteBacklog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var bytes = 0
+
+    var waiting: Int { lock.withLock { bytes } }
+    func added(_ count: Int) { lock.withLock { bytes += count } }
+    func taken(_ count: Int) { lock.withLock { bytes -= count } }
 }

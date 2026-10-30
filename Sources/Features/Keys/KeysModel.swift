@@ -41,8 +41,16 @@ final class KeysModel {
 
     // MARK: - Creating
 
+    // Both off the main actor. An RSA key takes seconds to make on an old
+    // phone, and unlocking an encrypted one is bcrypt, which is slow by design;
+    // run here, either froze the screen for as long. Found by an audit on
+    // 29/10/2026, as the app lock's own derivation already was.
+
     func generate(type: SSHKey.KeyType, bits: Int?, label: String) async throws {
-        let generated = try SSHKeyGenerator.generate(type: type, bits: bits, comment: Self.comment(for: label))
+        let comment = Self.comment(for: label)
+        let generated = try await Task.detached(priority: .userInitiated) {
+            try SSHKeyGenerator.generate(type: type, bits: bits, comment: comment)
+        }.value
 
         try await store(
             label: label,
@@ -53,7 +61,9 @@ final class KeysModel {
     }
 
     func importKey(text: String, label: String, passphrase: String? = nil) async throws {
-        let imported = try OpenSSHKeyImporter.parse(text, passphrase: passphrase)
+        let imported = try await Task.detached(priority: .userInitiated) {
+            try OpenSSHKeyImporter.parse(text, passphrase: passphrase)
+        }.value
 
         try await store(
             // Fall back to the key's own comment when the user left the name
