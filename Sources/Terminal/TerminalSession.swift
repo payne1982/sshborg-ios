@@ -37,7 +37,9 @@ final class TerminalSession: Identifiable {
     }
 
     let id = UUID()
-    let host: Host
+    /// The row this tab was opened for, read again at every connection — see
+    /// ``connect(password:acceptHostKey:)``.
+    private(set) var host: Host
 
     private(set) var phase: Phase = .connecting
 
@@ -308,6 +310,15 @@ final class TerminalSession: Identifiable {
         }
         phase = .connecting
 
+        // The row as it stands now, not as it stood when the tab was opened. A
+        // reconnect is a new handshake, and the key it is checked against is the
+        // one the database holds: a tab that kept its own copy checked against
+        // the key it opened with — asking again about a key accepted here a
+        // minute ago, or still trusting one that acceptance had replaced. Found by
+        // an audit on 30/10/2026; Android reads the row at every connection too.
+        // A row deleted meanwhile leaves the copy, which is all there is.
+        if let id = host.id, let fresh = try? await hosts.fetch(id: id) { host = fresh }
+
         // Nothing stored means the password is asked for from *inside* the
         // connection, once the server has said who it is and what it will
         // accept: that is the only moment its banner exists, and it also means
@@ -550,11 +561,16 @@ final class TerminalSession: Identifiable {
         hostKey: HostKeyInfo, dialled: Host, approved: [String: String]
     ) async throws {
         let approvedHere = approved[hostKey.marker] == hostKey.knownHostsLine
-        if let id = dialled.id, dialled.knownHostsEntry?.isEmpty ?? true || approvedHere {
-            try await hosts.updateKnownHostsEntry(
-                id: id,
-                to: KnownHostsLine.replacing(pinned: dialled.knownHostsEntry, arriving: hostKey.knownHostsLine)
-            )
+        if let id = dialled.id {
+            // Read again: the bastion's row may have been pinned by another tab
+            // while this one was connecting, and its other lines are kept.
+            let pinned = (try? await hosts.fetch(id: id))?.knownHostsEntry ?? dialled.knownHostsEntry
+            if pinned?.isEmpty ?? true || approvedHere {
+                try await hosts.updateKnownHostsEntry(
+                    id: id,
+                    to: KnownHostsLine.replacing(pinned: pinned, arriving: hostKey.knownHostsLine)
+                )
+            }
         }
         if let id = host.id {
             try await hosts.recordConnection(id: id)

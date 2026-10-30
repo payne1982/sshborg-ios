@@ -136,4 +136,72 @@ final class FirstConnectionQuestionsTests: XCTestCase {
         }
         second.disconnect()
     }
+
+    /// The **same tab**, reconnecting, is not asked again — for a key trusted the
+    /// first time, and for a changed key accepted in its place.
+    ///
+    /// The tab used to keep the row it was opened with, so a reconnect was
+    /// checked against the key that row held: none, which asked again about the
+    /// key trusted a minute before; or the old one, which asked about the
+    /// accepted key as a change — and would still have trusted the old key had it
+    /// come back. The test above opens a second tab, which reads the row afresh,
+    /// so it could not see this. Found by an audit on 30/10/2026.
+    func testTheSameTabReconnectsWithTheKeyItAccepted() async throws {
+        let marker = KnownHostsLine.marker(host: target.host, port: target.port)
+        let stale = "\(marker) ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHRoZSBrZXkgYmVmb3JlIHRoZSByZWJ1aWxkISEh"
+
+        for (label, pinned) in [("new", nil), ("changed", stale)] as [(String, String?)] {
+            var host = Host(label: label, hostname: target.host, username: target.username)
+            host.port = target.port
+            host.knownHostsEntry = pinned
+            let tab = TerminalSession(host: try await hosts.save(host), hosts: hosts, keys: keys)
+
+            await tab.connect()
+            guard case .needsHostKeyApproval = tab.phase else {
+                return XCTFail("\(label): the key was not asked about: \(tab.phase)")
+            }
+            await tab.connect(acceptHostKey: true)
+            if case .needsPassword = tab.phase { await tab.connect(password: target.password) }
+            guard case .connected = tab.phase else {
+                return XCTFail("\(label): accepting the key did not connect: \(tab.phase)")
+            }
+            tab.disconnect()
+
+            await tab.connect(password: target.password)
+            if case .needsHostKeyApproval = tab.phase {
+                XCTFail("\(label): the same tab asked again about the key it had accepted")
+            }
+            guard case .connected = tab.phase else {
+                return XCTFail("\(label): the reconnect did not come up: \(tab.phase)")
+            }
+            tab.disconnect()
+        }
+    }
+
+    /// The file browser, the same way.
+    func testTheSameFileBrowserReconnectsWithTheKeyItAccepted() async throws {
+        var host = Host(label: "files", hostname: target.host, username: target.username)
+        host.port = target.port
+        let files = SFTPModel(host: try await hosts.save(host), hosts: hosts, keys: keys)
+
+        await files.connect()
+        guard case .needsHostKeyApproval = files.phase else {
+            return XCTFail("the key was not asked about: \(files.phase)")
+        }
+        await files.connect(acceptHostKey: true)
+        if case .needsPassword = files.phase { await files.connect(password: target.password) }
+        guard case .browsing = files.phase else {
+            return XCTFail("accepting the key did not connect: \(files.phase)")
+        }
+        files.disconnect()
+
+        await files.connect(password: target.password)
+        if case .needsHostKeyApproval = files.phase {
+            XCTFail("the same file browser asked again about the key it had accepted")
+        }
+        guard case .browsing = files.phase else {
+            return XCTFail("the reconnect did not come up: \(files.phase)")
+        }
+        files.disconnect()
+    }
 }

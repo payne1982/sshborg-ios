@@ -238,7 +238,9 @@ extension ConnectionPlanner {
             // The hops are only text on this host, so their keys are kept here,
             // one line per hop, in the order they were collected.
             guard let id = host.id else { return }
-            let existing = host.jumpHostKeys.map { $0.split(whereSeparator: \.isNewline).map(String.init) } ?? []
+            // The row as it is now, so a line pinned since `host` was read is kept.
+            let current = (try? await hosts.fetch(id: id)) ?? host
+            let existing = current.jumpHostKeys.map { $0.split(whereSeparator: \.isNewline).map(String.init) } ?? []
             let incoming = collected.map(\.knownHostsLine)
             // A new key for a hop takes the place of its old one rather than
             // sitting beside it: two lines for one machine, and the old one

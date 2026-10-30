@@ -31,6 +31,37 @@ final class MoshLoopTests: XCTestCase {
         MoshHandover(host: "192.0.2.1", port: 60001, key: Self.key)
     }
 
+    // MARK: - What waits for the loop
+
+    /// A loop held up keeps the newest datagrams up to the bound, and every
+    /// keystroke whatever the bound.
+    ///
+    /// The bound used to be only on the socket's queue, which a task empties into
+    /// this one as fast as it fills: nothing held the datagrams back once they
+    /// were here. Found by an audit on 30/10/2026.
+    func testTheMailboxKeepsTheNewestDatagramsAndEveryKeystroke() {
+        let mailbox = MoshTerminalTransport.Mailbox(datagramLimit: 3)
+        mailbox.post(.typed(Data("a".utf8)))
+        for n in 0..<10 { mailbox.post(.datagram(Data([UInt8(n)]))) }
+        mailbox.post(.typed(Data("b".utf8)))
+
+        var typed: [Data] = []
+        var datagrams: [Data] = []
+        for event in mailbox.drain() {
+            switch event {
+            case .typed(let bytes): typed.append(bytes)
+            case .datagram(let bytes): datagrams.append(bytes)
+            default: XCTFail("nothing else was posted: \(event)")
+            }
+        }
+        XCTAssertEqual(typed, [Data("a".utf8), Data("b".utf8)])
+        XCTAssertEqual(datagrams, [Data([7]), Data([8]), Data([9])])
+
+        // And the count starts again with the next round.
+        for n in 0..<3 { mailbox.post(.datagram(Data([UInt8(n)]))) }
+        XCTAssertEqual(mailbox.drain().count, 3)
+    }
+
     // MARK: - There and back
 
     /// The whole of it, in one claim: a keystroke leaves, the server's screen

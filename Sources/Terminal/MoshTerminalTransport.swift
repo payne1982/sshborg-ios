@@ -528,7 +528,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
         func onHostResize(width: Int, height: Int) {}
     }
 
-    private enum Inbound {
+    enum Inbound {
         case typed(Data)
         case resized(columns: Int, rows: Int)
         case datagram(Data)
@@ -544,14 +544,37 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
     /// keystroke is not sent the instant it is noticed anyway, but
     /// ``MoshTransport/sendMinDelay`` later, so that a burst of them becomes one
     /// packet.
-    private final class Mailbox: @unchecked Sendable {
+    ///
+    /// The datagrams waiting here are bounded, as the socket's own queue is:
+    /// the task that hands them over empties that queue as fast as it fills, so
+    /// a bound only there bounded nothing, and a loop held up would have kept
+    /// every datagram the network delivered. Found by an audit on 30/10/2026.
+    /// The oldest go first, as they do in the socket's queue — SSP sends whole
+    /// states, so the newest is the one worth having. What was typed is never
+    /// dropped: there is no copy of it anywhere else. Android has no such queue;
+    /// its loop reads the socket itself, and the kernel's buffer is the bound.
+    final class Mailbox: @unchecked Sendable {
         private let lock = NSLock()
         private var queued: [Inbound] = []
         private var waiter: CheckedContinuation<Void, Never>?
         private var woken = false
+        private var datagrams = 0
+        private let datagramLimit: Int
+
+        init(datagramLimit: Int = MoshSocket.arrivalBacklog) {
+            self.datagramLimit = datagramLimit
+        }
 
         func post(_ event: Inbound) {
             lock.lock()
+            if case .datagram = event {
+                if datagrams == datagramLimit,
+                   let oldest = queued.firstIndex(where: { if case .datagram = $0 { return true }; return false }) {
+                    queued.remove(at: oldest)
+                } else {
+                    datagrams += 1
+                }
+            }
             queued.append(event)
             let waiting = waiter
             waiter = nil
@@ -564,6 +587,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
             lock.lock()
             defer {
                 queued.removeAll()
+                datagrams = 0
                 lock.unlock()
             }
             return queued

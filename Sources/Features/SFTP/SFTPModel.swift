@@ -116,6 +116,11 @@ final class SFTPModel {
         }
         phase = .connecting
 
+        // The row as it stands now: a reconnect is checked against the key the
+        // database holds, not the one this screen opened with. See
+        // ``TerminalSession/connect(password:acceptHostKey:)``.
+        if let id = host.id, let fresh = try? await hosts.fetch(id: id) { host = fresh }
+
         // Nothing stored means the server is the one that asks, once it has
         // said who it is and what it will accept — which is also the only
         // moment its banner exists. Same as the terminal; see ``SSHAuth/deferred``.
