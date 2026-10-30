@@ -693,7 +693,12 @@ final class TerminalSession: Identifiable {
             // we have rather than for the 80x24 it would otherwise assume.
             mosh.resize(columns: geometry.columns, rows: geometry.rows)
 
-            if await mosh.awaitFirstContact() { return mosh }
+            if await mosh.awaitFirstContact() {
+                // The SSH connection stays for the agent, and from here nothing
+                // else would read it. See ``SSHSession/keepReadingWithoutAShell()``.
+                session.keepReadingWithoutAShell()
+                return mosh
+            }
 
             // Nothing came back. There is no handshake in the protocol and no
             // error from the far end for a blocked path, so silence is the whole

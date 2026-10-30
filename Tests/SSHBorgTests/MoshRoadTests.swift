@@ -215,6 +215,41 @@ final class MoshRoadTests: XCTestCase {
         XCTAssertTrue(answered, "no agent in the mosh shell:\n\(screenText(of: session))")
     }
 
+    /// And it **answers** there: a question to the agent from the mosh shell
+    /// comes back.
+    ///
+    /// The test above only saw the socket's name. Under mosh nothing reads the SSH
+    /// connection any more — the screen comes by UDP — so the channel the server
+    /// opens back to us for each agent question sat unread, and an `ssh` typed into
+    /// a bastion hung at the agent. Reported from the phone on 30/10/2026.
+    func testTheAgentAnswersInTheShellMoshRuns() async throws {
+        let session = try await connectedSession(agentForwarding: true)
+        defer {
+            session.disconnect()
+            let until = Date().addingTimeInterval(0.4)
+            while Date() < until { RunLoop.current.run(mode: .default, before: until) }
+        }
+        if case .moshUnavailable(let failure) = session.phase {
+            throw XCTSkip("no mosh session on \(target.host): \(failure.reason)")
+        }
+        guard case .connected = session.phase else {
+            return XCTFail("expected a mosh session, got \(session.phase)")
+        }
+
+        // 0 with keys, 1 with none: either is an answer. 2 is no agent at all,
+        // and nothing at all is the hang.
+        session.send(text: "ssh-add -l >/dev/null 2>&1; echo AGENT=[$?]\r")
+
+        let deadline = Date().addingTimeInterval(15)
+        var screen = ""
+        while Date() < deadline {
+            screen = screenText(of: session)
+            if screen.contains("AGENT=[0]") || screen.contains("AGENT=[1]") { return }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        XCTFail("the agent did not answer in the mosh shell:\n\(screen)")
+    }
+
     // MARK: - Reading the grid
 
     private func waitForScreen(

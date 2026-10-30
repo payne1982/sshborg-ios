@@ -48,6 +48,10 @@ final class SSHSession: @unchecked Sendable {
     /// tracked so teardown can stop it before the session handle goes away.
     private weak var shellChannel: SSHShellChannel?
 
+    /// A session channel with nothing running on it, read so that the
+    /// connection is. See ``keepReadingWithoutAShell()``.
+    private var idleChannel: OpaquePointer?
+
     /// The tunnel this session travels through, when it is behind jump hosts.
     /// Retained so the whole chain below stays alive, and torn down after it.
     private var tunnel: SSHTunnel?
@@ -97,6 +101,7 @@ final class SSHSession: @unchecked Sendable {
         keepAliveTimer?.cancel()
         shellChannel?.teardownOnQueue()
         agentForwarder?.stopOnQueue()
+        if let idleChannel { libssh2_channel_free(idleChannel) }
         if let session {
             libssh2_session_disconnect_ex(session, SSH_DISCONNECT_BY_APPLICATION, "closing", "")
             libssh2_session_free(session)
@@ -820,6 +825,60 @@ final class SSHSession: @unchecked Sendable {
         }
     }
 
+    // MARK: - Reading with no shell
+
+    /// Keeps the connection read once mosh has the terminal.
+    ///
+    /// libssh2 has no thread of its own: what arrives on the connection is
+    /// processed only while somebody reads a channel, and a read of any channel
+    /// processes all of it. Over SSH the shell's pump is that somebody. Under
+    /// mosh the screen comes by UDP and no channel is open, so nothing was read
+    /// at all — and the channel the server opens back to us for each question to
+    /// the forwarded agent sat unanswered, which is an `ssh` typed into a bastion
+    /// hanging at the agent. Reported from the phone on 30/10/2026; the server's
+    /// own keepalives went unanswered the same way.
+    ///
+    /// So a session channel is opened with nothing asked of it — no shell, no
+    /// command — and read at the shell's idle pace. It never carries a byte; the
+    /// reads are for the connection under it. The agent's channels, once taken,
+    /// are serviced by ``AgentForwarder``'s own pump. A server that refuses the
+    /// channel costs only the agent, which is what it cost before.
+    func keepReadingWithoutAShell() {
+        queue.async { [self] in
+            guard let session, idleChannel == nil, shellChannel == nil else { return }
+            // While still blocking, as the shell is opened.
+            guard let channel = libssh2_channel_open_ex(
+                session, "session", 7, 2 * 1024 * 1024, 32_768, nil, 0
+            ) else {
+                NSLog("SSHSession: no idle channel, the agent will not answer under mosh")
+                return
+            }
+            idleChannel = channel
+            libssh2_session_set_blocking(session, 0)
+            readIdleChannel()
+        }
+    }
+
+    private func readIdleChannel() {
+        guard session != nil, let channel = idleChannel else { return }
+        var buffer = [CChar](repeating: 0, count: 256)
+        let count = libssh2_channel_read_ex(channel, 0, &buffer, buffer.count)
+        // A dead connection is mosh's to notice, by its own silence; this only
+        // stops asking.
+        guard count >= 0 || count == Int(LIBSSH2_ERROR_EAGAIN) else {
+            libssh2_channel_free(channel)
+            idleChannel = nil
+            return
+        }
+        queue.asyncAfter(deadline: .now() + Self.idleReadInterval) { [weak self] in
+            self?.readIdleChannel()
+        }
+    }
+
+    /// The shell pump's slowest pace: the longest an agent question waits for
+    /// its channel to be noticed.
+    static let idleReadInterval: TimeInterval = 0.25
+
     // MARK: - Keepalive
 
     /// Matches the Android configuration: a keepalive every 30 seconds, with the
@@ -858,6 +917,9 @@ final class SSHSession: @unchecked Sendable {
             // they have to go before the session that owns them.
             agentForwarder?.stopOnQueue()
             agentForwarder = nil
+
+            if let idleChannel { libssh2_channel_free(idleChannel) }
+            idleChannel = nil
 
             if let session {
                 libssh2_session_disconnect_ex(session, SSH_DISCONNECT_BY_APPLICATION, "closing", "")
