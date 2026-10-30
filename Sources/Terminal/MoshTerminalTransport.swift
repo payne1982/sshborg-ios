@@ -66,7 +66,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
     private let toScreen: AsyncStream<ScreenWrite>.Continuation
 
     /// What ``screen`` holds and the main thread has yet to apply. While it is
-    /// over ``screenBacklogLimit`` the loop does not open datagrams — see the
+    /// over ``ScreenBacklog`` the loop does not open datagrams — see the
     /// datagram case in the loop for why that loses nothing.
     private let screenBacklog = ByteBacklog()
 
@@ -285,7 +285,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
         return "rtt~\(now.roundTrip)ms screen-wait<=\(now.worstScreenWait)ms applied=\(now.applied) "
             + "stale=\(now.stale) got=\(now.got) missed=\(now.missed) back=\(now.back) "
             + "hops=\(now.hops) refused=\(now.refused) bad=\(now.bad) stray=\(now.stray) "
-            + "[\(now.lastStale)]"
+            + "behind=\(now.behind) [\(now.lastStale)]"
     }
 
     /// How many times the session has moved to a new local port. Diagnostic, and
@@ -325,6 +325,7 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
         var farewellDeadline = MoshTime.max
         var closing = false
         var hopWanted = false
+        var screenIsBehind = false
         var toldTheMTU = false
 
         while true {
@@ -348,7 +349,20 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
                     // what waits for the main thread stays bounded without
                     // ending the session, which is what an audit on 30/10/2026
                     // proposed, nor dropping bytes the screen needed.
-                    if screenBacklog.waiting >= Self.screenBacklogLimit { continue }
+                    //
+                    // Two marks, as Android has them since adopting this: left
+                    // unopened above the high one, opened again only below the
+                    // low one, so a loop at the edge does not alternate on every
+                    // datagram.
+                    screenIsBehind = ScreenBacklog.isBehind(
+                        wasBehind: screenIsBehind,
+                        bytes: screenBacklog.waiting,
+                        entries: screenBacklog.waitingEntries
+                    )
+                    if screenIsBehind {
+                        lock.withLock { figures.behind += 1 }
+                        continue
+                    }
 
                     // Nothing is believed yet. `MoshSocket` connects its ports,
                     // so the system has already dropped anything from another
@@ -690,6 +704,8 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
         var lastStale = ""
         var applied = 0
         var worstScreenWait: MoshTime = 0
+        /// Datagrams left unopened because the screen was behind.
+        var behind = 0
     }
 
     // MARK: - The figures of the loop, all of them mosh's
@@ -697,10 +713,24 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
     /// The ceiling on how long the loop sleeps, so its own clocks stay honest.
     static let maximumWait: MoshTime = 250
 
-    /// How far the screen may fall behind before datagrams wait. Ours, not
-    /// mosh's: a full repaint is tens of kilobytes, so this is dozens of frames
-    /// the main thread has not got to.
-    static let screenBacklogLimit = 1024 * 1024
+    /// How far the screen may fall behind before datagrams wait, and how far
+    /// it must catch up before they are opened again. Ours, not mosh's, and
+    /// Android's numbers: an eighth of its 8 MiB and a quarter of its 1024
+    /// events, and half of each to resume.
+    enum ScreenBacklog {
+        static let highBytes = 1024 * 1024
+        static let highEntries = 256
+        static let lowBytes = highBytes / 2
+        static let lowEntries = highEntries / 2
+
+        /// Over the high mark to start leaving datagrams unopened, under the low
+        /// one to stop.
+        static func isBehind(wasBehind: Bool, bytes: Int, entries: Int) -> Bool {
+            wasBehind
+                ? bytes > lowBytes || entries > lowEntries
+                : bytes > highBytes || entries > highEntries
+        }
+    }
 
     /// How long a session with no answer at all is given before it is a failure.
     static let firstContactTimeout: TimeInterval = 10

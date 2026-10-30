@@ -62,6 +62,26 @@ final class MoshLoopTests: XCTestCase {
         XCTAssertEqual(mailbox.drain().count, 3)
     }
 
+    /// A screen behind by either measure stops datagrams being opened, and they
+    /// are opened again only once it is back under both low marks — so a loop at
+    /// the edge does not flap. Android's marks, since it adopted the idea.
+    func testAScreenThatIsBehindHoldsDatagramsBetweenTwoMarks() {
+        typealias Marks = MoshTerminalTransport.ScreenBacklog
+        let high = Marks.highBytes, low = Marks.lowBytes
+
+        XCTAssertFalse(Marks.isBehind(wasBehind: false, bytes: high, entries: 0))
+        XCTAssertTrue(Marks.isBehind(wasBehind: false, bytes: high + 1, entries: 0))
+        XCTAssertTrue(Marks.isBehind(wasBehind: false, bytes: 0, entries: Marks.highEntries + 1))
+
+        // Between the marks the answer is whatever it was.
+        XCTAssertTrue(Marks.isBehind(wasBehind: true, bytes: low + 1, entries: 0))
+        XCTAssertFalse(Marks.isBehind(wasBehind: false, bytes: low + 1, entries: 0))
+
+        // Both measures must come down.
+        XCTAssertTrue(Marks.isBehind(wasBehind: true, bytes: 0, entries: Marks.lowEntries + 1))
+        XCTAssertFalse(Marks.isBehind(wasBehind: true, bytes: low, entries: Marks.lowEntries))
+    }
+
     // MARK: - There and back
 
     /// The whole of it, in one claim: a keystroke leaves, the server's screen

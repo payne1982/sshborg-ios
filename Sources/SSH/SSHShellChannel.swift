@@ -401,11 +401,16 @@ final class SSHShellChannel {
 /// to look at before it reads more. Written from two threads, the producer's
 /// and the consumer's. Used by the SSH shell and by mosh, each its own way of
 /// not reading: see ``SSHShellChannel/Output`` and `MoshTerminalTransport`.
+///
+/// In bytes and in entries: bytes alone would let a flood of tiny frames
+/// through, entries alone a few enormous ones (Android's `TerminalBacklog`).
 final class ByteBacklog: @unchecked Sendable {
     private let lock = NSLock()
     private var bytes = 0
+    private var entries = 0
 
     var waiting: Int { lock.withLock { bytes } }
-    func added(_ count: Int) { lock.withLock { bytes += count } }
-    func taken(_ count: Int) { lock.withLock { bytes -= count } }
+    var waitingEntries: Int { lock.withLock { entries } }
+    func added(_ count: Int) { lock.withLock { bytes += count; entries += 1 } }
+    func taken(_ count: Int) { lock.withLock { bytes -= count; entries -= 1 } }
 }
