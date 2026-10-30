@@ -151,4 +151,43 @@ final class HostKeyTests: XCTestCase {
             base64Key: info.base64Key
         ))
     }
+
+    // MARK: - An entry holds a key per algorithm
+
+    /// Any line of the entry is a match, not only the first. Android keeps the
+    /// other algorithms when one is replaced, so such an entry arrives through a
+    /// backup — and reading only its first line would turn the second algorithm
+    /// into a "changed key" every time it was offered.
+    func testAnyLineOfTheEntryIsAMatch() {
+        let entry = "h ssh-ed25519 AAAAED\nh ecdsa-sha2-nistp256 AAAAEC"
+        XCTAssertTrue(KnownHostsLine.matches(storedLine: entry, algorithm: "ssh-ed25519", base64Key: "AAAAED"))
+        XCTAssertTrue(KnownHostsLine.matches(storedLine: entry, algorithm: "ecdsa-sha2-nistp256", base64Key: "AAAAEC"))
+        XCTAssertFalse(KnownHostsLine.matches(storedLine: entry, algorithm: "ssh-ed25519", base64Key: "AAAAEC"),
+                       "a key was matched against another algorithm's line")
+        XCTAssertFalse(KnownHostsLine.matches(storedLine: entry, algorithm: "ssh-ed25519", base64Key: "OTHER"))
+    }
+
+    /// Accepting a key replaces that algorithm's line and keeps the others:
+    /// accepting one key says nothing about them. Android's `KnownHosts.replacing`.
+    func testAcceptingAKeyReplacesOnlyItsOwnAlgorithm() {
+        let pinned = "h ssh-ed25519 OLD\nh ecdsa-sha2-nistp256 KEEP"
+        let stored = KnownHostsLine.replacing(pinned: pinned, arriving: "h ssh-ed25519 NEW")
+        XCTAssertEqual(
+            Set(stored.split(separator: "\n").map(String.init)),
+            ["h ecdsa-sha2-nistp256 KEEP", "h ssh-ed25519 NEW"]
+        )
+        XCTAssertEqual(KnownHostsLine.replacing(pinned: nil, arriving: "h ssh-ed25519 NEW"), "h ssh-ed25519 NEW")
+        XCTAssertEqual(KnownHostsLine.replacing(pinned: "", arriving: "h ssh-ed25519 NEW"), "h ssh-ed25519 NEW")
+    }
+
+    /// A typed chain's hop keys are looked up by machine, and a machine with two
+    /// algorithms keeps both lines rather than whichever came last.
+    func testAHopWithTwoAlgorithmsKeepsBoth() {
+        let blob = "edge ssh-ed25519 ED\n[mid]:2222 ssh-ed25519 MID\nedge ecdsa-sha2-nistp256 EC"
+        let index = KnownHostsLine.indexByHostPort(blob)
+        let edge = index["edge:22"] ?? ""
+        XCTAssertTrue(KnownHostsLine.matches(storedLine: edge, algorithm: "ssh-ed25519", base64Key: "ED"))
+        XCTAssertTrue(KnownHostsLine.matches(storedLine: edge, algorithm: "ecdsa-sha2-nistp256", base64Key: "EC"))
+        XCTAssertEqual(index["mid:2222"], "[mid]:2222 ssh-ed25519 MID")
+    }
 }

@@ -43,6 +43,15 @@ struct StatusOverlay: View {
     /// fingerprint nobody checks, and the prompt becomes a formality.
     var showsDetailOutright = false
 
+    /// A warning that must not be missed, in red and bold under the message,
+    /// with a sentence of explanation beneath it.
+    ///
+    /// Only one caller: a host key that is not the one saved. Android settled
+    /// that red belongs there and nowhere else — it is the one check that says
+    /// the server is the server, and it has just failed — and the warning has to
+    /// be read before the fingerprint, not found inside it.
+    var warning: (headline: String, explanation: String)?
+
     /// Buttons under the message. `AnyView` rather than a generic parameter
     /// because the three cases hand back different shapes and the type would
     /// have to be spelled at every call site for no benefit.
@@ -60,6 +69,20 @@ struct StatusOverlay: View {
                     .foregroundStyle(Color(.label))
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
+            }
+
+            if let warning {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(warning.headline)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Color.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(warning.explanation)
+                        .font(.footnote)
+                        .foregroundStyle(Color(.label))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
             }
 
             if let detail, !detail.isEmpty {
@@ -126,8 +149,13 @@ struct StatusOverlay: View {
 
     /// Copying a fingerprint to compare it against the server is a normal thing
     /// to do; calling it "copy error" would be wrong twice over.
+    ///
+    /// And a detail shown outright is never an error: it is a fingerprint, or
+    /// what a server said. The changed-key panel is the case that showed it — a
+    /// warning panel, so it said "Copy error" above a fingerprint, until a
+    /// screenshot of it was looked at on 30/10/2026.
     private var copyLabel: LocalizedStringResource {
-        kind == .question ? .actionCopy : .terminalCopyError
+        kind == .question || showsDetailOutright ? .actionCopy : .terminalCopyError
     }
 
     @ViewBuilder

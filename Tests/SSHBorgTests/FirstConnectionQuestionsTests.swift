@@ -114,7 +114,16 @@ final class FirstConnectionQuestionsTests: XCTestCase {
         first.disconnect()
 
         let stored = try await hosts.fetch(id: saved.id!)
-        XCTAssertEqual(stored?.knownHostsEntry, info.knownHostsLine, "the accepted key was not stored")
+        let entry = stored?.knownHostsEntry ?? ""
+        XCTAssertTrue(
+            KnownHostsLine.matches(storedLine: entry, algorithm: info.algorithm, base64Key: info.base64Key),
+            "the accepted key was not stored: \(entry)"
+        )
+        // Contained, not equal: the key stored before was for another algorithm
+        // here, and a line for another algorithm is kept beside the accepted one,
+        // as Android's `KnownHosts.replacing` keeps it — accepting one key says
+        // nothing about the others.
+        XCTAssertTrue(entry.contains(info.knownHostsLine), entry)
 
         // And the next connection is not asked again.
         let second = TerminalSession(host: try XCTUnwrap(stored), hosts: hosts, keys: keys)

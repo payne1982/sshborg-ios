@@ -226,7 +226,12 @@ extension ConnectionPlanner {
             // is then shared by every chain using that hop.
             for entry in collected {
                 guard let id = entry.hostId else { continue }
-                try? await hosts.updateKnownHostsEntry(id: id, to: entry.knownHostsLine)
+                // In place of the hop's line for that algorithm, keeping its others.
+                let pinned = (try? await hosts.fetch(id: id))?.knownHostsEntry
+                try? await hosts.updateKnownHostsEntry(
+                    id: id,
+                    to: KnownHostsLine.replacing(pinned: pinned, arriving: entry.knownHostsLine)
+                )
             }
 
         case .simple:
@@ -238,10 +243,14 @@ extension ConnectionPlanner {
             // A new key for a hop takes the place of its old one rather than
             // sitting beside it: two lines for one machine, and the old one
             // would still be found first.
-            let replaced = Set(incoming.compactMap { KnownHostsLine.parse($0)?.marker })
+            // By machine *and* algorithm, as Android's `KnownHosts.replacing`
+            // does: a hop's key for another algorithm is not what was accepted.
+            let replaced = Set(incoming.compactMap { line in
+                KnownHostsLine.parse(line).map { "\($0.marker) \($0.algorithm)" }
+            })
             let kept = existing.filter { line in
-                guard let marker = KnownHostsLine.parse(line)?.marker else { return true }
-                return !replaced.contains(marker)
+                guard let parsed = KnownHostsLine.parse(line) else { return true }
+                return !replaced.contains("\(parsed.marker) \(parsed.algorithm)")
             }
             let merged = kept + incoming
             try? await hosts.updateJumpHostKeys(

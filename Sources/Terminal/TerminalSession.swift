@@ -551,7 +551,10 @@ final class TerminalSession: Identifiable {
     ) async throws {
         let approvedHere = approved[hostKey.marker] == hostKey.knownHostsLine
         if let id = dialled.id, dialled.knownHostsEntry?.isEmpty ?? true || approvedHere {
-            try await hosts.updateKnownHostsEntry(id: id, to: hostKey.knownHostsLine)
+            try await hosts.updateKnownHostsEntry(
+                id: id,
+                to: KnownHostsLine.replacing(pinned: dialled.knownHostsEntry, arriving: hostKey.knownHostsLine)
+            )
         }
         if let id = host.id {
             try await hosts.recordConnection(id: id)

@@ -74,20 +74,48 @@ enum KnownHostsLine {
             guard let parsed = parse(line),
                   let target = hostAndPort(fromMarker: parsed.marker)
             else { continue }
-            index["\(target.host):\(target.port)"] = line
+            // Every line for a machine, not the last one: an entry can hold a
+            // key per algorithm, and dropping one would make it a mismatch.
+            let key = "\(target.host):\(target.port)"
+            index[key] = index[key].map { $0 + "\n" + line } ?? line
         }
         return index
     }
 
-    /// Whether a presented key matches a stored line.
+    /// Whether a presented key matches a stored entry.
     ///
     /// Only the algorithm and the key material are compared. The marker is
-    /// deliberately ignored: SSHBorg stores one line per host record, so a host
-    /// renamed or moved to a different port still matches the key the user
-    /// already accepted, and a genuine key change is still caught.
-    static func matches(storedLine: String, algorithm: String, base64Key: String) -> Bool {
-        guard let parsed = parse(storedLine) else { return false }
-        return parsed.algorithm == algorithm && parsed.base64Key == base64Key
+    /// deliberately ignored: a host renamed or moved to a different port still
+    /// matches the key the user already accepted, and a genuine key change is
+    /// still caught.
+    ///
+    /// **Any** line of the entry, not just the first. An entry holds a key per
+    /// algorithm: Android keeps the other algorithms when one is replaced (its
+    /// `KnownHosts.replacing`, 30/10/2026), so one arrives here through a backup,
+    /// and reading only its first line would turn the second algorithm into a
+    /// "changed key" every time it was offered.
+    static func matches(storedLine entry: String, algorithm: String, base64Key: String) -> Bool {
+        entry.split(whereSeparator: \.isNewline).contains { line in
+            guard let parsed = parse(String(line)) else { return false }
+            return parsed.algorithm == algorithm && parsed.base64Key == base64Key
+        }
+    }
+
+    /// What to store once the person has accepted `arriving`: the line pinned
+    /// for that algorithm gives way to it, and every other line is kept.
+    ///
+    /// Kept, because the other lines are other algorithms, and accepting one key
+    /// says nothing about them. Android's `KnownHosts.replacing`, with one
+    /// difference that follows from ``matches(storedLine:algorithm:base64Key:)``:
+    /// the marker is not compared here either, because one entry belongs to one
+    /// host record.
+    static func replacing(pinned entry: String?, arriving line: String) -> String {
+        guard let algorithm = parse(line)?.algorithm else { return line }
+        let kept = (entry ?? "")
+            .split(whereSeparator: \.isNewline)
+            .map(String.init)
+            .filter { parse($0)?.algorithm != algorithm && !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        return (kept + [line]).joined(separator: "\n")
     }
 
     /// Formats a raw key blob the way OpenSSH prints fingerprints:

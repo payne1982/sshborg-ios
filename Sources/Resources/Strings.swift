@@ -612,6 +612,18 @@ extension LocalizedStringResource {
     /// Last visited folder
     static let hostStartModeLast = LocalizedStringResource("host_start_mode_last")
 
+    /// Replace key
+    static let hostkeyChangedAccept = LocalizedStringResource("hostkey_changed_accept")
+
+    /// The server may have been reinstalled, or something may be answering in its place. Acc…
+    static let hostkeyChangedExplain = LocalizedStringResource("hostkey_changed_explain")
+
+    /// Host key changed
+    static let hostkeyChangedTitle = LocalizedStringResource("hostkey_changed_title")
+
+    /// This is not the key saved for this host.
+    static let hostkeyChangedWarning = LocalizedStringResource("hostkey_changed_warning")
+
     /// %1$@  %2$@  Connect anyway?
     static let hostkeySftpBody = LocalizedStringResource("hostkey_sftp_body")
 
@@ -710,9 +722,6 @@ extension LocalizedStringResource {
 
     /// No other host has a saved credential to use as a hop.
     static let iosHostNoJumpCandidates = LocalizedStringResource("ios_host_no_jump_candidates")
-
-    /// Host key changed
-    static let iosHostkeyChangedTitle = LocalizedStringResource("ios_hostkey_changed_title")
 
     /// This device appears to be jailbroken. On a jailbroken device the protection the keych…
     static let iosJailbreakWarningBody = LocalizedStringResource("ios_jailbreak_warning_body")

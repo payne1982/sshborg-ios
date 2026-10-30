@@ -201,7 +201,10 @@ final class SFTPModel {
         guard let id = host.id else { return }
         let approvedHere = approved[hostKey.marker] == hostKey.knownHostsLine
         if host.knownHostsEntry?.isEmpty ?? true || approvedHere {
-            try await hosts.updateKnownHostsEntry(id: id, to: hostKey.knownHostsLine)
+            try await hosts.updateKnownHostsEntry(
+                id: id,
+                to: KnownHostsLine.replacing(pinned: host.knownHostsEntry, arriving: hostKey.knownHostsLine)
+            )
         }
         try await hosts.recordConnection(id: id)
     }

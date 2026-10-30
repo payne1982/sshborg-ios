@@ -84,7 +84,17 @@ enum ConnectionPrompt {
         )
     }
 
-    /// Shows a host key and asks whether to trust it.
+    /// Shows a host key and asks whether to trust it — or, when it is not the
+    /// key saved for this host, says so before anything else.
+    ///
+    /// The two are not the same event, and Android made them look different on
+    /// 30/10/2026 after a user reported a changed key arriving at the same calm
+    /// question as a new one. Same structure here: a red, bold line that this is
+    /// not the saved key, what that can mean, then the host and the fingerprint;
+    /// and the accept button says what it will do — **replace the key** — rather
+    /// than how to feel about it. The red moves to Reject, the answer that keeps
+    /// the saved key, and the two buttons weigh the same, so a reflex does not
+    /// land on the expensive one by being the prominent one.
     @MainActor
     static func hostKey(
         _ info: HostKeyInfo,
@@ -98,24 +108,48 @@ enum ConnectionPrompt {
             // *changed* is a warning, and keeps the alarming presentation.
             kind: isChange ? .failure : .question,
             message: isChange
-                ? String(localized: .iosHostkeyChangedTitle)
+                ? String(localized: .hostkeyChangedTitle)
                 : String(localized: .hostkeyTitle),
-            detail: detail(info, hostname: hostname, isChange: isChange),
+            detail: detail(info, hostname: hostname),
             // Never behind a disclosure: the fingerprint is the thing the user
             // is being asked to look at.
             showsDetailOutright: true,
+            warning: isChange
+                ? (String(localized: .hostkeyChangedWarning), String(localized: .hostkeyChangedExplain))
+                : nil,
             actions: AnyView(
                 HStack {
-                    Button(String(localized: .actionTrust), action: onTrust)
-                        .buttonStyle(.borderedProminent)
-                        // Red when a stored key has changed: that is the case
-                        // where accepting out of reflex is the expensive one.
-                        .tint(isChange ? Color.red : Color.accentColor)
-
-                    Button(String(localized: .actionReject), action: onReject)
+                    if isChange {
+                        Button(String(localized: .hostkeyChangedAccept), action: onTrust)
+                            .buttonStyle(.bordered)
+                        Button(String(localized: .actionReject), action: onReject)
+                            .buttonStyle(.bordered)
+                            .tint(.red)
+                    } else {
+                        Button(String(localized: .actionTrust), action: onTrust)
+                            .buttonStyle(.borderedProminent)
+                        Button(String(localized: .actionReject), action: onReject)
+                    }
                 }
             )
         )
+    }
+
+    /// The host, the fingerprint and the question — the same for a new key and a
+    /// changed one, as on Android. What is different about a changed key is said
+    /// above it, in words that are translated; the paragraph that used to sit
+    /// here was English in every language.
+    static func detail(_ info: HostKeyInfo, hostname: String) -> String {
+        let host = String(localized: .hostkeyTerminalHost)
+            .replacingOccurrences(of: "%1$@", with: hostname)
+        return """
+        \(host)
+        \(String(localized: .hostkeyTerminalFingerprint))
+        \(info.algorithm)
+        \(info.fingerprint)
+
+        \(String(localized: .hostkeyTerminalTrustQuestion))
+        """
     }
 
     /// Says why mosh could not start, and offers the two answers there are.
