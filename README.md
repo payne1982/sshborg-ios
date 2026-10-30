@@ -1,6 +1,6 @@
 # SSHBorg for iOS
 
-An SSH client for iPhone and iPad. Full terminal emulation, SFTP file manager, SSH key management, jump hosts, Mosh, agent and port forwarding, and an app lock — with no ads, no tracking, and no cloud.
+An SSH client for iPhone and iPad. Full terminal emulation, SFTP file manager, a remote file editor, SSH key management, jump hosts, Mosh, agent and port forwarding, and an app lock — with no ads, no tracking, and no cloud.
 
 The iOS counterpart of [SSHBorg for Android](https://github.com/payne1982/sshborg): same features, same ten languages, and backups that move between the two. Available on the [App Store](https://apps.apple.com/app/id6811622926).
 
@@ -12,6 +12,7 @@ The iOS counterpart of [SSHBorg for Android](https://github.com/payne1982/sshbor
 
 - **SSH terminal** — xterm emulation, full UTF-8, multiple sessions in tabs, pinch to zoom, a customisable extra key bar, and command suggestions from the server's shell history
 - **SFTP file manager** — browse, upload, download, rename, and delete files
+- **Remote file editor** — edit a file in place over SFTP, with syntax highlighting and a byte-exact hex mode
 - **SSH keys** — generate Ed25519, ECDSA, and RSA keys on the device, or import your own
 - **Jump hosts** — connect through one or more bastion hosts
 - **Mosh (experimental)** — a terminal that survives network changes and the app being suspended, also through a bastion; needs `mosh-server` on the host
