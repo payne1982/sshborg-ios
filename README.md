@@ -1,6 +1,6 @@
 # SSHBorg for iOS
 
-An SSH client for iPhone and iPad. Full terminal emulation, SFTP file manager, SSH key management, jump hosts, agent and port forwarding, and Face ID lock — with no ads, no tracking, and no cloud.
+An SSH client for iPhone and iPad. Full terminal emulation, SFTP file manager, SSH key management, jump hosts, Mosh, agent and port forwarding, and an app lock — with no ads, no tracking, and no cloud.
 
 The iOS counterpart of [SSHBorg for Android](https://github.com/payne1982/sshborg): same features, same ten languages, and backups that move between the two. Available on the [App Store](https://apps.apple.com/app/id6811622926).
 
@@ -27,7 +27,7 @@ The iOS counterpart of [SSHBorg for Android](https://github.com/payne1982/sshbor
   through a jump chain.
 - **Agent and port forwarding** — forward your keys through jump chains, and local ports to the server
 - **Host groups** — organise hosts in groups, in the order you choose
-- **App lock** — Face ID, Touch ID or the device passcode
+- **App lock** — Face ID, Touch ID, the device passcode, or a PIN or passphrase of your own
 - **Encrypted at rest** — passwords and private keys protected by the device Keychain
 - **Backup / restore** — hosts and settings as JSON, compatible with the Android app (credentials excluded)
 - **Ten languages** — English, Italian, German, Spanish, French, Portuguese, Ukrainian, Russian, Chinese and Japanese
@@ -108,8 +108,10 @@ Sources/
   App/          entry point, root view, launch-time notices, shared views
   Data/         GRDB schema, repositories, preferences
   Platform/     Keychain, biometrics, app lock, jailbreak detection
-  SSH/          libssh2 wrapper, sessions, SFTP, forwarding
-  Terminal/     SwiftTerm integration
+  SSH/          libssh2 wrapper, sessions, SFTP, forwarding, starting mosh-server
+  Crypto/       OpenSSH key files: parsing, generation, signing
+  Mosh/         the Mosh protocol: transport, AES-OCB, framing, UDP sockets
+  Terminal/     SwiftTerm integration, and the SSH and Mosh transports behind it
   Features/     one directory per screen
   Resources/    assets, string catalog, privacy manifest
 Tests/          unit tests, plus UI tests that attach screenshots
@@ -119,18 +121,20 @@ scripts/        source checks and the Android string importer
 
 ## Dependencies
 
-- [libssh2](https://libssh2.org) via [libssh2-spm](https://github.com/Lakr233/libssh2-spm), with OpenSSL — SSH protocol implementation. Chosen over the pure-Swift libraries, which do not support RSA.
+- [libssh2](https://libssh2.org) via [libssh2-spm](https://github.com/Lakr233/libssh2-spm), with OpenSSL — SSH protocol implementation. Chosen over the pure-Swift libraries, which do not support RSA. OpenSSL also provides the AES-128-OCB that Mosh encrypts with; the rest of Mosh is written here, with no further dependency.
 - [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) — terminal emulator
 - [GRDB](https://github.com/groue/GRDB.swift) — local database, with the same schema as the Android app
 - [Perception](https://github.com/pointfreeco/swift-perception) — Swift Observation on iOS 16, which is why view bodies are wrapped in `WithPerceptionTracking`
 - SwiftUI, with UIKit where needed — UI framework
 - CryptoKit and the Keychain — encryption at rest, in the same format as the Android app so backups stay interoperable
+- CommonCrypto — PBKDF2 for the app's own PIN or passphrase, with Android's parameters
 
 ## Export compliance
 
-SSHBorg uses cryptography — the SSH protocol through libssh2 and OpenSSL, and
-AES-GCM from CryptoKit for keys and passwords stored on the device — but only
-standard algorithms, and nothing proprietary.
+SSHBorg uses cryptography — the SSH protocol through libssh2 and OpenSSL,
+AES-128-OCB from OpenSSL for Mosh, AES-GCM from CryptoKit for keys and passwords
+stored on the device, and PBKDF2 for the app's own PIN — but only standard
+algorithms, and nothing proprietary.
 
 `ITSAppUsesNonExemptEncryption` is `false` in `project.yml`. Apple's definition
 of that key is about **documentation to upload to App Store Connect**, not
