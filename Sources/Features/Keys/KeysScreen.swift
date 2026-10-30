@@ -302,6 +302,9 @@ private struct KeyImportSheet: View {
     @State private var passphrase = ""
     @State private var isChoosingFile = false
     @State private var error: String?
+    /// One import at a time: unlocking a key is bcrypt, off the main thread
+    /// now, and every further tap on Import would have started another.
+    @State private var isWorking = false
 
     var body: some View {
         WithPerceptionTracking {
@@ -344,7 +347,7 @@ private struct KeyImportSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: .keysImportAction)) { performImport() }
-                        .disabled(text.trimmed.isEmpty)
+                        .disabled(text.trimmed.isEmpty || isWorking)
                 }
             }
             .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.data, .text]) { result in
@@ -374,7 +377,10 @@ private struct KeyImportSheet: View {
     }
 
     private func performImport() {
+        guard !isWorking else { return }
+        isWorking = true
         Task {
+            defer { isWorking = false }
             do {
                 try await model.importKey(
                     text: text,

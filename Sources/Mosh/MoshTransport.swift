@@ -404,14 +404,27 @@ final class MoshTransport {
         }
 
         if !instruction.diff.isEmpty {
+            // Consecutive host bytes go to the listener as one piece, and empty
+            // ones not at all. A diff is a list of actions, and nothing stops a
+            // far end making it thousands of tiny ones: each was a separate
+            // entry in the screen's queue, all before the loop's next look at
+            // how far behind the screen is. An audit on 30/10/2026 showed 24 KB
+            // of valid diff making 4,096 empty entries. Same bytes, same order.
+            var run = Data()
             for action in try MoshDiffs.decodeHostDiff(instruction.diff) {
                 switch action {
-                case .hostBytes(let bytes): listener?.onHostBytes(bytes)
+                case .hostBytes(let bytes):
+                    run.append(bytes)
+                    continue
                 case .resize(let width, let height):
+                    if !run.isEmpty { listener?.onHostBytes(run); run = Data() }
                     listener?.onHostResize(width: width, height: height)
-                case .echoAck(let number): listener?.onEchoAck(number)
+                case .echoAck(let number):
+                    if !run.isEmpty { listener?.onHostBytes(run); run = Data() }
+                    listener?.onEchoAck(number)
                 }
             }
+            if !run.isEmpty { listener?.onHostBytes(run) }
         }
 
         heldState = instruction.newNumber

@@ -113,6 +113,10 @@ final class SSHShellChannel {
         /// How much may wait for the terminal before reading stops. Twice the
         /// window: the server can have that much more in flight anyway.
         static let backlogLimit = 4 * 1024 * 1024
+        /// And in pieces, for a far end that sends a byte at a time: each one is
+        /// a `Data` and a node in the stream, worth far more than its byte. A
+        /// full read is 32 KB, so this is never what stops a fast one.
+        static let backlogEntries = 1024
     }
 
     /// Must be called on the session queue, with the session still blocking.
@@ -230,7 +234,7 @@ final class SSHShellChannel {
 
         // Held back, not idle: the terminal is behind, and the next look is
         // soon, so that reading resumes as soon as it has caught up.
-        if backlog.waiting >= Defaults.backlogLimit {
+        if backlog.waiting >= Defaults.backlogLimit || backlog.waitingEntries >= Defaults.backlogEntries {
             idleDelay = Pump.minimumDelay
             schedulePump(after: Pump.minimumDelay)
         } else if readAny {
@@ -250,7 +254,7 @@ final class SSHShellChannel {
         var buffer = [UInt8](repeating: 0, count: Defaults.readBufferSize)
         var readAny = false
 
-        while backlog.waiting < Defaults.backlogLimit {
+        while backlog.waiting < Defaults.backlogLimit, backlog.waitingEntries < Defaults.backlogEntries {
             // Stream 0 only: with a PTY attached the server merges stderr into
             // stdout, so there is no second stream to service.
             let count = buffer.withUnsafeMutableBytes { raw in

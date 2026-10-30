@@ -146,6 +146,25 @@ final class MoshTransportTests: XCTestCase {
         XCTAssertEqual(listener.echoAcks, [77])
     }
 
+    /// A diff of many small host-byte actions reaches the screen as one piece
+    /// per run, with the empty ones gone and the order kept round a resize.
+    ///
+    /// Each action used to be its own entry in the screen's queue, all of them
+    /// before the loop next looked at how far behind the screen was: an audit on
+    /// 30/10/2026 made 4,096 empty entries from 24 KB of valid diff.
+    func testManySmallHostBytesArriveAsOnePiecePerRun() throws {
+        let a = Array(repeating: MoshDiffs.HostAction.hostBytes(Data("a".utf8)), count: 10)
+        let empty = Array(repeating: MoshDiffs.HostAction.hostBytes(Data()), count: 10)
+        let b = Array(repeating: MoshDiffs.HostAction.hostBytes(Data("b".utf8)), count: 5)
+        try transport.onDatagram(
+            server.frame(old: 0, new: 1, actions: a + empty + [.resize(width: 100, height: 30)] + empty + b),
+            now: 0
+        )
+
+        XCTAssertEqual(listener.hostBytes, [Data("aaaaaaaaaa".utf8), Data("bbbbb".utf8)])
+        XCTAssertEqual(listener.resizes, [[100, 30]])
+    }
+
     /// A retransmission of a frame we already hold is not an error and not an
     /// application: it is simply nothing.
     func testADuplicateFrameChangesNothing() throws {
@@ -457,6 +476,15 @@ final class MoshTransportTests: XCTestCase {
             instruction.oldNumber = old
             instruction.newNumber = new
             instruction.ackNumber = ack
+            instruction.diff = Self.encodeHostDiff(actions)
+            return seal(instruction)
+        }
+
+        /// A frame of exactly these actions, in this order.
+        func frame(old: UInt64, new: UInt64, actions: [MoshDiffs.HostAction]) -> Data {
+            var instruction = MoshInstruction()
+            instruction.oldNumber = old
+            instruction.newNumber = new
             instruction.diff = Self.encodeHostDiff(actions)
             return seal(instruction)
         }
