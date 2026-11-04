@@ -634,9 +634,18 @@ final class MoshTerminalTransport: TerminalTransport, @unchecked Sendable {
         /// The timer is an unstructured task on purpose: it is not cancelled when
         /// the loop's task is, so a loop waiting here always comes round again
         /// and can see for itself that it has been asked to stop.
+        ///
+        /// It is cancelled below, by this function, when the wait ends early, and
+        /// then it must stay quiet. A cancelled timer that still woke the mailbox
+        /// ended the next wait at once, whose timer did the same, and the loop
+        /// never slept again.
         func wait(forAtMost milliseconds: MoshTime) async {
             let timer = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
+                } catch {
+                    return
+                }
                 self?.wake()
             }
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in

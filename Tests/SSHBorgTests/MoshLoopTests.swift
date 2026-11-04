@@ -62,6 +62,25 @@ final class MoshLoopTests: XCTestCase {
         XCTAssertEqual(mailbox.drain().count, 3)
     }
 
+    /// A wait cut short by something arriving cancels its timer, and a cancelled
+    /// timer must not count as the time being up. It did: the wake it sent ended
+    /// the next wait at once, which cancelled the next timer, and from the first
+    /// keystroke or datagram on the loop never slept again. An idle session took
+    /// more than a whole core and the phone got hot, reported on 05/11/2026.
+    func testAWaitCutShortLeavesTheNextOnesToTakeTheirTime() async {
+        let mailbox = MoshTerminalTransport.Mailbox()
+        mailbox.post(.typed(Data("a".utf8)))
+        await mailbox.wait(forAtMost: 10_000)
+        _ = mailbox.drain()
+
+        let started = Date()
+        for _ in 0..<3 { await mailbox.wait(forAtMost: 100) }
+        XCTAssertGreaterThan(
+            Date().timeIntervalSince(started), 0.25,
+            "the loop is not sleeping between its rounds"
+        )
+    }
+
     /// A screen behind by either measure stops datagrams being opened, and they
     /// are opened again only once it is back under both low marks — so a loop at
     /// the edge does not flap. Android's marks, since it adopted the idea.

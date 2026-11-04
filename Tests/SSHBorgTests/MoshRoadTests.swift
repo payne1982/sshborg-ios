@@ -250,6 +250,40 @@ final class MoshRoadTests: XCTestCase {
         XCTFail("the agent did not answer in the mosh shell:\n\(screen)")
     }
 
+    /// The same defect from the outside, and on the whole road: the CPU this
+    /// process uses while a session sits at its prompt. A working one is under
+    /// one percent even in a debug build; the ceiling is far above that because
+    /// it is here to catch a loop that never sleeps, which measured 150.
+    func testAnIdleMoshSessionUsesAlmostNoCPU() async throws {
+        let session = try await connectedSession()
+        defer {
+            session.disconnect()
+            let until = Date().addingTimeInterval(0.4)
+            while Date() < until { RunLoop.current.run(mode: .default, before: until) }
+        }
+        if case .moshUnavailable(let failure) = session.phase {
+            throw XCTSkip("no mosh session on \(target.host): \(failure.reason)")
+        }
+        guard case .connected = session.phase else {
+            return XCTFail("expected a mosh session, got \(session.phase)")
+        }
+
+        func cpuSeconds() -> Double {
+            var usage = rusage()
+            getrusage(RUSAGE_SELF, &usage)
+            return Double(usage.ru_utime.tv_sec) + Double(usage.ru_utime.tv_usec) / 1e6
+                + Double(usage.ru_stime.tv_sec) + Double(usage.ru_stime.tv_usec) / 1e6
+        }
+
+        // The login has finished painting and the first frames are in.
+        try await Task.sleep(nanoseconds: 3_000_000_000)
+        let before = cpuSeconds()
+        try await Task.sleep(nanoseconds: 10_000_000_000)
+        let share = (cpuSeconds() - before) / 10
+
+        XCTAssertLessThan(share, 0.25, "an idle session used \(Int(share * 100))% of a core")
+    }
+
     // MARK: - Reading the grid
 
     private func waitForScreen(
