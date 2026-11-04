@@ -1,0 +1,30 @@
+<en-US>
+• Mosh: fixes a fault that kept the processor busy for as long as a session was open, which could warm the device and drain the battery.
+</en-US>
+<it-IT>
+• Mosh: corretto un difetto che teneva occupato il processore finché una sessione restava aperta, cosa che poteva scaldare il dispositivo e consumare la batteria.
+</it-IT>
+<de-DE>
+• Mosh: Ein Fehler wurde behoben, der den Prozessor beschäftigt hielt, solange eine Sitzung offen war. Dadurch konnte sich das Gerät erwärmen und der Akku schneller leeren.
+</de-DE>
+<es-ES>
+• Mosh: corregido un fallo que mantenía ocupado el procesador mientras una sesión estaba abierta, lo que podía calentar el dispositivo y gastar la batería.
+</es-ES>
+<fr-FR>
+• Mosh : correction d'un défaut qui occupait le processeur tant qu'une session restait ouverte, ce qui pouvait faire chauffer l'appareil et vider la batterie.
+</fr-FR>
+<pt-PT>
+• Mosh: corrigido um defeito que mantinha o processador ocupado enquanto uma sessão estava aberta, o que podia aquecer o dispositivo e gastar a bateria.
+</pt-PT>
+<uk>
+• Mosh: виправлено ваду, через яку процесор залишався зайнятим, поки сесія була відкрита; через це пристрій міг нагріватися, а батарея швидше розряджатися.
+</uk>
+<ru-RU>
+• Mosh: исправлена ошибка, из-за которой процессор оставался занят, пока сессия была открыта; из-за этого устройство могло нагреваться, а батарея быстрее разряжаться.
+</ru-RU>
+<zh-CN>
+• Mosh:修复了会话打开期间一直占用处理器的问题,该问题可能导致设备发热并加快耗电。
+</zh-CN>
+<ja-JP>
+• Mosh:セッションを開いている間プロセッサを使い続ける不具合を修正しました。デバイスの発熱やバッテリー消費の原因になることがありました。
+</ja-JP>
